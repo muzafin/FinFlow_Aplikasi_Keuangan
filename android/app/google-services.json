@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "1071092637851",
+    "project_id": "finflow-c38e8",
+    "storage_bucket": "finflow-c38e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1071092637851:android:eacb5641382ca6cfb5663e",
+        "android_client_info": {
+          "package_name": "com.finflow.finflow"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1071092637851-aj9q0j0gucbh9uipgqeemgejo8fdoa73.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.finflow.finflow",
+            "certificate_hash": "283586aec43e9cc867f8b9c5c262274df7ae801e"
+          }
+        },
+        {
+          "client_id": "1071092637851-tmrjhjkafokvlnmbd84o7vi818bgrf08.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDZzZgJ9gEG3r2bgp8tpjE9JiWA0r6Urzg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1071092637851-tmrjhjkafokvlnmbd84o7vi818bgrf08.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1071092637851-4s2m8nnpuadn5180fkp3njjrtlhbmc5k.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.finflow.finflow"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

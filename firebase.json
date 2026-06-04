@@ -1,0 +1,26 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "finflow-c38e8",
+          "appId": "1:1071092637851:android:eacb5641382ca6cfb5663e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "finflow-c38e8",
+          "configurations": {
+            "android": "1:1071092637851:android:eacb5641382ca6cfb5663e",
+            "ios": "1:1071092637851:ios:d3bb90b56a238513b5663e"
+          }
+        }
+      }
+    }
+  }
+}
