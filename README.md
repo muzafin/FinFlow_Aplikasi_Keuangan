@@ -54,7 +54,13 @@ Pastikan Anda sudah menginstal:
    > **Penting**: Karena aplikasi ini menggunakan integrasi *Native* untuk notifikasi jadwal lokal (`flutter_local_notifications` dan `timezone`) serta modul keamanan (`local_auth`), sangat disarankan untuk me-*restart* total (menggunakan `flutter run` atau `flutter build apk`) dari awal jika Anda baru menambahkan *package* baru. *Hot restart* terkadang gagal memuat sensor *native*.
 
 ## 📱 Tangkapan Layar (Screenshots)
-*(Anda dapat menambahkan screenshot aplikasi di folder `/assets` dan menautkannya ke bagian ini nanti)*
+
+<p align="center">
+  <img src="assets/images/screenshots/dashboard.png" width="220" alt="Dashboard" style="margin: 8px;" />
+  <img src="assets/images/screenshots/transactions.png" width="220" alt="Transactions" style="margin: 8px;" />
+  <img src="assets/images/screenshots/wallet.png" width="220" alt="Wallet" style="margin: 8px;" />
+  <img src="assets/images/screenshots/statistics.png" width="220" alt="Statistics" style="margin: 8px;" />
+</p>
 
 ---
 
