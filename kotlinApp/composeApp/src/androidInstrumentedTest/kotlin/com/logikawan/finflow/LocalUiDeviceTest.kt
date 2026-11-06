@@ -79,6 +79,13 @@ class LocalUiDeviceTest {
         ui.onNodeWithTag("add-transaction").performClick()
         ui.waitUntil(5_000) {
             ui.onAllNodesWithTag("transaction-sheet").fetchSemanticsNodes().isNotEmpty() ||
+                ui.onAllNodesWithText("Manual").fetchSemanticsNodes().isNotEmpty() ||
+                ui.onAllNodesWithTag("quick-add").fetchSemanticsNodes().isNotEmpty()
+        }
+        // Default tombol + kini panel 5 tombol seperti Ollo (sejak 6 Nov); "Tambah" membuka form manual.
+        if (ui.onAllNodesWithTag("quick-add").fetchSemanticsNodes().isNotEmpty()) ui.onNodeWithTag("quick-add").performClick()
+        ui.waitUntil(5_000) {
+            ui.onAllNodesWithTag("transaction-sheet").fetchSemanticsNodes().isNotEmpty() ||
                 ui.onAllNodesWithText("Manual").fetchSemanticsNodes().isNotEmpty()
         }
         if (ui.onAllNodesWithText("Manual").fetchSemanticsNodes().isNotEmpty()) ui.onNodeWithText("Manual").performClick()

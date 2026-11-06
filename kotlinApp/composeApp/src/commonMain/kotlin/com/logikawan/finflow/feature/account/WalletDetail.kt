@@ -11,7 +11,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.unit.sp
+import com.logikawan.finflow.feature.dashboard.DashboardTransactionRow
+import com.logikawan.finflow.feature.dashboard.fullDateLabel
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
@@ -57,57 +64,103 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
     fun shift(direction:Int){anchor=date.plus(when(kind){"week"->DatePeriod(days=7*direction);"year"->DatePeriod(years=direction);else->DatePeriod(months=direction)}).toString()}
     val summaryTitle=when(kind){"week"->"Ringkasan Mingguan";"year"->"Ringkasan Tahunan";"all"->"Ringkasan Semua";else->"Ringkasan Bulanan"}
     val summaryRange=if(kind=="all")"Semua transaksi" else shortRangeLabel(range)
-    LazyColumn(Modifier.fillMaxSize().testTag("wallet-detail"),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
+    // Susunan detail dompet Ollo: segmen periode, navigasi tanggal, saldo di tengah, grafik pendek berisi,
+    // ringkasan 2×2, tombol aksi, lalu transaksi terbaru bergaya Beranda.
+    val canGoNext=kind=="all" || range.endExclusive<=today()
+    LazyColumn(Modifier.fillMaxSize().testTag("wallet-detail"),contentPadding=PaddingValues(start=16.dp,end=16.dp,top=4.dp,bottom=40.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
         item{SegmentedTabs(listOf("week" to "Mingguan","month" to "Bulanan","year" to "Tahunan","all" to "Semua"),kind,{kind=it})}
-        if(kind!="all")item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){FFIconButton("chevron_left_rounded",{shift(-1)});Text(dateRangeLabel(range),Modifier.weight(1f),style=FFType.metaData,textAlign=TextAlign.Center);FFIconButton("chevron_right_rounded",{shift(1)})}}
-        item{Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){Text("Saldo Saat Ini",style=FFType.bodyMain,color=FFColors.onSurfaceVariant);FitMoneyText(formatBalance(data.balance(account),account.currency,p),FFType.amountLg)}}
+        if(kind!="all")item{Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically){
+            IconButton({shift(-1)}){FFIcon("hi_chevron_left",FFColors.onSurface,20.dp,contentDescription="Sebelumnya")}
+            Text(dateRangeLabel(range),Modifier.weight(1f),style=FFType.bodyMain,textAlign=TextAlign.Center)
+            IconButton({shift(1)},enabled=canGoNext){FFIcon("hi_chevron_right",if(canGoNext)FFColors.onSurface else FFColors.onSurfaceVariant.copy(alpha=.4f),20.dp,contentDescription="Berikutnya")}
+        }}
+        item{Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
+            Text("Saldo Saat Ini",style=FFType.bodyMain.copy(fontSize=15.sp),color=FFColors.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            FitMoneyText(formatBalance(data.balance(account),account.currency,p),FFType.amountXl.copy(fontSize=36.sp),FFColors.onSurface,TextAlign.Center)
+        }}
         item {
             val start=if(kind=="all")all.minOfOrNull{LocalDate.parse(it.date)} ?: today() else range.start
             val end=if(kind=="all")today().plus(DatePeriod(days=1)) else range.endExclusive
             val days=(end.toEpochDays()-start.toEpochDays()).coerceAtLeast(1)
-            val points=(0..minOf(days,60)).map{i->val day=start.plus(DatePeriod(days=(days.toLong()*i/minOf(days,60)).toInt()));all.filter{it.date<=day.toString()}.fold(account.openingBalanceMinor){sum,t->checkedAdd(sum,accountDelta(t,account.id))}.toDouble()}
-            val lineColor=FFColors.primary;val gridColor=FFColors.outlineVariant
-            Column {
-                Canvas(Modifier.fillMaxWidth().height(140.dp)){
-                    repeat(5){i->val y=size.height*i/4;drawLine(gridColor,Offset(0f,y),Offset(size.width,y),1.dp.toPx())}
-                    val min=points.minOrNull() ?: 0.0;val span=((points.maxOrNull() ?: 0.0)-min).coerceAtLeast(1.0)
-                    val path=Path();points.forEachIndexed{i,v->val x=size.width*i/(points.size-1).coerceAtLeast(1);val y=(size.height*(1-(v-min)/span)).toFloat();if(i==0)path.moveTo(x,y) else path.lineTo(x,y)};drawPath(path,lineColor,style=Stroke(2.dp.toPx()))
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                    Text(formatBalance(points.first().toLong(),account.currency,p),style=FFType.badgeLabel,color=FFColors.outline)
-                    Text(formatBalance(points.last().toLong(),account.currency,p),style=FFType.badgeLabel,color=FFColors.outline)
-                }
-            }
+            val steps=minOf(days,60)
+            val lastIndex=if(today()<end) ((today().toEpochDays()-start.toEpochDays()).toLong()*steps/days).toInt().coerceIn(0,steps) else steps
+            val points=(0..steps).map{i->val day=start.plus(DatePeriod(days=(days.toLong()*i/steps).toInt()));all.filter{it.date<=day.toString()}.fold(account.openingBalanceMinor){sum,t->checkedAdd(sum,accountDelta(t,account.id))}}
+            WalletBalanceChart(points,lastIndex,account.currency)
         }
         item {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Text(summaryTitle,Modifier.weight(1f),style=FFType.sectionTitle)
-                Text(summaryRange,style=FFType.metaData,color=FFColors.outline)
+                Text(summaryTitle,Modifier.weight(1f),style=FFType.bodyMain.copy(fontSize=16.sp,fontWeight=FontWeight.Medium))
+                Text(summaryRange,style=FFType.metaData,color=FFColors.onSurfaceVariant)
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric("Arus Masuk",formatBalance(inflow,account.currency,p),Modifier.weight(1f));WalletMetric("Arus Keluar",formatBalance(outflow,account.currency,p),Modifier.weight(1f))}
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric("Arus Bersih",formatBalance(checkedAdd(inflow,-outflow),account.currency,p),Modifier.weight(1f));WalletMetric("Jumlah Transaksi",entries.size.toString(),Modifier.weight(1f))}
         }
         if(!account.archived)item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-            WalletAction("Pengeluaran","arrow_upward_rounded",FFColors.expense,Modifier.weight(1f)){add("expense")}
-            WalletAction("Pemasukan","arrow_downward_rounded",FFColors.income,Modifier.weight(1f)){add("income")}
-            WalletAction("Transfer","swap_horiz",FFColors.primary,Modifier.weight(1f)){add("transfer")}
+            WalletAction("Pengeluaran","hi_arrow_up_right",FFColors.expense,Modifier.weight(1f)){add("expense")}
+            WalletAction("Pemasukan","hi_arrow_down_left",FFColors.income,Modifier.weight(1f)){add("income")}
+            WalletAction("Transfer","hi_sort",Color(0xFF2196F3),Modifier.weight(1f)){add("transfer")}
         }}
-        item{Text("Transaksi Terbaru",style=FFType.sectionTitle)}
+        item{Text("Transaksi Terbaru",Modifier.padding(top=8.dp),style=FFType.sectionTitle)}
         if(entries.isEmpty())item{Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(FFColors.surface),contentAlignment=Alignment.Center){FFIcon("receipt_long",FFColors.outline,30.dp)};Spacer(Modifier.height(12.dp));Text("Belum ada transaksi",style=FFType.bodyMain,fontWeight=FontWeight.SemiBold);Spacer(Modifier.height(6.dp));Text("Ayo mulai catat pengeluaran dan pemasukanmu agar keuangan lebih rapi!",style=FFType.metaData,color=FFColors.outline,textAlign=TextAlign.Center)}}
-        else items(entries,key={it.id}){tx->DesignCard(onClick={openTransaction(tx)}){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(tx.title,style=FFType.bodyMain);Text(tx.date,style=FFType.metaData,color=FFColors.onSurfaceVariant)};Text(formatBalance(accountDelta(tx,account.id),account.currency,p),style=FFType.amountSm)}}}
+        else entries.groupBy{it.date}.forEach{(date,rows)->
+            item(key="date-$date"){
+                val net=rows.fold(0L){sum,t->checkedAdd(sum,accountDelta(t,account.id))}
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                    Text(fullDateLabel(date),Modifier.weight(1f),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+                    if(net!=0L)Text((if(net>0)"+" else "")+formatBalance(net,account.currency,p),style=FFType.bodyMain.copy(fontSize=17.sp,lineHeight=22.sp),color=if(net>0)FFColors.income else FFColors.expense)
+                }
+            }
+            items(rows,key={it.id}){tx->
+                val delta=accountDelta(tx,account.id)
+                DashboardTransactionRow(tx,data,(if(delta>0)"+" else if(delta<0)"−" else "")+formatBalance(kotlin.math.abs(delta),account.currency,p),openTransaction,topPadding=0.dp)
+            }
+        }
+    }
+}
+
+@Composable private fun WalletBalanceChart(points:List<Long>,lastIndex:Int,currency:String) {
+    val line=FFColors.onSurface
+    val grid=FFColors.outlineVariant
+    val axis=FFColors.onSurfaceVariant
+    val measurer=androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle=FFType.metaData.copy(fontSize=8.sp,color=axis)
+    val maximum=maxOf(points.maxOrNull() ?: 0L,1L)
+    val minimum=minOf(points.minOrNull() ?: 0L,0L)
+    val top=maximum+(maximum-minimum)/10
+    Canvas(Modifier.fillMaxWidth().height(84.dp).testTag("wallet-balance-chart")){
+        val left=26.dp.toPx(); val bottom=size.height-2.dp.toPx(); val chartTop=4.dp.toPx()
+        val span=(top-minimum).coerceAtLeast(1L).toFloat()
+        fun y(v:Long)=bottom-(v-minimum)/span*(bottom-chartTop)
+        fun x(i:Int)=left+i.toFloat()/(points.size-1).coerceAtLeast(1)*(size.width-left)
+        repeat(4){i->val gx=left+(size.width-left)*(i+1)/5;drawLine(grid.copy(alpha=.5f),Offset(gx,chartTop),Offset(gx,bottom),1.dp.toPx())}
+        listOf(minimum,(minimum+top)/2,top).forEach{v->
+            val label=measurer.measure(compactDisplayMoney(v,currency).removePrefix("Rp"),labelStyle)
+            drawText(label,topLeft=Offset(0f,(y(v)-label.size.height/2f).coerceIn(0f,size.height-label.size.height)))
+        }
+        val end=lastIndex.coerceIn(0,points.size-1)
+        val path=Path(); for(i in 0..end){if(i==0)path.moveTo(x(i),y(points[i])) else path.lineTo(x(i),y(points[i]))}
+        val fill=Path().apply{addPath(path);lineTo(x(end),bottom);lineTo(x(0),bottom);close()}
+        drawPath(fill,Brush.verticalGradient(listOf(line.copy(alpha=.28f),line.copy(alpha=0f)),chartTop,bottom))
+        drawPath(path,line,style=Stroke(2.dp.toPx(),cap=StrokeCap.Round,join=StrokeJoin.Round))
     }
 }
 
 @Composable private fun WalletAction(label:String,icon:String,color:Color,modifier:Modifier,click:()->Unit) {
-    Column(modifier.height(86.dp).clip(RoundedCornerShape(22.dp)).background(FFColors.surface)
+    Column(modifier.height(62.dp).clip(RoundedCornerShape(18.dp)).background(FFColors.surface)
         .clickable(role=Role.Button,onClick=click),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
         FFIcon(icon,color,22.dp)
-        Spacer(Modifier.height(8.dp))
-        Text(label,style=FFType.metaData,fontWeight=FontWeight.SemiBold)
+        Spacer(Modifier.height(4.dp))
+        Text(label,style=FFType.bodyMain.copy(fontSize=12.5.sp))
     }
 }
 
-@Composable private fun WalletMetric(label:String,value:String,modifier:Modifier){DesignCard(modifier){Text(label,style=FFType.metaData,color=FFColors.onSurfaceVariant);Spacer(Modifier.height(8.dp));FitMoneyText(value,FFType.amountMd)}}
+@Composable private fun WalletMetric(label:String,value:String,modifier:Modifier){
+    Column(modifier.clip(RoundedCornerShape(20.dp)).background(FFColors.surface).padding(horizontal=16.dp,vertical=14.dp)){
+        Text(label,style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        FitMoneyText(value,FFType.amountMd.copy(fontSize=18.sp))
+    }
+}

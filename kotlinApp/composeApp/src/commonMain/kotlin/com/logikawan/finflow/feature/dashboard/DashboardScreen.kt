@@ -253,10 +253,7 @@ private fun BalanceCard(currency:String,liquid:Boolean,balance:String,income:Str
         val colors=gradient.map{Color(it)}
         onDrawBehind{
             if(olloStyle){
-                // Gradien kartu Ollo (diukur): kiri-bawah hampir hitam, tengah biru, kanan-atas hijau toska.
-                drawRect(Brush.linearGradient(listOf(Color(0xFF0B2533),Color(0xFF1477AE),Color(0xFF1BAEF5),Color(0xFF19C9EC)),Offset(0f,size.height*.55f),Offset(size.width,size.height*.45f)))
-                drawRect(Brush.radialGradient(listOf(Color(0xFF17F0D4),Color(0x0017F0D4)),Offset(size.width,0f),size.width*.55f))
-                drawRect(Brush.radialGradient(listOf(Color(0xF0050A0D),Color(0x00050A0D)),Offset(0f,size.height),size.width*.6f))
+                drawOlloBalanceGradient()
             } else {val radius=size.maxDimension*.7f;val offset=Offset(cos(angle)*radius,sin(angle)*radius);drawRect(Brush.linearGradient(colors,center-offset,center+offset))}
         }
     }.testTag("balance-card-$currency").padding(start=16.dp,end=16.dp,top=20.dp,bottom=16.dp),horizontalAlignment=Alignment.CenterHorizontally) {
@@ -470,10 +467,10 @@ private fun RecentTransactionsSection(transactions:List<Transaction>,sizeLimit:I
 }
 
 @Composable
-private fun DashboardTransactionRow(tx:Transaction,data:FinanceData,formatted:String,edit:(Transaction)->Unit) {
+internal fun DashboardTransactionRow(tx:Transaction,data:FinanceData,formatted:String,edit:(Transaction)->Unit,topPadding:androidx.compose.ui.unit.Dp=16.dp) {
     val wallet=data.accounts.find{it.id==tx.accountId}?.name ?: data.accountName(tx.accountId)
     val subtitle=if(tx.source=="manual"||tx.source.isBlank()) wallet else "$wallet · ${transactionKindLabel(tx,data)}"
-    Row(Modifier.fillMaxWidth().padding(top=16.dp).clip(RoundedCornerShape(20.dp)).background(FFColors.surface).clickable(role=Role.Button){edit(tx)}
+    Row(Modifier.fillMaxWidth().padding(top=topPadding).clip(RoundedCornerShape(20.dp)).background(FFColors.surface).clickable(role=Role.Button){edit(tx)}
         .padding(horizontal=16.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically) {
         // Ollo: kategori pemasukan memakai warna hijau pemasukan.
         val tone=if(tx.type=="income")FFColors.income else categoryColor(tx.categoryId)
@@ -509,7 +506,7 @@ private fun transactionKindLabel(tx:Transaction,data:FinanceData):String = when(
 
 private val dashboardDayNames=listOf("Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu")
 private val dashboardMonthNames=listOf("Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember")
-private fun fullDateLabel(date:String):String = runCatching{
+internal fun fullDateLabel(date:String):String = runCatching{
     val parsed=LocalDate.parse(date)
     "${dashboardDayNames[parsed.dayOfWeek.isoDayNumber-1]}, ${parsed.dayOfMonth} ${dashboardMonthNames[parsed.monthNumber-1]} ${parsed.year}"
 }.getOrDefault(date)

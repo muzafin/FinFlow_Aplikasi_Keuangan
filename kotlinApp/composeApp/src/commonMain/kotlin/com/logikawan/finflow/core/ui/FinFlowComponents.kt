@@ -44,7 +44,7 @@ fun FFIcon(name: String, tint: Color = FFColors.onSurfaceVariant, size: Dp = 24.
 @Composable
 fun FFIconButton(name: String, onClick: () -> Unit, modifier: Modifier = Modifier, tint: Color = FFColors.onSurfaceVariant) {
     IconButton(onClick, modifier) { FFIcon(name, tint, contentDescription = when (name) {
-        "add_rounded" -> "Tambah"; "close_rounded" -> "Tutup"; "delete_outline_rounded" -> "Hapus"; "chevron_left_rounded" -> "Sebelumnya"; "chevron_right_rounded" -> "Berikutnya"; "file_download_outlined" -> "Ekspor CSV"; else -> name.replace('_', ' ')
+        "add_rounded" -> "Tambah"; "close_rounded" -> "Tutup"; "delete_outline_rounded" -> "Hapus"; "chevron_left_rounded" -> "Sebelumnya"; "chevron_right_rounded" -> "Berikutnya"; "hi_chevron_left" -> "Kembali"; "hi_chevron_right" -> "Berikutnya"; "file_download_outlined" -> "Ekspor CSV"; else -> name.replace('_', ' ')
     }) }
 }
 

@@ -343,7 +343,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                     "Detail impian" -> "Detail Impian"; "Detail transaksi" -> "Detail Transaksi"; "Detail dompet" -> data.accounts.find { it.id == selectedAccountId }?.name ?: "Detail Dompet"
                     "Notifikasi" -> "Pengaturan Notifikasi"; else -> page
                 }, style = FFType.appTitle) },
-                navigationIcon = { FFIconButton("arrow_back_rounded", ::back) },
+                navigationIcon = { FFIconButton("hi_chevron_left", ::back, tint = FFColors.onSurface) },
                 actions = {
                     when (page) {
                         "Investasi" -> FFIconButton("add_rounded", {

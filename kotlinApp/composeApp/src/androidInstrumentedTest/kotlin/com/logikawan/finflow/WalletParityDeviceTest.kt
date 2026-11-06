@@ -146,6 +146,25 @@ class WalletParityDeviceTest {
         screenshot("wallet-ollo-dark")
     }
 
+    @Test fun walletHeaderAddAndHundredPercentChange() {
+        var added = false
+        val cash = Account(id = "new-cash", name = "Kas", type = "cash", currency = "IDR", openingBalanceMinor = 0)
+        val data = FinanceData(profile = Profile("w2", "Uji", "u@example.invalid"), accounts = listOf(cash), categories = defaultCategories,
+            transactions = listOf(Transaction(id = "w2-1", type = "income", amountMinor = 600_000_000, currency = "IDR", accountId = "new-cash", categoryId = "salary", title = "Gaji", date = today().toString())))
+        ui.setContent {
+            CompositionLocalProvider(LocalPreferences provides AppPreferences(theme = "dark")) {
+                FinFlowTheme { WalletScreen(data, {}, { added = true }, {}) }
+            }
+        }
+        ui.waitForIdle()
+        // Ollo: saldo 30 hari lalu 0 → +100%.
+        ui.onNodeWithText("+100,0%").assertExists()
+        ui.onNodeWithTag("wallet-add").performClick()
+        ui.runOnIdle { assertTrue(added) }
+        ui.onNodeWithTag("wallet-composition").performClick()
+        ui.onNodeWithText("Komposisi Uang").assertExists()
+    }
+
     private fun scrollToText(text: String) {
         ui.onNodeWithTag("wallet-list").performScrollToIndex(0)
         ui.onNodeWithTag("wallet-list").performScrollToNode(hasText(text))

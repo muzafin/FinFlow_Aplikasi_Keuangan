@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,9 +26,9 @@ val balanceGradient = Brush.horizontalGradient(listOf(Color(0xFF0D9488), Color(0
 fun SegmentedTabs(options: List<Pair<String,String>>, selected: String, select: (String)->Unit, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(FFColors.surface).padding(4.dp)) {
         options.forEach{(value,label)->
-            Box(Modifier.weight(1f).clip(RoundedCornerShape(24.dp)).background(if(value==selected)FFColors.canvas else Color.Transparent)
+            Box(Modifier.weight(1f).clip(RoundedCornerShape(24.dp)).background(if(value==selected)(if(FFColors.background.luminance()<.5f)Color(0xFF18181D) else FFColors.canvas) else Color.Transparent)
                 .clickable(role=Role.Tab){select(value)}.padding(vertical=10.dp),contentAlignment=Alignment.Center){
-                Text(label,style=FFType.metaData,fontWeight=if(value==selected)FontWeight.SemiBold else FontWeight.Normal,color=if(value==selected)FFColors.onSurface else FFColors.onSurfaceVariant,maxLines=1)
+                Text(label,style=FFType.metaData,fontWeight=FontWeight.Normal,color=if(value==selected)FFColors.onSurface else FFColors.onSurfaceVariant,maxLines=1)
             }
         }
     }
