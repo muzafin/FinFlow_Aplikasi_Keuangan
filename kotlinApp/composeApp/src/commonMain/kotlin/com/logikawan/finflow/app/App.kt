@@ -534,6 +534,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     premiumGate?.let { com.logikawan.finflow.feature.ai.PremiumGateDialog(it, { navigate("Premium") }, { premiumGate = null }) }
     editor?.let { current ->
         EntityEditor(current, data, busy, dismiss = { if (!busy) editor = null },
+            onScan = if (current is Editor.Tx && current.value == null && !current.aiDraft && !current.notificationImport) ({ editor = null; ai.requireConsent(AiFeature.Scan) { aiScan = true } }) else null,
             saveTx = { transaction -> action(true) {
                 if (current is Editor.Tx && current.aiDraft) {
                     repo.saveTransaction(transaction)

@@ -30,6 +30,7 @@ fun EntityEditor(
     saveInvestment: (Investment) -> Unit, saveCategory: (Category) -> Unit,
     saveProfile: (Profile) -> Unit,
     delete: (String, suspend () -> Unit) -> Unit, repo: FinanceRepository, savePlanning: (suspend () -> Unit) -> Unit,
+    onScan: (() -> Unit)? = null,
 ) {
     when (editor) {
         is Editor.GoalMovement -> com.logikawan.finflow.feature.goal.GoalMovementEditor(editor.value,data,editor.withdraw,busy,dismiss,{request->savePlanning{repo.planner.moveGoal(editor.value.id,request.amountMinor,request.accountId,request.date,request.requestId,editor.withdraw)}})
@@ -62,7 +63,7 @@ fun EntityEditor(
                 repo.planner.payBundle(editor.value.id,editor.itemIds,request.accountId,request.date,request.requestId,editor.value.revision)
             }})
         is Editor.Tx -> TransactionEditor(editor.value, data, busy, dismiss, saveTx,
-            editor.value?.takeUnless { editor.notificationImport || editor.aiDraft }?.let { tx -> { delete("catatan transaksi") { repo.deleteTransaction(tx) } } }, isDraft = editor.notificationImport || editor.aiDraft, startingScheduled = editor.scheduled, startingAccountId = editor.accountId, startingType = editor.type)
+            editor.value?.takeUnless { editor.notificationImport || editor.aiDraft }?.let { tx -> { delete("catatan transaksi") { repo.deleteTransaction(tx) } } }, isDraft = editor.notificationImport || editor.aiDraft, startingScheduled = editor.scheduled, startingAccountId = editor.accountId, startingType = editor.type, onScan = onScan)
         is Editor.Wallet -> AccountEditor(editor.value, data, busy, dismiss, saveAccount)
         is Editor.Limit -> BudgetEditor(editor.value, data, busy, dismiss, saveBudget,
             editor.value?.let { value -> { delete("anggaran") { repo.deleteBudget(value.id) } } })

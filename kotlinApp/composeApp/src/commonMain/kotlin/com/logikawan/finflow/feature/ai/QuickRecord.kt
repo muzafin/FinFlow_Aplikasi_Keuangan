@@ -49,11 +49,11 @@ fun QuickRecordBar(controller: AiController, onAssistant: () -> Unit, onVoice: (
         dragHandle = null, contentWindowInsets = { WindowInsets(0, 0, 0, 0) }) {
         Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 18.dp).testTag("quick-record-bar"),
             horizontalArrangement = Arrangement.SpaceEvenly) {
-            QuickItem("Asisten", "forum_outlined", badge(controller, AiFeature.Assistant), "quick-assistant") { onDismiss(); onAssistant() }
-            QuickItem("AI Voice", "graphic_eq_rounded", badge(controller, AiFeature.Voice), "quick-voice") { onDismiss(); onVoice() }
-            QuickItem("AI Scan", "document_scanner_outlined", badge(controller, AiFeature.Scan), "quick-scan") { onDismiss(); onScan() }
-            QuickItem("AI Chat", "chat_bubble_outline_rounded", badge(controller, AiFeature.Chat), "quick-chat") { onDismiss(); onChat() }
-            QuickItem("Tambah", "add_rounded", null, "quick-add") { onDismiss(); onAdd() }
+            QuickItem("Asisten", "hi_assistant", badge(controller, AiFeature.Assistant), "quick-assistant") { onDismiss(); onAssistant() }
+            QuickItem("AI Voice", "hi_voice", badge(controller, AiFeature.Voice), "quick-voice") { onDismiss(); onVoice() }
+            QuickItem("AI Scan", "hi_scan", badge(controller, AiFeature.Scan), "quick-scan") { onDismiss(); onScan() }
+            QuickItem("AI Chat", "hi_chat", badge(controller, AiFeature.Chat), "quick-chat") { onDismiss(); onChat() }
+            QuickItem("Tambah", "hi_add", null, "quick-add") { onDismiss(); onAdd() }
         }
     }
 }
@@ -62,13 +62,13 @@ fun QuickRecordBar(controller: AiController, onAssistant: () -> Unit, onVoice: (
 private fun RowScope.QuickItem(label: String, icon: String, badge: String?, tag: String, onClick: () -> Unit) {
     Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 8.dp).testTag(tag),
         horizontalAlignment = Alignment.CenterHorizontally) {
-        FFIcon(icon, FFColors.onSurface, 26.dp, contentDescription = label)
+        FFIcon(icon, FFColors.onSurface, 30.dp, contentDescription = label)
         Spacer(Modifier.height(6.dp))
         if (badge != null) Box(Modifier.clip(RoundedCornerShape(8.dp)).background(FFColors.surfaceContainerHighest).padding(horizontal = 6.dp, vertical = 1.dp)) {
             Text(badge, style = FFType.badgeLabel.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold), color = FFColors.onSurface)
         } else Spacer(Modifier.height(16.dp))
         Spacer(Modifier.height(4.dp))
-        Text(label, style = FFType.metaData, color = FFColors.onSurface, maxLines = 1)
+        Text(label, style = FFType.metaData, color = FFColors.onSurfaceVariant, maxLines = 1)
     }
 }
 
