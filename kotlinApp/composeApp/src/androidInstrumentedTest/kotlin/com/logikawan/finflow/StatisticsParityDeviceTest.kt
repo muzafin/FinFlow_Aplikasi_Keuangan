@@ -64,7 +64,7 @@ class StatisticsParityDeviceTest {
         ui.waitForIdle()
         ui.onNodeWithTag("statistics").assertExists()
         ui.onNodeWithText("Statistik").assertIsDisplayed()
-        ui.onNodeWithText("Total Pengeluaran").assertExists()
+        ui.onNodeWithTag("stats-type-expense").assertExists() // Ollo: tanpa label "Total Pengeluaran"
         ui.onNodeWithTag("statistics-total").assertExists()
         screenshot("statistics-ollo-light-top")
 
@@ -107,8 +107,49 @@ class StatisticsParityDeviceTest {
         ui.waitForIdle()
         ui.onNodeWithTag("statistics").assertExists()
         ui.onNodeWithText("Statistik").assertIsDisplayed()
-        ui.onNodeWithText("Total Pengeluaran").assertExists()
+        ui.onNodeWithTag("stats-type-expense").assertExists() // Ollo: tanpa label "Total Pengeluaran"
         screenshot("statistics-ollo-dark-top")
+    }
+
+    @Test fun statisticsOlloControlsWork() {
+        val data = fixture()
+        val prefs = AppPreferences(theme = "dark")
+        ui.setContent {
+            CompositionLocalProvider(LocalPreferences provides prefs) {
+                FinFlowTheme { Reports(data, data.transactions.first().date.take(7), {}, {}) }
+            }
+        }
+        ui.mainClock.advanceTimeBy(600)
+        ui.waitForIdle()
+        // Default Pengeluaran seperti Ollo; ganti ke Pemasukan mengubah total donut.
+        ui.onNodeWithTag("statistics-total").assertTextEquals(com.logikawan.finflow.core.util.formatBalance(540_000, "IDR", prefs))
+        ui.onNodeWithTag("stats-type-income").performClick()
+        ui.waitForIdle()
+        ui.onNodeWithTag("statistics-total").assertTextEquals(com.logikawan.finflow.core.util.formatBalance(6_500_000, "IDR", prefs))
+        ui.onNodeWithTag("stats-type-expense").performClick()
+        // Bandingkan dapat diaktifkan tanpa error.
+        scrollToText("Perbandingan Bulanan")
+        ui.onAllNodesWithTag("statistics-compare").onFirst().performClick()
+        ui.waitForIdle()
+        // Pencarian log hanya menyisakan transaksi yang cocok.
+        scrollToText("Log Transaksi")
+        ui.onNodeWithTag("statistics-search").performTextInput("Ojek")
+        ui.waitForIdle()
+        ui.onNodeWithText("Ojek online").assertExists()
+        ui.onNodeWithText("Makan siang").assertDoesNotExist()
+        // Kalkulator cicilan: 12.000 tanpa bunga selama 12 bulan = 1.000 per bulan.
+        scrollToText("Kalkulator keuangan")
+        ui.onNodeWithTag("statistics-calculator").performClick()
+        ui.onNodeWithTag("statistics").performScrollToNode(hasText("Cicilan pinjaman"))
+        ui.onNodeWithText("Cicilan pinjaman").performClick()
+        ui.onNodeWithTag("statistics").performScrollToNode(hasContentDescription("Tenor (bulan)"))
+        ui.onNodeWithContentDescription("Jumlah pinjaman (IDR)").performTextInput("12000")
+        ui.onNodeWithContentDescription("Bunga per tahun (%)").performTextInput("0")
+        ui.onNodeWithContentDescription("Tenor (bulan)").performTextInput("12")
+        ui.waitForIdle()
+        ui.onNodeWithTag("statistics").performScrollToNode(hasText("per bulan", substring = true))
+        ui.onNodeWithText("Cicilan ${com.logikawan.finflow.core.util.formatBalance(100_000, "IDR", prefs)} per bulan.").assertExists()
+        screenshot("statistics-ollo-controls")
     }
 
     private fun scrollToText(text: String) {

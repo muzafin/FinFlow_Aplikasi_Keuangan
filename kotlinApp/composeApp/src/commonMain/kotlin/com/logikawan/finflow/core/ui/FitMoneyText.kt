@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.sp
 
 // Nominal tetap lengkap dan satu baris: mengecil sesuai ruang, tanpa elipsis/terpotong.
 @Composable
-fun FitMoneyText(value: String, style: TextStyle = FFType.amountMd, color: Color = FFColors.onSurface, textAlign: TextAlign = TextAlign.Start) {
+fun FitMoneyText(value: String, style: TextStyle = FFType.amountMd, color: Color = FFColors.onSurface, textAlign: TextAlign = TextAlign.Start, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val effectiveStyle = LocalTextStyle.current.merge(style)
@@ -26,6 +26,6 @@ fun FitMoneyText(value: String, style: TextStyle = FFType.amountMd, color: Color
         while (size > 8f && measurer.measure(value, effectiveStyle.copy(fontSize = size.sp, lineHeight = (size * 1.25f).sp), softWrap = false).size.width > width) {
             size -= 0.5f
         }
-        Text(value, modifier = Modifier.fillMaxWidth(), style = effectiveStyle.copy(fontSize = size.sp, lineHeight = (size * 1.25f).sp), color = color, textAlign = textAlign, maxLines = 1, softWrap = false)
+        Text(value, modifier = modifier.fillMaxWidth(), style = effectiveStyle.copy(fontSize = size.sp, lineHeight = (size * 1.25f).sp), color = color, textAlign = textAlign, maxLines = 1, softWrap = false)
     }
 }

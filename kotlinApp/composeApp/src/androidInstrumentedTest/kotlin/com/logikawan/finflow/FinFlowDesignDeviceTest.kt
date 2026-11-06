@@ -107,7 +107,7 @@ class FinFlowDesignDeviceTest {
         ui.onNodeWithText("Dompet Saya").assertIsDisplayed()
         screenshot("wallet")
         ui.onNodeWithTag("tab-Statistik").performClick()
-        ui.onNodeWithText("Total Pengeluaran").assertExists()
+        ui.onNodeWithTag("stats-type-expense").assertExists()
         screenshot("statistics-top")
         ui.onNodeWithTag("statistics").performScrollToNode(hasText("Peta Aktivitas"))
         screenshot("statistics-activity")
@@ -405,7 +405,7 @@ class FinFlowDesignDeviceTest {
         ui.onNodeWithTag("statistics-menu").performClick()
         ui.onNodeWithText("Ekspor CSV/PDF").performClick()
         ui.runOnIdle { assertEquals(listOf("qa-tx"),exported?.map{it.id}) }
-        ui.onNodeWithTag("statistics").performScrollToIndex(5)
+        ui.onNodeWithTag("statistics").performScrollToIndex(4) // period, type, overview, daily, lalu bagian berurutan
         ui.onNodeWithTag("statistics-transactions").assertIsDisplayed()
         val journal=ui.onNodeWithTag("statistics-transactions").fetchSemanticsNode().boundsInWindow
         val categories=ui.onNodeWithTag("statistics-categories").fetchSemanticsNode().boundsInWindow

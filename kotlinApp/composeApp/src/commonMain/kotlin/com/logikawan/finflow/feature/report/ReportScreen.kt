@@ -3,6 +3,15 @@ package com.logikawan.finflow.feature.report
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import kotlin.math.pow
+import kotlin.math.roundToLong
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -100,7 +109,9 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
     val typeWord = if (type == "expense") "Pengeluaran" else "Pemasukan"
     val delta = checkedAdd(total, -previousTotal)
     val groups = selected.groupBy { it.categoryId }.map { (id, rows) -> id to rows.fold(0L) { sum, tx -> checkedAdd(sum, tx.amountMinor) } }.sortedByDescending { it.second }
-    val groupColors = groups.map { (id, _) -> data.categories.find { it.id == id }?.color?.let { Color(it) } ?: categoryColor(id) }
+    val incomeTone = FFColors.income
+    // Ollo: kategori pemasukan tanpa warna khusus memakai hijau pemasukan.
+    val groupColors = groups.map { (id, _) -> data.categories.find { it.id == id }?.color?.let { Color(it) } ?: if (type == "income") incomeTone else categoryColor(id) }
     val groupCounts = selected.groupBy { it.categoryId }.mapValues { it.value.size }
     val bucketDays = if (days <= 366) 1 else (days + 119) / 120
     val incomeSeries = reportAmounts(period, relevant, "income", bucketDays)
@@ -112,7 +123,10 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
     val projected = if (elapsedDays > 0) (total.toDouble() / elapsedDays * days).toLong() else 0L
     val averageIncome = if (elapsedDays > 0) income / elapsedDays else 0L
     val averageExpense = if (elapsedDays > 0) expense / elapsedDays else 0L
-    val averageSaving = if (elapsedDays > 0) checkedAdd(income, -expense) / elapsedDays else 0L
+    // Ollo: "Rata Tabungan" = setoran ke Target (goal_deposit), bukan selisih pemasukan-pengeluaran.
+    val goalDeposits = data.transactions.filter { it.source == "goal_deposit" && it.currency == currency && it.date in period && (selectedWallet.isEmpty() || it.accountId == selectedWallet) }
+        .fold(0L) { sum, tx -> checkedAdd(sum, tx.amountMinor) }
+    val averageSaving = if (elapsedDays > 0) goalDeposits / elapsedDays else 0L
     val trendTenths = if (previousTotal > 0) (abs(delta.toDouble() / previousTotal * 100) * 10).roundToInt() else 0
     val trendLabel = (if (delta > 0) "+" else if (delta < 0) "-" else "") + "${trendTenths / 10},${trendTenths % 10}%"
     val comparisonSentence = when {
@@ -129,275 +143,338 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
     val periodLabel = if (kind == "month") monthLabel(month) else if (kind == "year") LocalDate.parse(anchor).year.toString() else "${period.start} – ${period.endExclusive.plus(DatePeriod(days = -1))}"
     val walletLabel = wallets.find { it.id == selectedWallet }?.name ?: "Semua Dompet"
 
-    LazyColumn(Modifier.fillMaxSize().testTag("statistics"), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item {
-            Box(Modifier.fillMaxWidth()) {
-                Row(Modifier.align(Alignment.CenterStart)) {
-                    IconButton({ openFilters() }, Modifier.testTag("statistics-filters")) { FFIcon("filter_list_rounded", contentDescription = "Filter statistik") }
+    // Susunan Ollo 1.7.9 (diukur di HP 480dpi): header tetap, pemilih periode yang menyusut saat digulir,
+    // donut tanpa kartu, ringkasan harian, lalu kartu-kartu #101014 dengan judul 16–18sp.
+    val listState = rememberLazyListState()
+    val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    val kindLabels = listOf("week" to "Mingguan", "month" to "Bulanan", "year" to "Tahunan", "custom" to "Rentang")
+    fun selectKind(value: String) {
+        if (value == "custom") { openFilters("custom"); return }
+        val contextDate = when (kind) {
+            "custom" -> LocalDate.parse(customStart)
+            "month" -> if (month == currentDate.toString().take(7)) currentDate else LocalDate.parse("$month-01")
+            else -> LocalDate.parse(anchor)
+        }
+        if (value == "month" && kind != "month") monthChange(activeRecordingMonth(contextDate, preferences.recordingDay))
+        if (value != "month") anchor = contextDate.toString()
+        kind = value; logLimit = 5
+    }
+    val rangeLabel = "(${shortRange(period.start)} - ${shortRange(period.endExclusive.plus(DatePeriod(days = -1)))})"
+    val subtitle = listOfNotNull(rangeLabel, wallets.find { it.id == selectedWallet }?.name, currency.takeIf { currencies.size > 1 }).joinToString(" · ")
+    val chipBg = Color(0xFF18181D).takeIf { FFColors.background.luminance() < .5f } ?: FFColors.surfaceContainer
+    val heatColor = Color(0xFF00897B)
+    var kindMenu by remember { mutableStateOf(false) }
+
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
+            IconButton({ openFilters() }, Modifier.align(Alignment.CenterStart).testTag("statistics-filters")) { FFIcon("hi_filter", FFColors.onSurface, 24.dp, contentDescription = "Filter statistik") }
+            Text("Statistik", Modifier.align(Alignment.Center), style = FFType.appTitle.copy(fontSize = 20.sp))
+            Row(Modifier.align(Alignment.CenterEnd)) {
+                IconButton({ info = true }, Modifier.testTag("statistics-info")) { FFIcon("hi_info", FFColors.onSurface, 24.dp, contentDescription = "Tentang statistik") }
+                Box {
+                    IconButton({ menu = true }, Modifier.testTag("statistics-menu")) { FFIcon("more_vert", FFColors.onSurface, 24.dp, contentDescription = "Menu statistik") }
+                    DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem(text = { Text("Ekspor CSV/PDF") }, onClick = { menu = false; exportFiltered?.invoke(selected) ?: export() })
+                        DropdownMenuItem(text = { Text("Urutan Bagian Statistik") }, onClick = { menu = false; onSectionOrder?.invoke() })
+                        DropdownMenuItem(text = { Text("Preferensi Tampilan") }, onClick = { menu = false; onPreferences?.invoke() })
+                    }
                 }
-                Text("Statistik", Modifier.fillMaxWidth().align(Alignment.Center), style = FFType.sectionTitle, textAlign = TextAlign.Center)
-                Row(Modifier.align(Alignment.CenterEnd)) {
-                    IconButton({ info = true }, Modifier.testTag("statistics-info")) { FFIcon("info_outline_rounded", contentDescription = "Tentang statistik") }
-                    Box {
-                        IconButton({ menu = true }, Modifier.testTag("statistics-menu")) { FFIcon("more_vert", contentDescription = "Menu statistik") }
-                        DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem(text = { Text("Ekspor CSV/PDF") }, onClick = { menu = false; exportFiltered?.invoke(selected) ?: export() })
-                            DropdownMenuItem(text = { Text("Urutan Bagian Statistik") }, onClick = { menu = false; onSectionOrder?.invoke() })
-                            DropdownMenuItem(text = { Text("Preferensi Tampilan") }, onClick = { menu = false; onPreferences?.invoke() })
+            }
+        }
+        if (collapsed) Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                Row(Modifier.clip(RoundedCornerShape(20.dp)).background(chipBg).clickable { kindMenu = true }.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(kindLabels.first { it.first == kind }.second, style = FFType.metaData)
+                    Spacer(Modifier.width(4.dp)); FFIcon("hi_chevron_down", FFColors.onSurface, 16.dp)
+                }
+                DropdownMenu(kindMenu, { kindMenu = false }) {
+                    kindLabels.forEach { (value, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { kindMenu = false; selectKind(value) }) }
+                }
+            }
+            Column(Modifier.weight(1f).clickable { openFilters() }, horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(periodLabel, style = FFType.bodyMain, color = FFColors.onSurfaceVariant.copy(alpha = 1f), maxLines = 1)
+                Text(rangeLabel, style = FFType.badgeLabel.copy(fontSize = 9.sp, fontWeight = FontWeight.Normal), color = FFColors.onSurfaceVariant)
+            }
+            IconButton({ movePeriod(-1) }) { FFIcon("hi_chevron_left", FFColors.onSurface, 20.dp, contentDescription = "Sebelumnya") }
+            IconButton({ movePeriod(1) }) { FFIcon("hi_chevron_right", FFColors.onSurface, 20.dp, contentDescription = "Berikutnya") }
+        }
+    LazyColumn(Modifier.fillMaxSize().testTag("statistics"), state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item(key = "period") {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(Modifier.clip(RoundedCornerShape(24.dp)).background(chipBg).padding(4.dp)) {
+                    kindLabels.forEach { (value, label) ->
+                        val chosen = kind == value
+                        Box(Modifier.height(36.dp).clip(RoundedCornerShape(20.dp)).background(if (chosen) FFColors.surface else Color.Transparent)
+                            .testTag("stats-kind-$value").clickable { selectKind(value) }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                            Text(label, style = FFType.metaData, fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
+                                color = if (chosen) FFColors.onSurface else FFColors.onSurfaceVariant, maxLines = 1)
                         }
                     }
                 }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(4.dp)) {
-                listOf("week" to "Minggu", "month" to "Bulan", "year" to "Tahun", "custom" to "Rentang").forEach { (value, label) ->
-                    val chosen = kind == value
-                    Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(if (chosen) FFColors.canvas else Color.Transparent)
-                        .testTag("stats-kind-$value").clickable {
-                            if (value == "custom") openFilters("custom") else {
-                                val contextDate = when (kind) {
-                                    "custom" -> LocalDate.parse(customStart)
-                                    "month" -> if (month == currentDate.toString().take(7)) currentDate else LocalDate.parse("$month-01")
-                                    else -> LocalDate.parse(anchor)
-                                }
-                                if (value == "month" && kind != "month") monthChange(activeRecordingMonth(contextDate, preferences.recordingDay))
-                                if (value != "month") anchor = contextDate.toString()
-                                kind = value; logLimit = 5
-                            }
-                        }, contentAlignment = Alignment.Center) {
-                        Text(label, style = FFType.metaData, fontWeight = if (chosen) FontWeight.Bold else FontWeight.Normal,
-                            color = if (chosen) FFColors.onSurface else FFColors.onSurfaceVariant, maxLines = 1)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton({ movePeriod(-1) }) { FFIcon("hi_chevron_left", FFColors.onSurface, 22.dp, contentDescription = "Sebelumnya") }
+                    Column(Modifier.weight(1f).clickable { openFilters() }, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(periodLabel, style = FFType.sectionTitle, textAlign = TextAlign.Center)
+                        Text(subtitle, style = FFType.badgeLabel.copy(fontSize = 10.sp, fontWeight = FontWeight.Normal), color = FFColors.onSurfaceVariant)
                     }
+                    IconButton({ movePeriod(1) }) { FFIcon("hi_chevron_right", FFColors.onSurface, 22.dp, contentDescription = "Berikutnya") }
                 }
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                FFIconButton("chevron_left_rounded", { movePeriod(-1) })
-                Column(Modifier.weight(1f).clickable { openFilters() }, horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(periodLabel, style = FFType.metaData, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-                    Text("${wallets.find { it.id == selectedWallet }?.name ?: "Semua dompet"} · $currency", style = FFType.badgeLabel, color = FFColors.outline)
-                }
-                FFIconButton("chevron_right_rounded", { movePeriod(1) })
             }
         }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item(key = "type") {
+            Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(16.dp)).background(chipBg).padding(4.dp)) {
                 listOf("income" to "Pemasukan", "expense" to "Pengeluaran").forEach { (value, label) ->
                     val chosen = type == value
                     val color = if (value == "income") FFColors.income else FFColors.expense
-                    Box(Modifier.weight(1f).height(40.dp).clip(CircleShape).background(if (chosen) color.copy(alpha = .12f) else FFColors.surface)
-                        .clickable { type = value; logLimit = 5 }, contentAlignment = Alignment.Center) {
-                        Text(label, style = FFType.metaData, fontWeight = FontWeight.SemiBold, color = if (chosen) color else FFColors.onSurfaceVariant)
+                    Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(13.dp)).background(if (chosen) color.copy(alpha = .12f) else Color.Transparent)
+                        .testTag("stats-type-$value").clickable { type = value; logLimit = 5 }, contentAlignment = Alignment.Center) {
+                        Text(label, style = FFType.bodyMain.copy(fontSize = 15.sp), color = if (chosen) color else FFColors.onSurfaceVariant)
                     }
                 }
             }
         }
-        item {
-            DesignCard {
-                Text(if (type == "expense") "Total Pengeluaran" else "Total Pemasukan", style = FFType.metaData, color = FFColors.onSurfaceVariant)
-                Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        item(key = "overview") {
+            if (groups.isEmpty()) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(chipBg).padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(28.dp).clip(CircleShape).background(FFColors.surface), contentAlignment = Alignment.Center) { FFIcon("hi_info", FFColors.onSurfaceVariant, 16.dp) }
+                Spacer(Modifier.width(12.dp))
+                Text("Tidak ada data untuk periode ini", style = FFType.bodyMain)
+                Box(Modifier.size(0.dp).testTag("statistics-total"))
+            } else Column(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     AllocationDonut(groups.map { it.second }, groupColors, total, shown(total))
-                    Spacer(Modifier.width(14.dp))
-                    if (groups.isEmpty()) Text("Belum ada transaksi pada periode ini.", Modifier.weight(1f), style = FFType.metaData, color = FFColors.outline)
-                    else Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        groups.take(4).forEachIndexed { index, (id, value) ->
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        groups.take(6).forEachIndexed { index, (id, value) ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(groupColors[index]))
-                                Spacer(Modifier.width(8.dp))
-                                Text(data.categoryName(id), Modifier.weight(1f), style = FFType.metaData, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(percent(value, total), style = FFType.metaData, color = FFColors.outline)
+                                Box(Modifier.size(9.dp).clip(RoundedCornerShape(2.dp)).background(groupColors[index]))
+                                Spacer(Modifier.width(7.dp))
+                                Text(data.categoryName(id), style = FFType.metaData.copy(fontSize = 10.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, false))
+                                Spacer(Modifier.width(6.dp))
+                                Text(percent(value, total), style = FFType.metaData.copy(fontSize = 10.sp), color = FFColors.onSurfaceVariant)
                             }
                         }
                     }
                 }
-                if (groups.isNotEmpty()) groups.take(4).forEachIndexed { index, (id, value) ->
-                    Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(groupColors[index].copy(alpha = .15f)), contentAlignment = Alignment.Center) {
-                            val category = data.categories.find { it.id == id }
-                            FFIcon(category?.icon?.takeIf { it.isNotBlank() } ?: categoryIcon(id), groupColors[index], 20.dp)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(data.categoryName(id), style = FFType.metaData, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Spacer(Modifier.height(6.dp))
-                            LinearProgressIndicator(progress = { if (total > 0) (value.toFloat() / total).coerceIn(0f, 1f) else 0f },
-                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape), color = groupColors[index], trackColor = FFColors.outlineVariant)
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(percent(value, total), style = FFType.metaData, fontWeight = FontWeight.SemiBold)
-                            Text(shown(value), style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.outline)
+                Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(horizontal = 12.dp, vertical = 4.dp)) {
+                    groups.forEachIndexed { index, (id, value) ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(groupColors[index].copy(alpha = .14f)), contentAlignment = Alignment.Center) {
+                                val category = data.categories.find { it.id == id }
+                                FFIcon(category?.icon?.takeIf { it.isNotBlank() } ?: categoryIcon(id), groupColors[index], 22.dp)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(data.categoryName(id), Modifier.weight(1f), style = FFType.bodyMain.copy(fontSize = 14.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Column(horizontalAlignment = Alignment.End) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(Modifier.width(100.dp).height(8.dp).clip(CircleShape).background(FFColors.outlineVariant)) {
+                                        Box(Modifier.fillMaxHeight().fillMaxWidth(if (total > 0) (value.toFloat() / total).coerceIn(0f, 1f) else 0f).clip(CircleShape).background(groupColors[index]))
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(percent(value, total), style = FFType.bodyMain)
+                                }
+                                Text(shown(value), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                            }
                         }
                     }
                 }
             }
         }
-        item {
-            DesignCard {
+        item(key = "daily") {
+            Column(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                    Text(if (bucketDays == 1) "Ringkasan Harian" else "Ringkasan per $bucketDays Hari", Modifier.weight(1f), style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
+                    Text(if (bucketDays == 1) "Ringkasan Harian" else "Ringkasan per $bucketDays Hari", Modifier.weight(1f), style = FFType.sectionTitle)
                     Column(horizontalAlignment = Alignment.End) {
-                        AverageLine("Rata Pemasukan", shown(averageIncome), FFColors.income)
-                        AverageLine("Rata Pengeluaran", shown(averageExpense), FFColors.expense)
-                        AverageLine("Rata Tabungan", shown(averageSaving), FFColors.primary)
+                        AverageLine("Rata Masuk: ", shown(averageIncome), FFColors.income)
+                        AverageLine("Rata Keluar: ", shown(averageExpense), FFColors.expense)
+                        AverageLine("Rata Tabung: ", shown(averageSaving), Color(0xFF2196F3))
                     }
                 }
-                Spacer(Modifier.height(16.dp))
-                ReportBars(incomeSeries, expenseSeries)
-                GraphDates(period)
                 Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    LegendDot("Pemasukan", FFColors.income); LegendDot("Pengeluaran", FFColors.expense); LegendDot("Tabungan", Color(0xFF3B82F6))
-                }
-            }
-        }
-        item {
-            DesignCard {
-                Text("Peta Aktivitas", style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
-                if (heatStart > period.start) Text("70 hari terakhir dalam periode", style = FFType.metaData, color = FFColors.outline)
+                ReportBars(incomeSeries, expenseSeries, period.start, bucketDays, averageIncome, averageSaving)
                 Spacer(Modifier.height(12.dp))
-                ActivityHeatmap(heatStart, heatAmounts, activeColor, preferences.weekStart)
-                Spacer(Modifier.height(12.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Sedikit", style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.outline)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        repeat(5) { step -> Box(Modifier.size(14.dp).clip(RoundedCornerShape(4.dp)).background(activeColor.copy(alpha = .15f + .6f * (step + 1) / 5f))) }
-                    }
-                    Text("Banyak", style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.outline)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    LegendDot("Pemasukan", FFColors.income); Spacer(Modifier.width(16.dp))
+                    LegendDot("Pengeluaran", FFColors.expense); Spacer(Modifier.width(16.dp))
+                    LegendDot("Target", Color(0xFF2196F3))
                 }
             }
         }
         preferences.statisticsOrder.forEach { section -> item(key = "statistics-$section") {
             when (section) {
-                "comparison" -> DesignCard(Modifier.testTag("statistics-comparison")) {
+                "comparison" -> OlloCard(Modifier.testTag("statistics-comparison")) {
+                    var compare by remember { mutableStateOf(false) }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Perbandingan Bulanan", Modifier.weight(1f), style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
-                        if (previousTotal > 0) {
-                            val chipColor = when { delta > 0 -> FFColors.expense; delta < 0 -> FFColors.income; else -> FFColors.onSurfaceVariant }
-                            val chipIcon = if (delta < 0) "arrow_downward_rounded" else "trending_up_rounded"
-                            Row(Modifier.clip(RoundedCornerShape(50)).background(chipColor.copy(alpha = .12f)).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                                FFIcon(chipIcon, chipColor, 16.dp)
-                                Spacer(Modifier.width(4.dp))
-                                Text(trendLabel, style = FFType.badgeLabel, fontWeight = FontWeight.SemiBold, color = chipColor)
-                            }
+                        Text(if (kind == "month") "Perbandingan Bulanan" else "Perbandingan Periode", Modifier.weight(1f), style = FFType.bodyMain.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium))
+                        val good = if (type == "expense") delta <= 0 else delta >= 0
+                        val chipColor = if (good) FFColors.income else FFColors.expense
+                        Row(Modifier.clip(RoundedCornerShape(10.dp)).background(chipColor.copy(alpha = .12f)).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            FFIcon(if (delta < 0) "hi_trend_down" else "hi_trend_up", chipColor, 16.dp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(if (previousTotal > 0) trendLabel else "100,0%", style = FFType.bodyMain.copy(fontSize = 13.sp), color = chipColor)
                         }
                     }
-                    Text("${previous.start} – ${previous.endExclusive.plus(DatePeriod(days = -1))}", style = FFType.metaData, color = FFColors.outline)
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(6.dp))
                     Text(comparisonSentence, style = FFType.metaData, color = FFColors.onSurfaceVariant)
-                    val maximum = maxOf(total, previousTotal, 1L).toFloat()
-                    listOf("Sebelumnya" to previousTotal, "Periode ini" to total).forEachIndexed { index, (label, amount) ->
-                        Spacer(Modifier.height(14.dp))
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(label, style = FFType.metaData); Text(shown(amount), style = FFType.metaData, fontWeight = FontWeight.SemiBold)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(progress = { (amount / maximum).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
-                            color = if (index == 1) activeColor else FFColors.outline, trackColor = FFColors.outlineVariant)
-                    }
-                    Spacer(Modifier.height(12.dp)); Text("Selisih ${shown(delta)}", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                    Spacer(Modifier.height(10.dp))
+                    CompareToggle(compare) { compare = !compare }
+                    Spacer(Modifier.height(8.dp))
+                    val current = cumulative(reportAmounts(period, relevant, type))
+                    val before = cumulative(reportAmounts(FinancePeriod(previous.start, previous.start.plus(DatePeriod(days = days))), eligible.filter { it.date in previous }, type))
+                    TrendChart(current, if (compare) before else null, activeColor, todayIndex(period, currentDate), currency)
                 }
-                "trend" -> DesignCard(Modifier.testTag("statistics-trend")) {
-                    Text("Tren Saldo Bersih", style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(4.dp)); Text(shown(checkedAdd(income, -expense)), style = FFType.amountMd)
-                    Text("Akumulasi pemasukan dikurangi pengeluaran periode ini. Transfer tidak menambah penghasilan.", style = FFType.metaData, color = FFColors.outline)
-                    Spacer(Modifier.height(16.dp)); ReportLine(netTrend, FFColors.primary); GraphDates(period)
-                }
-                "cycle" -> DesignCard(Modifier.testTag("statistics-cycle")) {
-                    Text("Wawasan Siklus", style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(14.dp))
-                    MetricRow("Rata-rata Harian", shown(average))
-                    MetricRow("Proyeksi Total", shown(projected))
-                    Text(if (elapsedDays == 0) "Periode belum dimulai." else if (elapsedDays < days) "Estimasi berdasarkan rata-rata $elapsedDays hari yang sudah berjalan; bukan transaksi atau tagihan mendatang." else "$days hari dalam periode.",
-                        style = FFType.metaData, color = FFColors.outline)
-                    TextButton(onClick = { advanced = !advanced }) { Text(if (advanced) "Tutup analisis lanjutan" else "Analisis lanjutan") }
-                    if (advanced) {
-                        MetricRow("Jumlah transaksi", selected.size.toString())
-                        MetricRow("Transaksi terbesar", shown(selected.maxOfOrNull { it.amountMinor } ?: 0L))
-                        MetricRow("Rata-rata per transaksi", shown(if (selected.isEmpty()) 0L else total / selected.size))
-                        MetricRow("Pemasukan", shown(income)); MetricRow("Pengeluaran", shown(expense))
-                        if (income > 0) MetricRow("Porsi saldo bersih", "${((income.toDouble() - expense) / income * 100).toInt()}%")
-                    }
-                }
-                "categories" -> DesignCard(Modifier.testTag("statistics-categories")) {
-                    Text(if (type == "expense") "Pengeluaran Terbesar" else "Pemasukan Terbesar", style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
-                    if (groups.isEmpty()) Text("Belum ada transaksi pada periode ini.", Modifier.padding(top = 12.dp), style = FFType.metaData, color = FFColors.outline)
-                    groups.forEachIndexed { index, (id, amount) ->
-                        Spacer(Modifier.height(16.dp))
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(24.dp).clip(CircleShape).background(groupColors[index].copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-                                Text("${index + 1}", style = FFType.badgeLabel.copy(fontSize = 10.sp), fontWeight = FontWeight.Bold, color = groupColors[index])
-                            }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(data.categoryName(id), style = FFType.metaData, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${groupCounts[id] ?: 0} transaksi", style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.outline)
-                            }
-                            Text(shown(amount), style = FFType.metaData, fontWeight = FontWeight.SemiBold)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(progress = { if (total > 0) (amount.toFloat() / total).coerceIn(0f, 1f) else 0f },
-                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape), color = groupColors[index], trackColor = FFColors.outlineVariant)
-                    }
-                }
-                "transactions" -> DesignCard(Modifier.testTag("statistics-transactions")) {
+                "trend" -> OlloCard(Modifier.testTag("statistics-trend")) {
+                    var compare by remember { mutableStateOf(false) }
+                    val net = checkedAdd(income, -expense)
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Log Transaksi", Modifier.weight(1f), style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
-                        Text("${log.size}", style = FFType.metaData, color = FFColors.outline)
+                        Text("Tren Saldo Bersih", Modifier.weight(1f), style = FFType.bodyMain.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium))
+                        val chipColor = if (net >= 0) FFColors.income else FFColors.expense
+                        Text(shown(net), Modifier.clip(RoundedCornerShape(10.dp)).background(chipColor.copy(alpha = .12f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                            style = FFType.bodyMain.copy(fontSize = 13.sp), color = chipColor, maxLines = 1)
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DesignPill("Semua", true, { openFilters() })
-                        DesignPill(walletLabel, selectedWallet.isNotEmpty(), { openFilters() })
+                    Spacer(Modifier.height(10.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Saldo Bersih", Modifier.weight(1f), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                        CompareToggle(compare) { compare = !compare }
                     }
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(query, { query = it; logLimit = 5 }, placeholder = { Text("Cari transaksi atau tag...", style = FFType.metaData) },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp))
-                    if (log.isEmpty()) Text("Belum ada transaksi", Modifier.padding(vertical = 20.dp), style = FFType.metaData, color = FFColors.outline)
-                    log.take(logLimit).forEach { tx ->
-                        val category = data.categories.find { it.id == tx.categoryId }
-                        val color = category?.color?.let { Color(it) } ?: categoryColor(tx.categoryId)
-                        Row(Modifier.fillMaxWidth().clickable { edit(tx) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = .1f)), contentAlignment = Alignment.Center) {
-                                FFIcon(category?.icon?.takeIf { it.isNotBlank() } ?: categoryIcon(tx.categoryId), color, 20.dp)
-                            }
-                            Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.height(8.dp))
+                    val prevNet = run {
+                        val p = FinancePeriod(previous.start, previous.start.plus(DatePeriod(days = days)))
+                        val rows = eligible.filter { it.date in previous }
+                        val inc = reportAmounts(p, rows, "income"); val exp = reportAmounts(p, rows, "expense")
+                        cumulative(inc.indices.map { checkedAdd(inc[it], -exp[it]) })
+                    }
+                    TrendChart(netTrend, if (compare) prevNet else null, if (net >= 0) FFColors.income else FFColors.expense, todayIndex(period, currentDate), currency)
+                    Text("Akumulasi pemasukan dikurangi pengeluaran. Transfer tidak menambah penghasilan.", style = FFType.badgeLabel.copy(fontSize = 9.sp, fontWeight = FontWeight.Normal), color = FFColors.onSurfaceVariant.copy(alpha = .7f))
+                }
+                "cycle" -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OlloCard(Modifier.testTag("statistics-cycle")) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text(tx.title, style = FFType.metaData, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("${data.accountName(tx.accountId)} · ${tx.date}", style = FFType.badgeLabel.copy(fontSize = 10.sp, letterSpacing = 0.sp), color = FFColors.outline)
+                                Text("Rata-rata Harian", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                                Spacer(Modifier.height(4.dp))
+                                FitMoneyText(shown(average), FFType.amountMd.copy(fontSize = 20.sp))
                             }
-                            Text((if (tx.type == "expense") "−" else "+") + shown(tx.amountMinor), style = FFType.metaData, color = activeColor)
+                            Box(Modifier.padding(horizontal = 12.dp).width(1.dp).height(52.dp).background(Color(0xFF26262D)))
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
+                                Text("Proyeksi Total", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                                Spacer(Modifier.height(4.dp))
+                                FitMoneyText(shown(projected), FFType.amountMd.copy(fontSize = 20.sp), FFColors.onSurfaceVariant, TextAlign.End)
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF2196F3).copy(alpha = .08f)).padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            FFIcon("hi_info", Color(0xFF2196F3), 18.dp)
+                            Spacer(Modifier.width(10.dp))
+                            Text(if (elapsedDays == 0) "Periode belum dimulai." else if (elapsedDays < days) "Berdasarkan kebiasaanmu selama $elapsedDays hari periode ini." else "Seluruh $days hari dalam periode ini.",
+                                style = FFType.metaData, color = Color(0xFF2196F3))
                         }
                     }
-                    if (log.size > logLimit) TextButton(onClick = { logLimit += 20 }, modifier = Modifier.fillMaxWidth()) { Text("Tampilkan lebih banyak") }
-                    OutlinedButton(onClick = onTransactions, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { Text("Buka Semua Transaksi", style = FFType.metaData) }
+                    OlloCard {
+                        Text("Peta Aktivitas", style = FFType.bodyMain.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium))
+                        Spacer(Modifier.height(14.dp))
+                        ActivityHeatmap(period.start, reportAmounts(period, selected, type), heatColor, preferences.weekStart, currency)
+                        Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Sedikit", style = FFType.metaData.copy(fontSize = 10.sp), color = FFColors.onSurfaceVariant)
+                            Spacer(Modifier.width(6.dp))
+                            repeat(5) { step -> Box(Modifier.padding(horizontal = 2.dp).size(14.dp).clip(RoundedCornerShape(4.dp)).background(heatColor.copy(alpha = .2f + .8f * step / 4f))) }
+                            Spacer(Modifier.width(6.dp))
+                            Text("Banyak", style = FFType.metaData.copy(fontSize = 10.sp), color = FFColors.onSurfaceVariant)
+                        }
+                    }
+                }
+                "categories" -> OlloCard(Modifier.testTag("statistics-categories")) {
+                    var by by remember { mutableStateOf("category") }
+                    var limit by remember { mutableIntStateOf(5) }
+                    Text(if (type == "expense") "Pengeluaran Teratas" else "Sumber Teratas", style = FFType.bodyMain.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium))
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OlloDropdown(if (by == "category") "Kategori" else "Dompet", listOf("category" to "Kategori", "wallet" to "Dompet"), chipBg) { by = it }
+                        OlloDropdown(if (limit == Int.MAX_VALUE) "Semua" else "Top $limit", listOf("5" to "Top 5", "10" to "Top 10", "all" to "Semua"), chipBg) { limit = it.toIntOrNull() ?: Int.MAX_VALUE }
+                    }
+                    val ranked = if (by == "category") groups.map { (id, amount) -> Triple(data.categoryName(id), groupCounts[id] ?: 0, amount) }
+                        else selected.groupBy { it.accountId }.map { (id, rows) -> Triple(data.accountName(id), rows.size, rows.fold(0L) { s, t -> checkedAdd(s, t.amountMinor) }) }.sortedByDescending { it.third }
+                    if (ranked.isEmpty()) Text("Belum ada transaksi pada periode ini.", Modifier.padding(top = 16.dp), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                    ranked.take(limit).forEachIndexed { index, (name, count, amount) ->
+                        Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(32.dp).clip(CircleShape).background(chipBg), contentAlignment = Alignment.Center) {
+                                Text("${index + 1}", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                            }
+                            Spacer(Modifier.width(18.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(name, style = FFType.bodyMain.copy(fontSize = 14.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("$count transaksi", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                            }
+                            Text(shown(amount), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+                        }
+                    }
+                }
+                "transactions" -> OlloCard(Modifier.testTag("statistics-transactions")) {
+                    var logType by remember { mutableStateOf("all") }
+                    val rows = relevant.filter { logType == "all" || it.type == logType }
+                        .filter { query.isBlank() || "${it.title} ${it.description} ${it.tags.joinToString(" ")} ${data.categoryName(it.categoryId)} ${data.accountName(it.accountId)}".contains(query, true) }
+                        .sortedWith(compareByDescending<Transaction> { it.date }.thenByDescending { it.createdAt })
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Log Transaksi", Modifier.weight(1f), style = FFType.sectionTitle)
+                        Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onTransactions).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Lihat Semua", style = FFType.metaData)
+                            FFIcon("hi_chevron_right", FFColors.onSurface, 16.dp)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(14.dp)).background(chipBg).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        FFIcon("hi_search", FFColors.onSurfaceVariant, 20.dp)
+                        Spacer(Modifier.width(14.dp))
+                        Box(Modifier.weight(1f)) {
+                            if (query.isEmpty()) Text("Cari transaksi...", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                            androidx.compose.foundation.text.BasicTextField(query, { query = it; logLimit = 5 }, Modifier.fillMaxWidth().testTag("statistics-search"), singleLine = true,
+                                textStyle = FFType.metaData.copy(color = FFColors.onSurface), cursorBrush = androidx.compose.ui.graphics.SolidColor(FFColors.onSurface))
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OlloDropdown(when (logType) { "income" -> "Pemasukan"; "expense" -> "Pengeluaran"; "transfer" -> "Transfer"; else -> "Semua" },
+                            listOf("all" to "Semua", "income" to "Pemasukan", "expense" to "Pengeluaran", "transfer" to "Transfer"), null) { logType = it; logLimit = 5 }
+                        Row(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, Color(0xFF26262D), RoundedCornerShape(20.dp)).clickable { openFilters() }
+                            .padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(walletLabel, style = FFType.metaData); Spacer(Modifier.width(6.dp)); FFIcon("hi_chevron_down", FFColors.onSurface, 16.dp)
+                        }
+                    }
+                    if (rows.isEmpty()) Text("Belum ada transaksi", Modifier.padding(vertical = 20.dp), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                    rows.take(logLimit).forEach { tx ->
+                        val category = data.categories.find { it.id == tx.categoryId }
+                        val color = if (tx.type == "income") FFColors.income else category?.color?.let { Color(it) } ?: categoryColor(tx.categoryId)
+                        Row(Modifier.fillMaxWidth().clickable { edit(tx) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(runCatching { LocalDate.parse(tx.date).let { "${it.dayOfMonth.toString().padStart(2, '0')}/${it.monthNumber.toString().padStart(2, '0')}" } }.getOrDefault(tx.date),
+                                Modifier.width(52.dp), style = FFType.metaData.copy(fontSize = 10.5.sp), color = FFColors.onSurfaceVariant)
+                            Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
+                                FFIcon(category?.icon?.takeIf { it.isNotBlank() } ?: categoryIcon(tx.categoryId), color, 16.dp)
+                            }
+                            Spacer(Modifier.width(14.dp))
+                            Text(tx.title, Modifier.weight(1f), style = FFType.metaData, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            val sign = when (tx.type) { "expense" -> "−"; "income" -> "+"; else -> "" }
+                            Text(sign + if (preferences.hideBalances) "••••••" else compactDisplayMoney(tx.amountMinor, tx.currency), style = FFType.metaData,
+                                color = when (tx.type) { "income" -> FFColors.onSurface; "expense" -> FFColors.expense; else -> FFColors.onSurfaceVariant })
+                        }
+                    }
+                    if (rows.size > logLimit) TextButton(onClick = { logLimit += 20 }, modifier = Modifier.fillMaxWidth()) { Text("Tampilkan lebih banyak", style = FFType.metaData) }
+                    Spacer(Modifier.height(8.dp))
+                    Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, FFColors.onSurface.copy(alpha = .7f), RoundedCornerShape(12.dp))
+                        .clickable(onClick = onTransactions), contentAlignment = Alignment.Center) {
+                        Text("Lihat Semua Transaksi", style = FFType.metaData)
+                    }
                 }
             }
         } }
         item(key = "statistics-advanced") {
-            DesignCard(Modifier.testTag("statistics-advanced")) {
-                Text("Analisis Lanjutan", style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
-                Text("Gambaran cepat arus kas dan pola pengeluaran terbaru.", style = FFType.metaData, color = FFColors.outline)
-                Spacer(Modifier.height(16.dp))
-                Text("Skor kesehatan finansial", style = FFType.metaData, color = FFColors.onSurfaceVariant)
-                if (income > 0) {
-                    val score = (checkedAdd(income, -expense).toDouble() / income * 100).roundToInt().coerceIn(0, 100)
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        LinearProgressIndicator(progress = { score / 100f }, modifier = Modifier.weight(1f).height(10.dp).clip(CircleShape),
-                            color = if (score >= 50) FFColors.income else FFColors.expense, trackColor = FFColors.outlineVariant)
-                        Spacer(Modifier.width(12.dp))
-                        Text("$score/100", style = FFType.metaData, fontWeight = FontWeight.SemiBold)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(when { income > expense -> "Arus kas naik: pemasukan lebih besar daripada pengeluaran."; income == expense -> "Arus kas stabil: pemasukan sama dengan pengeluaran."; else -> "Arus kas turun: pengeluaran lebih besar daripada pemasukan." },
-                        style = FFType.metaData, color = if (income >= expense) FFColors.income else FFColors.expense)
-                } else {
-                    Spacer(Modifier.height(6.dp))
-                    Text("Tambahkan catatan pemasukan dan pengeluaran beberapa minggu untuk menghitung skor.", style = FFType.metaData, color = FFColors.outline)
-                }
+            OlloCard(Modifier.testTag("statistics-advanced")) {
+                AdvancedAnalysis(data, eligible, currency, currentDate, preferences, chipBg, ::shown)
             }
         }
+    }
     }
     if (filters) AlertDialog(onDismissRequest = { filters = false }, title = { Text("Filter Statistik") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -448,12 +525,101 @@ internal fun reportAmounts(period: FinancePeriod, transactions: List<Transaction
     return amounts
 }
 
+internal fun cumulative(values: List<Long>): List<Long> {
+    var sum = 0L
+    return values.map { sum = checkedAdd(sum, it); sum }
+}
+
+private fun todayIndex(period: FinancePeriod, today: LocalDate): Int? =
+    if (today >= period.start && today < period.endExclusive) today.toEpochDays() - period.start.toEpochDays() else null
+
+private val shortMonths = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
+private fun shortRange(date: LocalDate) = "${date.dayOfMonth} ${shortMonths[date.monthNumber - 1]}"
+
+// Sumbu Ollo memakai satuan ringkas Indonesia: 6.5jt, 3.2jt.
+private fun axisLabel(value: Long, currency: String): String = compactDisplayMoney(value, currency).removePrefix("Rp").removePrefix("$currency ")
+
+@Composable
+private fun OlloCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(FFColors.surface).padding(horizontal = 16.dp, vertical = 18.dp), content = content)
+}
+
+@Composable
+private fun OlloDropdown(label: String, options: List<Pair<String, String>>, background: Color?, select: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        val shape = RoundedCornerShape(if (background != null) 14.dp else 20.dp)
+        Row(Modifier.clip(shape).then(if (background != null) Modifier.background(background) else Modifier.border(1.dp, Color(0xFF26262D), shape))
+            .clickable { open = true }.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = FFType.metaData)
+            Spacer(Modifier.width(if (background != null) 18.dp else 6.dp))
+            FFIcon("hi_chevron_down", FFColors.onSurface, 16.dp)
+        }
+        DropdownMenu(open, { open = false }) {
+            options.forEach { (value, text) -> DropdownMenuItem(text = { Text(text) }, onClick = { open = false; select(value) }) }
+        }
+    }
+}
+
+@Composable
+private fun CompareToggle(active: Boolean, toggle: () -> Unit) {
+    Row(Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = toggle).padding(horizontal = 6.dp, vertical = 4.dp).testTag("statistics-compare"),
+        verticalAlignment = Alignment.CenterVertically) {
+        FFIcon("hi_sort", if (active) FFColors.onSurface else FFColors.onSurfaceVariant, 18.dp)
+        Spacer(Modifier.width(6.dp))
+        Text("Bandingkan", style = FFType.metaData, color = if (active) FFColors.onSurface else FFColors.onSurfaceVariant)
+    }
+}
+
+// Garis kumulatif bergaya Ollo: area terisi tipis, garis putus-putus setelah hari ini, label sumbu Y ringkas.
+@Composable
+private fun TrendChart(values: List<Long>, previous: List<Long>?, color: Color, today: Int?, currency: String) {
+    val axis = FFColors.onSurfaceVariant
+    val grid = FFColors.outlineVariant
+    val measurer = rememberTextMeasurer()
+    val labelStyle = FFType.metaData.copy(fontSize = 8.sp, color = axis)
+    val maximum = maxOf(values.maxOrNull() ?: 0L, previous?.maxOrNull() ?: 0L, 1L)
+    val minimum = minOf(values.minOrNull() ?: 0L, previous?.minOrNull() ?: 0L, 0L)
+    val top = maximum + (maximum - minimum) / 12
+    Canvas(Modifier.fillMaxWidth().height(170.dp).testTag("statistics-trend-chart")) {
+        val left = 28.dp.toPx(); val bottom = size.height - 18.dp.toPx(); val chartTop = 8.dp.toPx()
+        val range = (top - minimum).coerceAtLeast(1L).toFloat()
+        fun y(v: Long) = bottom - (v - minimum) / range * (bottom - chartTop)
+        val count = values.size.coerceAtLeast(1)
+        fun x(i: Int) = left + i.toFloat() / (count - 1).coerceAtLeast(1) * (size.width - left - 4.dp.toPx())
+        listOf(minimum, (minimum + top) / 2, top).forEach { v ->
+            val label = measurer.measure(axisLabel(v, currency), labelStyle)
+            drawText(label, topLeft = Offset(0f, y(v) - label.size.height / 2f))
+        }
+        drawLine(grid, Offset(left, bottom), Offset(size.width, bottom), 1.dp.toPx())
+        listOf(0, count / 3, count * 2 / 3).distinct().forEach { i ->
+            val label = measurer.measure("${i + 1}", labelStyle)
+            drawText(label, topLeft = Offset(x(i) - label.size.width / 2f, bottom + 4.dp.toPx()))
+        }
+        previous?.let { prev ->
+            val path = Path()
+            prev.take(count).forEachIndexed { i, v -> if (i == 0) path.moveTo(x(i), y(v)) else path.lineTo(x(i), y(v)) }
+            drawPath(path, axis.copy(alpha = .6f), style = Stroke(1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))))
+        }
+        val end = (today ?: (count - 1)).coerceIn(0, count - 1)
+        val solid = Path()
+        for (i in 0..end) { if (i == 0) solid.moveTo(x(i), y(values.getOrElse(i) { 0L })) else solid.lineTo(x(i), y(values.getOrElse(i) { 0L })) }
+        val fill = Path().apply { addPath(solid); lineTo(x(end), bottom); lineTo(x(0), bottom); close() }
+        drawPath(fill, Brush.verticalGradient(listOf(color.copy(alpha = .22f), color.copy(alpha = 0f)), chartTop, bottom))
+        drawPath(solid, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        if (end < count - 1) {
+            val last = y(values.getOrElse(end) { 0L })
+            drawLine(color.copy(alpha = .6f), Offset(x(end), last), Offset(x(count - 1), last), 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())))
+        }
+    }
+}
+
 @Composable
 private fun AllocationDonut(amounts: List<Long>, colors: List<Color>, total: Long, value: String) {
     val track = FFColors.outlineVariant
     Box(Modifier.size(190.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize().padding(10.dp)) {
-            val stroke = Stroke(20.dp.toPx(), cap = StrokeCap.Butt)
+        Canvas(Modifier.fillMaxSize().padding(13.dp)) {
+            val stroke = Stroke(26.dp.toPx(), cap = StrokeCap.Butt)
             drawCircle(track, style = stroke)
             var start = -90f
             amounts.forEachIndexed { index, amount ->
@@ -462,87 +628,93 @@ private fun AllocationDonut(amounts: List<Long>, colors: List<Color>, total: Lon
                 start += sweep.toFloat()
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Total", style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.outline)
-            Text(value, style = FFType.amountSm.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold),
-                modifier = Modifier.testTag("statistics-total"), maxLines = 1, overflow = TextOverflow.Clip)
+        Column(Modifier.padding(horizontal = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Total", style = FFType.metaData.copy(fontSize = 10.sp), color = FFColors.onSurfaceVariant)
+            FitMoneyText(value, FFType.amountSm.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), FFColors.onSurface, TextAlign.Center, Modifier.testTag("statistics-total"))
         }
     }
 }
 
 @Composable
 private fun AverageLine(label: String, value: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.outline)
-        Spacer(Modifier.width(4.dp))
-        Text(value, style = FFType.badgeLabel.copy(fontSize = 10.sp), fontWeight = FontWeight.SemiBold, color = color, maxLines = 1)
-    }
+    Text(label + value, style = FFType.metaData.copy(fontSize = 10.5.sp), color = color, maxLines = 1)
 }
 
 @Composable
 private fun LegendDot(label: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).background(color, CircleShape))
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.onSurfaceVariant)
+        Box(Modifier.size(9.dp).background(color, CircleShape))
+        Spacer(Modifier.width(7.dp))
+        Text(label, style = FFType.metaData, color = FFColors.onSurface)
     }
 }
 
+// Batang harian Ollo: dapat digeser, garis rata-rata putus-putus (hijau = pemasukan, biru = tabungan).
 @Composable
-private fun MetricRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = FFType.metaData, color = FFColors.onSurfaceVariant)
-        Spacer(Modifier.width(12.dp)); Text(value, style = FFType.metaData, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun GraphDates(period: FinancePeriod) {
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(period.start.toString(), style = FFType.badgeLabel, color = FFColors.outline)
-        Text(period.endExclusive.plus(DatePeriod(days = -1)).toString(), style = FFType.badgeLabel, color = FFColors.outline)
-    }
-}
-
-@Composable
-private fun ReportLine(values: List<Long>, color: Color) {
-    val grid = FFColors.outlineVariant
-    Canvas(Modifier.fillMaxWidth().height(140.dp)) {
-        repeat(4) { row ->
-            val y = 8.dp.toPx() + row * (size.height - 16.dp.toPx()) / 3
-            drawLine(grid, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
-        }
-        val maximum = maxOf(values.maxOrNull() ?: 0L, 0L).toDouble()
-        val minimum = minOf(values.minOrNull() ?: 0L, 0L).toDouble()
-        val scale = (maximum - minimum).coerceAtLeast(1.0)
-        val points = values.mapIndexed { index, value -> Offset(index.toFloat() / (values.size - 1).coerceAtLeast(1) * size.width,
-            size.height - 8.dp.toPx() - ((value.toDouble() - minimum) / scale * (size.height - 16.dp.toPx())).toFloat()) }
-        points.zipWithNext().forEach { (from, to) -> drawLine(color, from, to, 2.dp.toPx(), StrokeCap.Round) }
-        if (points.size == 1) drawCircle(color, 3.dp.toPx(), points.first())
-    }
-}
-
-@Composable
-private fun ReportBars(income: List<Long>, expense: List<Long>) {
-    val grid = FFColors.outlineVariant
+private fun ReportBars(income: List<Long>, expense: List<Long>, start: LocalDate, bucketDays: Int, averageIncome: Long, averageSaving: Long) {
     val incomeColor = FFColors.income
     val expenseColor = FFColors.expense
-    val maximum = maxOf(income.maxOrNull() ?: 0L, expense.maxOrNull() ?: 0L, 1L).toFloat()
-    Canvas(Modifier.fillMaxWidth().height(140.dp)) {
-        val base = size.height - 1.dp.toPx()
-        drawLine(grid, Offset(0f, base), Offset(size.width, base), 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 6.dp.toPx())))
-        val count = maxOf(income.size, expense.size)
-        if (count > 0) {
-            val slot = size.width / count
-            val barWidth = minOf(slot * .3f, 12.dp.toPx()).coerceAtLeast(2.dp.toPx())
-            val gap = 2.dp.toPx()
-            repeat(count) { index ->
-                val startX = slot * index + (slot - (barWidth * 2 + gap)) / 2
-                listOf(income.getOrElse(index) { 0L } to incomeColor, expense.getOrElse(index) { 0L } to expenseColor).forEachIndexed { bar, (value, color) ->
-                    val barHeight = (value / maximum * base).coerceIn(0f, base)
-                    if (barHeight > 0f) {
-                        drawRoundRect(color, topLeft = Offset(startX + bar * (barWidth + gap), base - barHeight),
-                            size = Size(barWidth, barHeight), cornerRadius = CornerRadius(barWidth / 2, barWidth / 2))
+    val savingColor = Color(0xFF2196F3)
+    val axis = FFColors.onSurfaceVariant
+    val measurer = rememberTextMeasurer()
+    val labelStyle = FFType.metaData.copy(color = axis)
+    val count = maxOf(income.size, expense.size)
+    val maximum = maxOf(income.maxOrNull() ?: 0L, expense.maxOrNull() ?: 0L, averageIncome, averageSaving, 1L).toFloat()
+    val slot = 32.dp
+    val firstWithData = (0 until count).firstOrNull { income.getOrElse(it) { 0L } > 0 || expense.getOrElse(it) { 0L } > 0 } ?: 0
+    val scroll = rememberScrollState()
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    LaunchedEffect(count, firstWithData) { scroll.scrollTo(with(density) { (slot * firstWithData).roundToPx() }) }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val width = maxOf(maxWidth, slot * count)
+        Box(Modifier.fillMaxWidth().horizontalScroll(scroll)) {
+            Canvas(Modifier.width(width).height(200.dp).testTag("statistics-daily-bars")) {
+                val bottom = size.height - 22.dp.toPx()
+                val slotPx = size.width / count.coerceAtLeast(1)
+                fun y(v: Float) = bottom - v / maximum * (bottom - 8.dp.toPx())
+                val dash = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx()))
+                if (averageIncome > 0) drawLine(incomeColor.copy(alpha = .8f), Offset(0f, y(averageIncome.toFloat())), Offset(size.width, y(averageIncome.toFloat())), 1.5.dp.toPx(), pathEffect = dash)
+                drawLine(savingColor.copy(alpha = .6f), Offset(0f, y(averageSaving.coerceAtLeast(0).toFloat())), Offset(size.width, y(averageSaving.coerceAtLeast(0).toFloat())), 1.5.dp.toPx(), pathEffect = dash)
+                val barWidth = 4.dp.toPx()
+                repeat(count) { index ->
+                    val center = slotPx * index + slotPx / 2
+                    listOf(income.getOrElse(index) { 0L } to incomeColor, expense.getOrElse(index) { 0L } to expenseColor).forEachIndexed { bar, (value, color) ->
+                        if (value > 0) drawRoundRect(color, topLeft = Offset(center - barWidth - 1.dp.toPx() + bar * (barWidth + 2.dp.toPx()), y(value.toFloat())),
+                            size = Size(barWidth, bottom - y(value.toFloat())), cornerRadius = CornerRadius(barWidth / 2, barWidth / 2))
+                    }
+                    val label = measurer.measure("${start.plus(DatePeriod(days = index * bucketDays)).dayOfMonth}", labelStyle)
+                    drawText(label, topLeft = Offset(center - label.size.width / 2f, bottom + 6.dp.toPx()))
+                }
+            }
+        }
+    }
+}
+
+// Heatmap satu periode penuh seperti Ollo: kotak tanggal, kosong #09090C, aktif teal, nominal ringkas di pojok.
+@Composable
+private fun ActivityHeatmap(first: LocalDate, values: List<Long>, color: Color, weekStart: Int, currency: String) {
+    val shown = values.take(42)
+    val offset = (first.dayOfWeek.isoDayNumber - weekStart + 7) % 7
+    val rows = (offset + shown.size + 6) / 7
+    val maximum = (shown.maxOrNull() ?: 0L).coerceAtLeast(1).toFloat()
+    val week = listOf("S", "S", "R", "K", "J", "S", "M")
+    val empty = if (FFColors.background.luminance() < .5f) Color(0xFF09090C) else FFColors.surfaceContainer
+    Row(Modifier.fillMaxWidth()) {
+        repeat(7) { index -> Text(week[(weekStart - 1 + index) % 7], Modifier.weight(1f), style = FFType.metaData.copy(fontSize = 10.sp), color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center) }
+    }
+    Spacer(Modifier.height(8.dp))
+    repeat(rows) { row ->
+        Row(Modifier.fillMaxWidth()) {
+            repeat(7) { col ->
+                val day = row * 7 + col - offset
+                val value = shown.getOrNull(day)
+                Box(Modifier.weight(1f).padding(2.5.dp).aspectRatio(1f).clip(RoundedCornerShape(6.dp))
+                    .background(when { value == null -> empty.copy(alpha = .5f); value > 0 -> color.copy(alpha = .35f + .65f * value / maximum); else -> empty })) {
+                    if (value != null) {
+                        Text(first.plus(DatePeriod(days = day)).dayOfMonth.toString(), Modifier.align(Alignment.TopStart).padding(5.dp),
+                            style = FFType.metaData.copy(fontSize = 10.sp), color = if (value > 0) Color.White else FFColors.onSurfaceVariant)
+                        if (value > 0) Text(axisLabel(value, currency), Modifier.align(Alignment.BottomEnd).padding(4.dp),
+                            style = FFType.metaData.copy(fontSize = 8.sp), color = Color.White, maxLines = 1)
                     }
                 }
             }
@@ -550,26 +722,143 @@ private fun ReportBars(income: List<Long>, expense: List<Long>) {
     }
 }
 
+// Analisis Lanjutan Ollo: skor 8 minggu lengkap, rata-rata per kategori, arus kas 12 bulan, kalkulator.
 @Composable
-private fun ActivityHeatmap(first: LocalDate, values: List<Long>, color: Color, weekStart: Int) {
-    val offset = (first.dayOfWeek.isoDayNumber - weekStart + 7) % 7
-    val rows = (offset + values.size + 6) / 7
-    val maximum = (values.maxOrNull() ?: 0L).coerceAtLeast(1).toFloat()
-    val week = listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
-    Row(Modifier.fillMaxWidth()) {
-        repeat(7) { index -> Text(week[(weekStart - 1 + index) % 7], Modifier.weight(1f), style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.outline, textAlign = TextAlign.Center) }
+private fun AdvancedAnalysis(data: FinanceData, eligible: List<Transaction>, currency: String, today: LocalDate, preferences: AppPreferences, chipBg: Color, shown: (Long) -> String) {
+    val divider = Color(0xFF26262D)
+    Text("Analisis Lanjutan", style = FFType.sectionTitle)
+    Text("Gambaran cepat arus kas dan pola pengeluaran terbaru.", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+    Spacer(Modifier.height(20.dp))
+    Text("Skor kesehatan finansial", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+    Spacer(Modifier.height(10.dp))
+    val weekEnd = today.minus(DatePeriod(days = (today.dayOfWeek.isoDayNumber - preferences.weekStart + 7) % 7))
+    val weeks = (1..8).map { FinancePeriod(weekEnd.minus(DatePeriod(days = it * 7)), weekEnd.minus(DatePeriod(days = (it - 1) * 7))) }
+    val weekly = weeks.map { w -> eligible.filter { it.date in w } }
+    val activeWeeks = weekly.count { rows -> rows.any { it.type == "income" || it.type == "expense" } }
+    if (activeWeeks < 3) Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(chipBg), contentAlignment = Alignment.Center) { Text("···", style = FFType.bodyMain, color = FFColors.onSurfaceVariant) }
+        Spacer(Modifier.width(12.dp))
+        Text("Tambahkan catatan pemasukan dan pengeluaran selama beberapa minggu untuk menghitung skor.", style = FFType.bodyMain.copy(fontSize = 15.sp))
+    } else {
+        val inc = weekly.flatten().filter { it.type == "income" }.fold(0L) { s, t -> checkedAdd(s, t.amountMinor) }
+        val exp = weekly.flatten().filter { it.type == "expense" }.fold(0L) { s, t -> checkedAdd(s, t.amountMinor) }
+        val score = if (inc > 0) (50 + (checkedAdd(inc, -exp).toDouble() / inc * 50)).roundToInt().coerceIn(0, 100) else 0
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f).height(10.dp).clip(CircleShape).background(FFColors.outlineVariant)) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(score / 100f).clip(CircleShape).background(if (score >= 50) FFColors.income else FFColors.expense))
+            }
+            Spacer(Modifier.width(12.dp)); Text("$score/100", style = FFType.bodyMain)
+        }
     }
     Spacer(Modifier.height(8.dp))
-    repeat(rows) { row ->
-        Row(Modifier.fillMaxWidth()) {
-            repeat(7) { col ->
-                val day = row * 7 + col - offset
-                val value = values.getOrNull(day)
-                Box(Modifier.weight(1f).padding(3.dp).height(28.dp).clip(RoundedCornerShape(6.dp))
-                    .background(if (value != null && value > 0) color.copy(alpha = .15f + .6f * value / maximum) else Color.Transparent), contentAlignment = Alignment.Center) {
-                    if (value != null) Text(first.plus(DatePeriod(days = day)).dayOfMonth.toString(), style = FFType.badgeLabel.copy(fontSize = 10.sp), color = FFColors.onSurface)
-                }
+    Text("Skor indikatif dari pemasukan dan pengeluaran 8 minggu lengkap terakhir; utang dan investasi tidak dinilai.", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+    Box(Modifier.padding(vertical = 18.dp).fillMaxWidth().height(1.dp).background(divider))
+
+    var basis by remember { mutableStateOf("week") }
+    var showAll by remember { mutableStateOf(false) }
+    Text("Rata-rata per kategori", style = FFType.bodyMain)
+    Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("day" to "Harian", "week" to "Mingguan", "month" to "Bulanan").forEach { (value, label) ->
+            val chosen = basis == value
+            Box(Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(if (chosen) FFColors.onSurface else FFColors.background)
+                .clickable { basis = value }, contentAlignment = Alignment.Center) {
+                Text(label, style = FFType.bodyMain, color = if (chosen) FFColors.background else FFColors.onSurface)
             }
+        }
+    }
+    val (window, divisor, caption) = when (basis) {
+        "day" -> Triple(FinancePeriod(today.minus(DatePeriod(days = 30)), today), 30, "Per hari, dari 30 hari terakhir")
+        "month" -> Triple(FinancePeriod(today.minus(DatePeriod(months = 3)), today), 3, "Per bulan, dari 3 bulan terakhir")
+        else -> Triple(FinancePeriod(weekEnd.minus(DatePeriod(days = 28)), weekEnd), 4, "Per minggu, dari 4 minggu lengkap terakhir")
+    }
+    Spacer(Modifier.height(10.dp))
+    Text(caption, style = FFType.metaData, color = FFColors.onSurfaceVariant)
+    val spending = eligible.filter { it.type == "expense" && it.date in window }.groupBy { it.categoryId }.mapValues { (_, r) -> r.fold(0L) { s, t -> checkedAdd(s, t.amountMinor) } / divisor }
+    if (spending.isEmpty()) Text("Belum ada pengeluaran berkategori pada periode ini.", Modifier.padding(top = 10.dp), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+    val categories = data.categories.filter { it.type == "expense" }.sortedByDescending { spending[it.id] ?: 0L }
+    (if (showAll) categories else categories.take(6)).forEach { category ->
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(9.dp).clip(CircleShape).background((category.color?.let { Color(it) } ?: categoryColor(category.id)).copy(alpha = .6f)))
+            Spacer(Modifier.width(10.dp))
+            Text(category.name, Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+            Text(shown(spending[category.id] ?: 0L), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+        }
+    }
+    if (categories.size > 6) Text(if (showAll) "Tampilkan lebih sedikit" else "Tampilkan semua ${categories.size} kategori",
+        Modifier.padding(top = 14.dp).clickable { showAll = !showAll }, style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+    Box(Modifier.padding(vertical = 18.dp).fillMaxWidth().height(1.dp).background(divider))
+
+    Text("Arus kas bulanan", style = FFType.bodyMain)
+    Spacer(Modifier.height(10.dp))
+    val small = FFType.metaData.copy(fontSize = 10.sp)
+    Row(Modifier.fillMaxWidth()) {
+        Spacer(Modifier.weight(1f))
+        listOf("Pemasukan", "Pengeluaran", "Arus Bersih").forEach { Text(it, Modifier.weight(1.3f), style = small, color = FFColors.onSurfaceVariant, textAlign = TextAlign.End) }
+    }
+    val thisMonth = today.toString().take(7)
+    (11 downTo 0).forEach { back ->
+        val m = shiftMonth(thisMonth, -back)
+        val rows = eligible.filter { it.date.startsWith(m) }
+        val inc = rows.filter { it.type == "income" }.fold(0L) { s, t -> checkedAdd(s, t.amountMinor) }
+        val exp = rows.filter { it.type == "expense" }.fold(0L) { s, t -> checkedAdd(s, t.amountMinor) }
+        val net = checkedAdd(inc, -exp)
+        fun c(v: Long) = if (preferences.hideBalances) "•••" else compactDisplayMoney(v, currency)
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+            Text("${shortMonths[m.substring(5, 7).toInt() - 1]} ${m.substring(2, 4)}", Modifier.weight(1f), style = small, color = FFColors.onSurfaceVariant)
+            Text(c(inc), Modifier.weight(1.3f), style = small, color = FFColors.income, textAlign = TextAlign.End)
+            Text(c(exp), Modifier.weight(1.3f), style = small, color = FFColors.expense, textAlign = TextAlign.End)
+            Text((if (net > 0) "+" else "") + c(net), Modifier.weight(1.3f), style = small, color = if (net > 0) FFColors.income else if (net < 0) FFColors.expense else FFColors.onSurface, textAlign = TextAlign.End)
+        }
+    }
+    Spacer(Modifier.height(10.dp))
+    Text("Surplus/defisit = pemasukan dikurangi pengeluaran. Transfer, mutasi tabungan, reimburse, dan transaksi aset tidak dihitung.", style = FFType.metaData.copy(fontSize = 10.5.sp), color = FFColors.onSurfaceVariant)
+    Box(Modifier.padding(vertical = 18.dp).fillMaxWidth().height(1.dp).background(divider))
+    FinancialCalculator(currency, preferences)
+}
+
+@Composable
+private fun FinancialCalculator(currency: String, preferences: AppPreferences) {
+    var open by remember { mutableStateOf(false) }
+    var mode by remember { mutableStateOf("goal") }
+    var target by remember { mutableStateOf("") }
+    var monthly by remember { mutableStateOf("") }
+    var rate by remember { mutableStateOf("") }
+    var tenor by remember { mutableStateOf("") }
+    Row(Modifier.fillMaxWidth().clickable { open = !open }.testTag("statistics-calculator"), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Kalkulator keuangan", style = FFType.bodyMain)
+            Text("Perkirakan lama menabung untuk target atau cicilan pinjaman.", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+        }
+        FFIcon(if (open) "hi_chevron_up" else "hi_chevron_down", FFColors.onSurfaceVariant, 20.dp)
+    }
+    if (!open) return
+    Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("goal" to "Target tabungan", "loan" to "Cicilan pinjaman").forEach { (value, label) ->
+            val chosen = mode == value
+            Box(Modifier.weight(1f).height(38.dp).clip(RoundedCornerShape(19.dp)).background(if (chosen) FFColors.onSurface else FFColors.background).clickable { mode = value },
+                contentAlignment = Alignment.Center) { Text(label, style = FFType.metaData, color = if (chosen) FFColors.background else FFColors.onSurface) }
+        }
+    }
+    fun amount(text: String) = text.filter { it.isDigit() }.toLongOrNull()?.let { it * 100 }
+    Spacer(Modifier.height(8.dp))
+    if (mode == "goal") {
+        Field("Target ($currency)", target, { target = it.filter(Char::isDigit) })
+        Field("Tabungan per bulan ($currency)", monthly, { monthly = it.filter(Char::isDigit) })
+        val t = amount(target); val m = amount(monthly)
+        if (t != null && m != null && m > 0) {
+            val months = ((t + m - 1) / m).toInt()
+            Text("Sekitar $months bulan (${months / 12} tahun ${months % 12} bulan).", Modifier.padding(top = 10.dp), style = FFType.bodyMain, color = FFColors.income)
+        }
+    } else {
+        Field("Jumlah pinjaman ($currency)", target, { target = it.filter(Char::isDigit) })
+        Field("Bunga per tahun (%)", rate, { rate = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.replace(',', '.') })
+        Field("Tenor (bulan)", tenor, { tenor = it.filter(Char::isDigit) })
+        val p = amount(target); val n = tenor.toIntOrNull(); val r = (rate.toDoubleOrNull() ?: -1.0) / 100 / 12
+        if (p != null && n != null && n > 0 && r >= 0) {
+            val payment = if (r == 0.0) p.toDouble() / n else p * r / (1 - (1 + r).pow(-n.toDouble()))
+            Text("Cicilan ${formatBalance(payment.roundToLong(), currency, preferences)} per bulan.", Modifier.padding(top = 10.dp), style = FFType.bodyMain, color = FFColors.expense)
         }
     }
 }
