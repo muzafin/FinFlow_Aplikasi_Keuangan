@@ -1,0 +1,17 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function owner(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && !firestore.exists(/databases/(default)/documents/_accountDeletions/$(uid))
+        && (!firestore.exists(/databases/(default)/documents/_dataResets/$(uid)) || firestore.get(/databases/(default)/documents/_dataResets/$(uid)).data.status == 'complete');
+    }
+    match /users/{uid}/profile/avatar.jpg {
+      allow read: if owner(uid);
+      allow create, update: if owner(uid) && request.resource.size > 0 && request.resource.size <= 2 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow delete: if owner(uid);
+    }
+    match /{path=**} { allow read, write: if false; }
+  }
+}

@@ -1,5 +1,7 @@
 # FinFlow - Aplikasi Manajemen Keuangan Pribadi 💸
 
+> **Migrasi Kotlin Multiplatform:** versi Android/iOS baru ada di [kotlinApp](kotlinApp/README.md), dengan identitas `com.logikawan.finflow`. Baca [panduan stack dan migrasi](docs/PANDUAN_STACK_DAN_MIGRASI.md) serta [status Firebase baru](kotlinApp/firebase/SETUP_STATUS.md). Kode Flutter di bawah ini dipertahankan sebagai referensi. Versi Kotlin belum dibangun atau dites sesuai permintaan pengguna.
+
 FinFlow adalah aplikasi manajemen keuangan pribadi modern yang dibangun menggunakan **Flutter** dan **Firebase**. Aplikasi ini dirancang untuk memudahkan Anda dalam melacak pemasukan, pengeluaran, memantau anggaran bulanan, serta menganalisis portofolio investasi dengan tampilan antarmuka *glassmorphism* yang elegan dan kekinian.
 
 ## 🌟 Fitur Utama

@@ -43,3 +43,27 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Kotlin Multiplatform: cache, signing, dan konfigurasi lokal
+**/.gradle/
+**/.kotlin/
+/kotlinApp/**/build/
+/kotlinApp/firebase/tests/node_modules/
+/kotlinApp/firebase/functions/node_modules/
+/kotlinApp/*-debug.log
+/kotlinApp/local.properties
+/kotlinApp/composeApp/google-services.json
+/kotlinApp/iosApp/GoogleService-Info.plist
+/kotlinApp/iosApp/Config.xcconfig
+/kotlinApp/iosApp/Pods/
+/kotlinApp/iosApp/*.xcworkspace/
+/kotlinApp/iosApp/*.xcodeproj/
+*.keystore
+*.jks
+key.properties
+.env
+
+# Rahasia rilis Play Store
+keystore.properties
+*.jks
+*.keystore

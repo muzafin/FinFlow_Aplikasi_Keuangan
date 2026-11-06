@@ -1,0 +1,496 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) { return request.auth != null && request.auth.uid == uid && !exists(/databases/$(database)/documents/_accountDeletions/$(uid))
+      && (!exists(/databases/$(database)/documents/_dataResets/$(uid)) || get(/databases/$(database)/documents/_dataResets/$(uid)).data.status == 'complete'); }
+    function currency(code) { return code is string && code.matches('^[A-Z]{3}$'); }
+    function text(value, maximum) { return value is string && value.size() > 0 && value.size() <= maximum; }
+    function money(value) { return value is int && value >= 0 && value <= 9000000000000000; }
+    function date(value) { return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function account(uid, id) { return getAfter(/databases/$(database)/documents/users/$(uid)/accounts/$(id)).data; }
+
+    function managed(source) { return source in ['bill','debt_initial','debt_payment','reimbursement','recurring','bundle','goal_deposit','goal_withdrawal']; }
+    function color(value) { return value is int && value >= 4278190080 && value <= 4294967295; }
+    function nullableId(value, maximum) { return value == null || text(value,maximum); }
+    function category(uid,id) { return getAfter(/databases/$(database)/documents/users/$(uid)/categories/$(id)).data; }
+    function tagAt(tags,index) { return tags.size() <= index || text(tags[index],30); }
+    function tagsValid(tags) {
+      return tags is list && tags.size() <= 10 && tags.toSet().size() == tags.size()
+        && tagAt(tags,0) && tagAt(tags,1) && tagAt(tags,2) && tagAt(tags,3) && tagAt(tags,4) && tagAt(tags,5) && tagAt(tags,6) && tagAt(tags,7) && tagAt(tags,8) && tagAt(tags,9);
+    }
+    // Lima item menjaga validasi dokumen dan pembayaran di bawah batas ekspresi Firestore.
+    function itemValid(item,creating) {
+      return item.keys().hasOnly(['id','name','amountMinor','checked','paymentId'])
+        && item.id.matches('^.{1,100}$') && item.name.matches('(?s)^.{1,100}$')
+        && item.amountMinor is int && item.amountMinor > 0 && item.amountMinor <= 9000000000000000
+        && item.checked is bool && (item.paymentId == null || (!creating && item.paymentId.matches('^.{1,300}$')));
+    }
+    function allItemKeys(items) {
+      return [(items.size()>0 ? items[0].id : ''),(items.size()>1 ? items[1].id : ''),(items.size()>2 ? items[2].id : ''),(items.size()>3 ? items[3].id : ''),(items.size()>4 ? items[4].id : '')].removeAll(['']);
+    }
+    function allItemsAmount(items) { return (items.size()>0 ? items[0].amountMinor : 0) + (items.size()>1 ? items[1].amountMinor : 0) + (items.size()>2 ? items[2].amountMinor : 0) + (items.size()>3 ? items[3].amountMinor : 0) + (items.size()>4 ? items[4].amountMinor : 0); }
+    function itemKeys(items,payment) {
+      return [(items.size()>0 && items[0].paymentId==payment ? items[0].id : ''),(items.size()>1 && items[1].paymentId==payment ? items[1].id : ''),(items.size()>2 && items[2].paymentId==payment ? items[2].id : ''),(items.size()>3 && items[3].paymentId==payment ? items[3].id : ''),(items.size()>4 && items[4].paymentId==payment ? items[4].id : '')].removeAll(['']);
+    }
+    function itemsAmount(items,payment) {
+      return (items.size()>0 && items[0].paymentId==payment ? items[0].amountMinor : 0) + (items.size()>1 && items[1].paymentId==payment ? items[1].amountMinor : 0) + (items.size()>2 && items[2].paymentId==payment ? items[2].amountMinor : 0) + (items.size()>3 && items[3].paymentId==payment ? items[3].amountMinor : 0) + (items.size()>4 && items[4].paymentId==payment ? items[4].amountMinor : 0);
+    }
+    function allUnpaid(items) { return (items.size() <= 0 || items[0].paymentId == null) && (items.size() <= 1 || items[1].paymentId == null) && (items.size() <= 2 || items[2].paymentId == null) && (items.size() <= 3 || items[3].paymentId == null) && (items.size() <= 4 || items[4].paymentId == null); }
+    function itemsValid(items,creating,before) {
+      return items is list && items.size() <= 5
+        && (items.size() <= 0 || items[0] in before || itemValid(items[0],creating)) && (items.size() <= 1 || items[1] in before || itemValid(items[1],creating)) && (items.size() <= 2 || items[2] in before || itemValid(items[2],creating)) && (items.size() <= 3 || items[3] in before || itemValid(items[3],creating)) && (items.size() <= 4 || items[4] in before || itemValid(items[4],creating))
+        && allItemKeys(items).toSet().size() == items.size() && money(allItemsAmount(items));
+    }
+    function paidPreserved(before,after) { return (before.size() <= 0 || before[0].paymentId == null || before[0] in after) && (before.size() <= 1 || before[1].paymentId == null || before[1] in after) && (before.size() <= 2 || before[2].paymentId == null || before[2] in after) && (before.size() <= 3 || before[3].paymentId == null || before[3] in after) && (before.size() <= 4 || before[4].paymentId == null || before[4] in after); }
+    function paid(item,eventId) { return {'id':item.id,'name':item.name,'amountMinor':item.amountMinor,'checked':true,'paymentId':eventId}; }
+    function unpaid(item) { return {'id':item.id,'name':item.name,'amountMinor':item.amountMinor,'checked':false,'paymentId':null}; }
+    function paidIntroduced(before,after,eventId) {
+      return before.size() == after.size() && (after.size() <= 0 || after[0] == before[0] || (before[0].paymentId == null && after[0] == paid(before[0],eventId))) && (after.size() <= 1 || after[1] == before[1] || (before[1].paymentId == null && after[1] == paid(before[1],eventId))) && (after.size() <= 2 || after[2] == before[2] || (before[2].paymentId == null && after[2] == paid(before[2],eventId))) && (after.size() <= 3 || after[3] == before[3] || (before[3].paymentId == null && after[3] == paid(before[3],eventId))) && (after.size() <= 4 || after[4] == before[4] || (before[4].paymentId == null && after[4] == paid(before[4],eventId)));
+    }
+    function removedPayment(before,after) {
+      return before.size() <= 0 ? '' : before[0].paymentId != null && !(before[0] in after) ? before[0].paymentId :
+        before.size() <= 1 ? '' : before[1].paymentId != null && !(before[1] in after) ? before[1].paymentId :
+        before.size() <= 2 ? '' : before[2].paymentId != null && !(before[2] in after) ? before[2].paymentId :
+        before.size() <= 3 ? '' : before[3].paymentId != null && !(before[3] in after) ? before[3].paymentId :
+        before.size() <= 4 ? '' : before[4].paymentId != null && !(before[4] in after) ? before[4].paymentId : '';
+    }
+    function reversedItems(before,after,eventId) {
+      return before.size() == after.size() && (after.size() <= 0 || after[0] == before[0] || (before[0].paymentId == eventId && after[0] == unpaid(before[0]))) && (after.size() <= 1 || after[1] == before[1] || (before[1].paymentId == eventId && after[1] == unpaid(before[1]))) && (after.size() <= 2 || after[2] == before[2] || (before[2].paymentId == eventId && after[2] == unpaid(before[2]))) && (after.size() <= 3 || after[3] == before[3] || (before[3].paymentId == eventId && after[3] == unpaid(before[3]))) && (after.size() <= 4 || after[4] == before[4] || (before[4].paymentId == eventId && after[4] == unpaid(before[4])));
+    }
+
+    function pairedEvent(uid,id,e) {
+      let t = getAfter(/databases/$(database)/documents/users/$(uid)/transactions/$(id)).data;
+      return t.id == id && t.source == e.kind && t.sourceId == e.referenceId && t.amountMinor == e.amountMinor
+        && t.currency == e.currency && t.accountId == e.accountId && t.date == e.date && !t.scheduled;
+    }
+    function pairedTransaction(uid,id,t) {
+      let e = getAfter(/databases/$(database)/documents/users/$(uid)/financialEvents/$(id)).data;
+      return e.transactionId == id && e.kind == t.source && e.referenceId == t.sourceId && e.amountMinor == t.amountMinor
+        && e.currency == t.currency && e.accountId == t.accountId && e.date == t.date && !t.scheduled;
+    }
+
+    match /users/{uid} {
+      allow read: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.keys().hasAll(['id', 'name', 'email', 'baseCurrency', 'schemaVersion'])
+        && request.resource.data.keys().hasOnly(['id', 'name', 'email', 'baseCurrency', 'schemaVersion', 'photoPath', 'photoUpdatedAt'])
+        && request.resource.data.id == uid
+        && text(request.resource.data.name, 100)
+        && request.resource.data.email == request.auth.token.email
+        && currency(request.resource.data.baseCurrency)
+        && request.resource.data.schemaVersion == 2
+        && request.resource.data.get('photoPath','') in ['', 'users/' + uid + '/profile/avatar.jpg']
+        && request.resource.data.get('photoUpdatedAt',0) is int && request.resource.data.get('photoUpdatedAt',0) >= 0;
+      allow delete: if false;
+
+      // Persetujuan, kuota AI, dan hak Premium hanya ditulis Cloud Functions (Admin SDK).
+      match /ai/{id} {
+        allow read: if owner(uid) && id in ['consent', 'usage'];
+        allow write: if false;
+      }
+      match /entitlements/{id} {
+        allow read: if owner(uid) && id == 'premium';
+        allow write: if false;
+      }
+
+      match /settings/{id} {
+        allow read: if owner(uid) && id == 'appearance';
+        allow create, update: if owner(uid) && id == 'appearance'
+          && request.resource.data.keys().hasOnly(['version', 'payload'])
+          && request.resource.data.version == 1 && text(request.resource.data.payload, 16000);
+        allow delete: if owner(uid) && id == 'appearance';
+      }
+
+      match /accounts/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id', 'name', 'type', 'currency', 'openingBalanceMinor', 'archived', 'createdAt'])
+            && d.keys().hasOnly(['id', 'name', 'type', 'currency', 'openingBalanceMinor', 'archived', 'createdAt','excludedFromTotal','parentId','icon','color','goalId'])
+            && d.id == id && text(d.name, 100)
+            && d.type in ['cash', 'bank', 'ewallet', 'credit', 'investment', 'loan','savings']
+            && currency(d.currency) && d.openingBalanceMinor is int
+            && d.openingBalanceMinor >= -9000000000000000 && d.openingBalanceMinor <= 9000000000000000
+            && d.archived is bool && d.createdAt is int && d.get('excludedFromTotal',false) is bool
+            && text(d.get('icon','account_balance_wallet'),100) && color(d.get('color',4280391411))
+            && nullableId(d.get('parentId',null),1000) && nullableId(d.get('goalId',null),200)
+            && (d.get('parentId',null) == null || (d.parentId != id && !account(uid,d.parentId).archived
+              && account(uid,d.parentId).get('parentId',null) == null && account(uid,d.parentId).currency == d.currency))
+            && (d.type == 'savings' ? (d.openingBalanceMinor == 0 && d.get('parentId',null) == null && d.get('goalId',null) != null
+              && getAfter(/databases/$(database)/documents/users/$(uid)/goals/$(d.goalId)).data.holdingAccountId == id
+              && getAfter(/databases/$(database)/documents/users/$(uid)/goals/$(d.goalId)).data.currency == d.currency
+              && getAfter(/databases/$(database)/documents/users/$(uid)/goals/$(d.goalId)).data.archived == d.archived)
+              : d.get('goalId',null) == null);
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && (request.resource.data.type != 'savings'
+          || (request.resource.data.id == 'goal-' + request.resource.data.goalId
+            && ((!exists(/databases/$(database)/documents/users/$(uid)/goals/$(request.resource.data.goalId))
+                && getAfter(/databases/$(database)/documents/users/$(uid)/goals/$(request.resource.data.goalId)).data.get('revision',0) == 0
+                && getAfter(/databases/$(database)/documents/users/$(uid)/goals/$(request.resource.data.goalId)).data.get('lastEventId',null) == null
+                && getAfter(/databases/$(database)/documents/users/$(uid)/goals/$(request.resource.data.goalId)).data.savedMinor == getAfter(/databases/$(database)/documents/users/$(uid)/goals/$(request.resource.data.goalId)).data.legacySavedMinor)
+              || existsAfter(/databases/$(database)/documents/users/$(uid)/financialEvents/$(getAfter(/databases/$(database)/documents/users/$(uid)/goals/$(request.resource.data.goalId)).data.lastEventId)))));
+        allow update: if owner(uid) && valid() && request.resource.data.currency == resource.data.currency
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (resource.data.type == 'savings' ? (request.resource.data.type == 'savings' && request.resource.data.goalId == resource.data.goalId
+            && request.resource.data.openingBalanceMinor == resource.data.openingBalanceMinor) : request.resource.data.type != 'savings');
+        // Arsipkan agar referensi transaksi tidak terputus.
+        allow delete: if false;
+      }
+      match /categories/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id', 'name', 'type']) && d.keys().hasOnly(['id', 'name', 'type','parentId','icon','color'])
+            && d.id == id && text(d.name, 100) && d.type in ['income', 'expense']
+            && d.get('icon','') is string && d.get('icon','').size() <= 100 && (d.get('color',null) == null || color(d.color))
+            && nullableId(d.get('parentId',null),1000)
+            && (d.get('parentId',null) == null || (d.parentId != id && category(uid,d.parentId).type == d.type && category(uid,d.parentId).get('parentId',null) == null));
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid();
+        allow update: if owner(uid) && valid() && request.resource.data.type == resource.data.type
+          && request.resource.data.get('parentId',null) == resource.data.get('parentId',null);
+        allow delete: if false;
+      }
+      match /transactions/{id} {
+        function valid() {
+          let d = request.resource.data;
+          let from = account(uid, d.accountId);
+          return d.keys().hasAll(['id', 'type', 'amountMinor', 'currency', 'accountId', 'categoryId', 'title', 'description', 'date', 'toAccountId', 'receivedAmountMinor', 'createdAt', 'updatedAt', 'source', 'sourceId', 'scheduled'])
+            && d.keys().hasOnly(['id', 'type', 'amountMinor', 'currency', 'accountId', 'categoryId', 'title', 'description', 'date', 'toAccountId', 'receivedAmountMinor', 'createdAt', 'updatedAt', 'source', 'sourceId', 'scheduled','subcategoryId','tags'])
+            && d.id == id && d.type in ['income', 'expense', 'transfer']
+            && money(d.amountMinor) && d.amountMinor > 0 && currency(d.currency)
+            && text(d.accountId, 1000) && text(d.categoryId, 1000)
+            && d.title is string && d.title.size() <= 300 && d.description is string && d.description.size() <= 4000
+            && date(d.date) && d.scheduled is bool && d.createdAt is int && d.updatedAt is int
+            && d.source in ['manual', 'ivy', 'finflow', 'notification', 'bill', 'debt_initial', 'debt_payment', 'reimbursement', 'recurring','bundle','goal_deposit','goal_withdrawal']
+            && (d.sourceId == null || (d.sourceId is string && d.sourceId.size() <= 200))
+            && !from.archived && from.currency == d.currency
+            && tagsValid(d.get('tags',[])) && nullableId(d.get('subcategoryId',null),1000)
+            && (d.get('subcategoryId',null) == null || (d.type != 'transfer' && category(uid,d.subcategoryId).parentId == d.categoryId && category(uid,d.subcategoryId).type == d.type))
+            && (from.type != 'savings' || d.source in ['goal_deposit','goal_withdrawal'])
+            && ((d.type == 'transfer' && text(d.toAccountId, 1000) && d.toAccountId != d.accountId
+                && money(d.receivedAmountMinor) && d.receivedAmountMinor > 0 && !account(uid, d.toAccountId).archived
+                && (account(uid,d.toAccountId).type != 'savings' || d.source in ['goal_deposit','goal_withdrawal']))
+              || (d.type != 'transfer' && d.toAccountId == null && d.receivedAmountMinor == null
+                && getAfter(/databases/$(database)/documents/users/$(uid)/categories/$(d.categoryId)).data.type == d.type));
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && (!managed(request.resource.data.source) || pairedTransaction(uid,id,request.resource.data));
+        allow update: if owner(uid) && valid()
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.source == resource.data.source
+          && request.resource.data.sourceId == resource.data.sourceId && !managed(resource.data.source)
+          && (!existsAfter(/databases/$(database)/documents/users/$(uid)/reimbursements/$(id))
+            || (request.resource.data.type == resource.data.type && request.resource.data.amountMinor == resource.data.amountMinor
+              && request.resource.data.currency == resource.data.currency && request.resource.data.accountId == resource.data.accountId && !request.resource.data.scheduled));
+        allow delete: if owner(uid) && !existsAfter(/databases/$(database)/documents/users/$(uid)/reimbursements/$(id))
+          && (!managed(resource.data.source) || !existsAfter(/databases/$(database)/documents/users/$(uid)/financialEvents/$(id)));
+      }
+      match /budgets/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id', 'categoryId', 'limitMinor', 'currency', 'month'])
+            && d.keys().hasOnly(['id', 'categoryId', 'limitMinor', 'currency', 'month','title','period']) && d.id == id
+            && money(d.limitMinor) && d.limitMinor > 0 && currency(d.currency)
+            && d.get('title','') is string && d.get('title','').size() <= 100 && d.get('period','monthly') in ['monthly','weekly']
+            && d.month is string && (d.get('period','monthly') == 'monthly' ? d.month.matches('^[0-9]{4}-(0[1-9]|1[0-2])$') : date(d.month))
+            && getAfter(/databases/$(database)/documents/users/$(uid)/categories/$(d.categoryId)).data.type == 'expense';
+        }
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && valid();
+      }
+      match /goals/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id', 'name', 'targetMinor', 'savedMinor', 'currency', 'targetDate'])
+            && d.keys().hasOnly(['id', 'name', 'targetMinor', 'savedMinor', 'currency', 'targetDate','bucketType','protection','holdingAccountId','legacySavedMinor','archived','revision','lastEventId'])
+            && d.id == id && text(d.name, 100) && money(d.targetMinor) && d.targetMinor > 0
+            && money(d.savedMinor) && currency(d.currency) && (d.targetDate == '' || date(d.targetDate))
+            && d.get('bucketType','standard') in ['standard','emergency','locked'] && d.get('protection','flexible') in ['flexible','soft','hard']
+            && d.get('archived',false) is bool && d.get('revision',0) is int && d.get('revision',0) >= 0
+            && money(d.get('legacySavedMinor',0)) && d.get('legacySavedMinor',0) <= d.savedMinor
+            && nullableId(d.get('holdingAccountId',null),1000) && nullableId(d.get('lastEventId',null),300)
+            && (d.get('holdingAccountId',null) == null ? d.get('legacySavedMinor',0) == 0
+              : (account(uid,d.holdingAccountId).type == 'savings' && account(uid,d.holdingAccountId).goalId == id
+                && account(uid,d.holdingAccountId).currency == d.currency && account(uid,d.holdingAccountId).archived == d.get('archived',false)
+                && (!d.get('archived',false) || d.savedMinor == d.legacySavedMinor)));
+        }
+        function financialMetadataUnchanged(d,before) {
+          return d.savedMinor == before.savedMinor && d.get('holdingAccountId',null) == before.get('holdingAccountId',null)
+            && d.get('legacySavedMinor',0) == before.get('legacySavedMinor',0) && d.get('lastEventId',null) == before.get('lastEventId',null);
+        }
+        function movementConsistent(d,before) {
+          let eventPath = /databases/$(database)/documents/users/$(uid)/financialEvents/$(d.get('lastEventId',null) == null ? '__none__' : d.lastEventId);
+          let e = getAfter(eventPath).data;
+          return d.get('lastEventId',null) != null && !exists(eventPath) && existsAfter(eventPath)
+            && e.kind in ['goal_deposit','goal_withdrawal'] && e.referenceId == id && e.currency == d.currency
+            && !d.archived && !before.get('archived',false)
+            && d.holdingAccountId == (before.get('holdingAccountId',null) == null ? 'goal-' + id : before.holdingAccountId)
+            && d.legacySavedMinor == (before.get('holdingAccountId',null) == null ? before.savedMinor : before.legacySavedMinor)
+            && (e.kind == 'goal_deposit' ? d.savedMinor == before.savedMinor + e.amountMinor
+              : (before.get('holdingAccountId',null) != null && d.savedMinor == before.savedMinor - e.amountMinor));
+        }
+        function reversalConsistent(d,before) {
+          let eventPath = /databases/$(database)/documents/users/$(uid)/financialEvents/$(d.get('lastEventId',null) == null ? '__none__' : d.lastEventId);
+          let e = get(eventPath).data;
+          return d.get('lastEventId',null) != null && exists(eventPath) && !existsAfter(eventPath)
+            && e.kind in ['goal_deposit','goal_withdrawal'] && e.referenceId == id && e.currency == d.currency
+            && d.holdingAccountId == before.holdingAccountId && d.legacySavedMinor == before.legacySavedMinor && !d.archived
+            && (e.kind == 'goal_deposit' ? d.savedMinor == before.savedMinor - e.amountMinor : d.savedMinor == before.savedMinor + e.amountMinor);
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && request.resource.data.get('revision',0) == 0
+          && request.resource.data.get('lastEventId',null) == null
+          && (request.resource.data.get('holdingAccountId',null) == null ? request.resource.data.get('legacySavedMinor',0) == 0
+            : (request.resource.data.holdingAccountId == 'goal-' + id && request.resource.data.savedMinor == request.resource.data.legacySavedMinor
+              && !request.resource.data.archived && !exists(/databases/$(database)/documents/users/$(uid)/accounts/$(request.resource.data.holdingAccountId))));
+        allow update: if owner(uid) && valid() && request.resource.data.currency == resource.data.currency
+          && request.resource.data.get('revision',0) == resource.data.get('revision',0) + 1
+          && (financialMetadataUnchanged(request.resource.data,resource.data) || movementConsistent(request.resource.data,resource.data) || reversalConsistent(request.resource.data,resource.data));
+        allow delete: if owner(uid) && resource.data.get('holdingAccountId',null) == null;
+      }
+      match /investments/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id', 'name', 'type', 'investedMinor', 'currentMinor', 'dividendsMinor', 'currency', 'platform', 'notes'])
+            && d.keys().hasOnly(['id', 'name', 'type', 'investedMinor', 'currentMinor', 'dividendsMinor', 'currency', 'platform', 'notes'])
+            && d.id == id && text(d.name, 100) && d.type in ['saham', 'reksaDana', 'crypto', 'emas', 'deposito', 'properti', 'p2pLending']
+            && money(d.investedMinor) && d.investedMinor > 0 && money(d.currentMinor) && money(d.dividendsMinor)
+            && currency(d.currency) && d.platform is string && d.platform.size() <= 100 && d.notes is string && d.notes.size() <= 4000;
+        }
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && valid();
+      }
+      match /bills/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id','title','amountMinor','currency','accountId','categoryId','dueDate','frequency','anchorDay','note','paidAt','lastPaymentId','archived','revision','createdAt'])
+            && d.keys().hasOnly(['id','title','amountMinor','currency','accountId','categoryId','dueDate','frequency','anchorDay','note','paidAt','lastPaymentId','archived','revision','createdAt'])
+            && d.id == id && text(d.title,100) && money(d.amountMinor) && d.amountMinor > 0 && currency(d.currency)
+            && account(uid,d.accountId).currency == d.currency && getAfter(/databases/$(database)/documents/users/$(uid)/categories/$(d.categoryId)).data.type == 'expense'
+            && date(d.dueDate) && d.frequency in ['once','weekly','monthly','yearly'] && d.anchorDay is int && d.anchorDay >= 1 && d.anchorDay <= 31
+            && d.note is string && d.note.size() <= 4000 && d.paidAt is int && d.paidAt >= 0
+            && (d.lastPaymentId == null || text(d.lastPaymentId,300)) && d.archived is bool && d.revision is int && d.revision >= 0 && d.createdAt is int;
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && request.resource.data.revision == 0 && request.resource.data.paidAt == 0 && request.resource.data.lastPaymentId == null;
+        allow update: if owner(uid) && valid() && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if false;
+      }
+      match /debts/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id','person','direction','amountMinor','paidMinor','currency','accountId','issueDate','dueDate','includeBalance','note','archived','lastEventId','revision','createdAt'])
+            && d.keys().hasOnly(['id','person','direction','amountMinor','paidMinor','currency','accountId','issueDate','dueDate','includeBalance','note','archived','lastEventId','revision','createdAt'])
+            && d.id == id && text(d.person,100) && d.direction in ['borrowed','lent'] && money(d.amountMinor) && d.amountMinor > 0 && money(d.paidMinor) && d.paidMinor <= d.amountMinor
+            && currency(d.currency) && account(uid,d.accountId).currency == d.currency && date(d.issueDate) && date(d.dueDate) && d.dueDate >= d.issueDate
+            && d.includeBalance is bool && d.archived is bool && d.note is string && d.note.size() <= 4000
+            && (d.lastEventId == null || text(d.lastEventId,300)) && d.revision is int && d.revision >= 0 && d.createdAt is int;
+        }
+        function paymentConsistent() {
+          let d = request.resource.data;
+          let before = resource.data;
+          let eventPath = /databases/$(database)/documents/users/$(uid)/financialEvents/$(d.lastEventId == null ? '__none__' : d.lastEventId);
+          return (d.paidMinor == before.paidMinor && d.lastEventId == before.lastEventId)
+            || (d.lastEventId != null && existsAfter(eventPath) && getAfter(eventPath).data.kind == 'debt_payment'
+              && getAfter(eventPath).data.referenceId == id && d.paidMinor == before.paidMinor + getAfter(eventPath).data.amountMinor)
+            || (d.lastEventId != null && exists(eventPath) && !existsAfter(eventPath) && get(eventPath).data.kind == 'debt_payment'
+              && get(eventPath).data.referenceId == id && d.paidMinor == before.paidMinor - get(eventPath).data.amountMinor);
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && request.resource.data.revision == 0 && request.resource.data.paidMinor == 0 && request.resource.data.lastEventId == null
+          && (!request.resource.data.includeBalance || existsAfter(/databases/$(database)/documents/users/$(uid)/financialEvents/$('debt-initial-' + id)));
+        allow update: if owner(uid) && valid() && paymentConsistent()
+          && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.amountMinor == resource.data.amountMinor && request.resource.data.currency == resource.data.currency
+          && request.resource.data.accountId == resource.data.accountId && request.resource.data.direction == resource.data.direction
+          && request.resource.data.includeBalance == resource.data.includeBalance && request.resource.data.issueDate == resource.data.issueDate;
+        allow delete: if owner(uid) && resource.data.paidMinor == 0
+          && !existsAfter(/databases/$(database)/documents/users/$(uid)/financialEvents/$('debt-initial-' + id));
+      }
+      match /wishes/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id','title','targetMinor','currency','priority','link','note','fulfilled','createdAt'])
+            && d.keys().hasOnly(['id','title','targetMinor','currency','priority','link','note','fulfilled','createdAt'])
+            && d.id == id && text(d.title,100) && money(d.targetMinor) && d.targetMinor > 0 && currency(d.currency)
+            && d.priority in ['low','medium','high'] && d.link is string && d.link.size() <= 2000
+            && (d.link == '' || d.link.matches('^https?://.*')) && d.note is string && d.note.size() <= 4000 && d.fulfilled is bool && d.createdAt is int;
+        }
+        allow read, delete: if owner(uid);
+        allow create: if owner(uid) && valid();
+        allow update: if owner(uid) && valid() && request.resource.data.createdAt == resource.data.createdAt;
+      }
+      match /cards/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id','name','brand','lastFour','accountId','expiryMonth','expiryYear','note','createdAt'])
+            && d.keys().hasOnly(['id','name','brand','lastFour','accountId','expiryMonth','expiryYear','note','createdAt','recordType','accountNumber','ownerName','label','branch','ownership','category','pinned','color','design'])
+            && d.id == id && text(d.name,100) && d.brand in ['visa','mastercard','jcb','amex','other']
+            && d.get('recordType','card') in ['bank','card','ewallet','other'] && d.lastFour is string
+            && (d.get('recordType','card') == 'card' ? (d.lastFour.matches('^[0-9]{4}$') && d.get('accountNumber','') == '')
+              : ((d.lastFour == '' || d.lastFour.matches('^[0-9]{4}$')) && text(d.get('accountNumber',''),120) && d.accountNumber.size() >= 4))
+            && d.get('ownerName','') is string && d.get('ownerName','').size() <= 100
+            && d.get('label','') is string && d.get('label','').size() <= 100 && d.get('branch','') is string && d.get('branch','').size() <= 100
+            && d.get('ownership','personal') in ['personal','business'] && d.get('category','main') in ['main','savings','business','other']
+            && d.get('pinned',false) is bool && color(d.get('color',4280391411)) && d.get('design',0) is int && d.get('design',0) >= 0 && d.get('design',0) <= 6
+            && d.accountId is string
+            && (d.accountId == '' || existsAfter(/databases/$(database)/documents/users/$(uid)/accounts/$(d.accountId)))
+            && d.expiryMonth is int && d.expiryYear is int && ((d.expiryMonth == 0 && d.expiryYear == 0) || (d.expiryMonth >= 1 && d.expiryMonth <= 12 && d.expiryYear >= 2000 && d.expiryYear <= 2199))
+            && d.note is string && d.note.size() <= 4000 && d.createdAt is int;
+        }
+        allow read, delete: if owner(uid);
+        allow create: if owner(uid) && valid();
+        allow update: if owner(uid) && valid() && request.resource.data.createdAt == resource.data.createdAt;
+      }
+      match /notes/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id','title','body','pinned','createdAt','updatedAt'])
+            && d.keys().hasOnly(['id','title','body','pinned','createdAt','updatedAt','kind','currency','accountId','recordAs','items','archived','revision','lastPaymentId'])
+            && d.id == id && text(d.title,100) && d.body is string && d.body.size() <= 10000 && d.pinned is bool && d.createdAt is int && d.updatedAt is int
+            && d.get('kind','note') in ['note','bundle'] && currency(d.get('currency','IDR')) && nullableId(d.get('accountId',null),1000)
+            && d.get('recordAs','single') in ['single','items'] && d.get('archived',false) is bool
+            && d.get('revision',0) is int && d.get('revision',0) >= 0 && nullableId(d.get('lastPaymentId',null),300)
+            && d.get('items',[]) is list && d.get('items',[]).size() <= 5
+            && (d.get('kind','note') == 'note' ? d.get('items',[]).size() == 0
+              : (d.items.size() > 0 && d.get('accountId',null) != null && account(uid,d.accountId).currency == d.currency));
+        }
+        function paymentConsistent(d,before) {
+          let eventPath = /databases/$(database)/documents/users/$(uid)/financialEvents/$(d.get('lastPaymentId',null) == null ? '__none__' : d.lastPaymentId);
+          let e = getAfter(eventPath).data;
+          return d.get('lastPaymentId',null) != null && d.lastPaymentId != before.get('lastPaymentId',null) && !exists(eventPath) && existsAfter(eventPath)
+            && e.kind == 'bundle' && e.referenceId == id && e.currency == d.currency && !d.archived && !before.get('archived',false)
+            && d.kind == 'bundle' && before.get('kind','note') == 'bundle' && d.currency == before.currency && d.recordAs == before.recordAs
+            && e.previousEventId == before.get('lastPaymentId',null)
+            && paidIntroduced(before.get('items',[]),d.items,e.id);
+        }
+        function reversalConsistent(d,before) {
+          let deletedId = removedPayment(before.get('items',[]),d.get('items',[]));
+          let eventPath = /databases/$(database)/documents/users/$(uid)/financialEvents/$(deletedId == '' ? '__none__' : deletedId);
+          let e = get(eventPath).data;
+          return deletedId != '' && exists(eventPath) && !existsAfter(eventPath) && e.kind == 'bundle' && e.referenceId == id
+            && d.kind == before.kind && d.currency == before.currency && d.recordAs == before.recordAs && !d.archived
+            && d.get('lastPaymentId',null) == (before.get('lastPaymentId',null) == deletedId ? e.previousEventId : before.get('lastPaymentId',null))
+            && reversedItems(before.items,d.items,deletedId);
+        }
+        function financialMetadataConsistent(d,before) {
+          return (d.get('lastPaymentId',null) == before.get('lastPaymentId',null)
+              && ((d.get('kind','note') == before.get('kind','note') && d.get('currency','IDR') == before.get('currency','IDR') && d.get('recordAs','single') == before.get('recordAs','single'))
+                || allUnpaid(before.get('items',[])))
+              && (d.get('items',[]) == before.get('items',[]) || (((allUnpaid(before.get('items',[])) && allUnpaid(d.get('items',[])))
+                  || (paidPreserved(before.get('items',[]),d.get('items',[])) && paidPreserved(d.get('items',[]),before.get('items',[]))))
+                && itemsValid(d.get('items',[]),false,before.get('items',[])))))
+            || paymentConsistent(d,before) || reversalConsistent(d,before);
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && itemsValid(request.resource.data.get('items',[]),true,[]) && request.resource.data.get('revision',0) == 0 && request.resource.data.get('lastPaymentId',null) == null;
+        allow update: if owner(uid) && valid() && request.resource.data.createdAt == resource.data.createdAt
+          && ((!('revision' in resource.data) && !('revision' in request.resource.data)) || request.resource.data.get('revision',0) == resource.data.get('revision',0) + 1)
+          && financialMetadataConsistent(request.resource.data,resource.data);
+        allow delete: if owner(uid) && allUnpaid(resource.data.get('items',[]));
+      }
+      match /reimbursements/{id} {
+        function valid() {
+          let d = request.resource.data;
+          let expense = getAfter(/databases/$(database)/documents/users/$(uid)/transactions/$(d.expenseId)).data;
+          return d.keys().hasAll(['id','expenseId','title','party','amountMinor','currency','accountId','note','receivedAt','receivedAccountId','revision','createdAt'])
+            && d.keys().hasOnly(['id','expenseId','title','party','amountMinor','currency','accountId','note','receivedAt','receivedAccountId','revision','createdAt'])
+            && d.id == id && d.expenseId == id && text(d.title,100) && text(d.party,100) && money(d.amountMinor) && d.amountMinor > 0 && currency(d.currency)
+            && expense.type == 'expense' && !expense.scheduled && d.amountMinor <= expense.amountMinor && d.currency == expense.currency && d.accountId == expense.accountId
+            && d.note is string && d.note.size() <= 4000 && d.receivedAt is int && d.receivedAt >= 0
+            && ((d.receivedAt == 0 && d.receivedAccountId == null) || (d.receivedAt > 0 && account(uid,d.receivedAccountId).currency == d.currency))
+            && d.revision is int && d.revision >= 0 && d.createdAt is int;
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && request.resource.data.revision == 0 && request.resource.data.receivedAt == 0 && request.resource.data.receivedAccountId == null;
+        allow update: if owner(uid) && valid() && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if owner(uid) && resource.data.receivedAt == 0;
+      }
+      match /recurring/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id','title','type','amountMinor','currency','accountId','categoryId','frequency','interval','anchorDay','startDate','nextDate','endDate','active','note','lastEventId','revision','createdAt'])
+            && d.keys().hasOnly(['id','title','type','amountMinor','currency','accountId','categoryId','frequency','interval','anchorDay','startDate','nextDate','endDate','active','note','lastEventId','revision','createdAt'])
+            && d.id == id && text(d.title,100) && d.type in ['income','expense'] && money(d.amountMinor) && d.amountMinor > 0 && currency(d.currency)
+            && account(uid,d.accountId).currency == d.currency && getAfter(/databases/$(database)/documents/users/$(uid)/categories/$(d.categoryId)).data.type == d.type
+            && d.frequency in ['daily','weekly','monthly','yearly'] && d.interval is int && d.interval >= 1 && d.interval <= 120 && d.anchorDay is int && d.anchorDay >= 1 && d.anchorDay <= 31
+            && date(d.startDate) && date(d.nextDate) && d.nextDate >= d.startDate && (d.endDate == null || (date(d.endDate) && d.endDate >= d.startDate))
+            && d.active is bool && d.note is string && d.note.size() <= 4000 && (d.lastEventId == null || text(d.lastEventId,300)) && d.revision is int && d.revision >= 0 && d.createdAt is int;
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && request.resource.data.revision == 0 && request.resource.data.lastEventId == null && request.resource.data.nextDate == request.resource.data.startDate;
+        allow update: if owner(uid) && valid() && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.createdAt == resource.data.createdAt && request.resource.data.startDate == resource.data.startDate;
+        allow delete: if false;
+      }
+      match /financialEvents/{id} {
+        function expectedType(e) {
+          return e.kind in ['bill','bundle'] ? 'expense' : e.kind in ['goal_deposit','goal_withdrawal'] ? 'transfer' : e.kind == 'reimbursement' ? 'income'
+            : e.kind == 'recurring' ? getAfter(/databases/$(database)/documents/users/$(uid)/recurring/$(e.referenceId)).data.type
+            : e.kind == 'debt_initial' ? (getAfter(/databases/$(database)/documents/users/$(uid)/debts/$(e.referenceId)).data.direction == 'borrowed' ? 'income' : 'expense')
+            : (getAfter(/databases/$(database)/documents/users/$(uid)/debts/$(e.referenceId)).data.direction == 'borrowed' ? 'expense' : 'income');
+        }
+        function bundleLinked(e) {
+          let notePath = /databases/$(database)/documents/users/$(uid)/notes/$(e.referenceId);
+          let before = get(notePath).data;
+          let after = getAfter(notePath).data;
+          return after.kind == 'bundle' && !after.archived && after.currency == e.currency && after.lastPaymentId == id
+            && after.revision == before.get('revision',0) + 1 && after.accountId == e.accountId
+            && e.get('itemIds',[]) is list && e.itemIds.size() > 0 && e.itemIds.size() <= 5 && e.itemIds.toSet().size() == e.itemIds.size()
+            && (after.recordAs != 'items' || e.itemIds.size() == 1)
+            && itemKeys(after.items,id).toSet() == e.itemIds.toSet() && itemsAmount(after.items,id) == e.amountMinor
+            && itemKeys(before.get('items',[]),id).size() == 0;
+        }
+        function goalLinked(e) {
+          let goalPath = /databases/$(database)/documents/users/$(uid)/goals/$(e.referenceId);
+          let before = get(goalPath).data;
+          let after = getAfter(goalPath).data;
+          let t = getAfter(/databases/$(database)/documents/users/$(uid)/transactions/$(id)).data;
+          return !after.archived && !before.get('archived',false) && after.currency == e.currency && after.lastEventId == id
+            && after.revision == before.get('revision',0) + 1 && t.receivedAmountMinor == e.amountMinor
+            && e.get('itemIds',[]).size() == 0
+            && (e.kind == 'goal_deposit' ? (t.toAccountId == after.holdingAccountId && account(uid,e.accountId).type != 'savings' && after.savedMinor == before.savedMinor + e.amountMinor)
+              : (t.accountId == after.holdingAccountId && account(uid,t.toAccountId).type != 'savings' && account(uid,t.toAccountId).currency == e.currency && after.savedMinor == before.savedMinor - e.amountMinor));
+        }
+        function deletionConsistent(e) {
+          let notePath = /databases/$(database)/documents/users/$(uid)/notes/$(e.referenceId);
+          let goalPath = /databases/$(database)/documents/users/$(uid)/goals/$(e.referenceId);
+          return e.kind == 'bundle' ? (existsAfter(notePath) && itemKeys(getAfter(notePath).data.items,id).size() == 0
+              && getAfter(notePath).data.revision == get(notePath).data.get('revision',0) + 1)
+            : e.kind in ['goal_deposit','goal_withdrawal'] ? (existsAfter(goalPath) && getAfter(goalPath).data.lastEventId == id
+              && getAfter(goalPath).data.revision == get(goalPath).data.get('revision',0) + 1
+              && (e.kind == 'goal_deposit' ? getAfter(goalPath).data.savedMinor == get(goalPath).data.savedMinor - e.amountMinor
+                : getAfter(goalPath).data.savedMinor == get(goalPath).data.savedMinor + e.amountMinor)) : true;
+        }
+        function valid() {
+          let d = request.resource.data;
+          return d.keys().hasAll(['id','kind','referenceId','title','amountMinor','currency','accountId','date','periodDate','transactionId','createdAt','previousEventId'])
+            && d.keys().hasOnly(['id','kind','referenceId','title','amountMinor','currency','accountId','date','periodDate','transactionId','createdAt','previousEventId','itemIds'])
+            && d.id == id && managed(d.kind) && text(d.referenceId,200) && text(d.title,300) && money(d.amountMinor) && d.amountMinor > 0 && currency(d.currency)
+            && account(uid,d.accountId).currency == d.currency && date(d.date) && date(d.periodDate) && d.createdAt is int
+            && (d.previousEventId == null || text(d.previousEventId,300)) && d.get('itemIds',[]) is list && (d.kind == 'bundle' || d.get('itemIds',[]).size() == 0)
+            && ((d.transactionId == id && pairedEvent(uid,id,d) && getAfter(/databases/$(database)/documents/users/$(uid)/transactions/$(id)).data.type == expectedType(d))
+              || (d.transactionId == null && d.kind == 'debt_payment' && !getAfter(/databases/$(database)/documents/users/$(uid)/debts/$(d.referenceId)).data.includeBalance))
+            && ((d.kind == 'bill' && getAfter(/databases/$(database)/documents/users/$(uid)/bills/$(d.referenceId)).data.lastPaymentId == id)
+              || (d.kind == 'debt_initial' && getAfter(/databases/$(database)/documents/users/$(uid)/debts/$(d.referenceId)).data.includeBalance && id == 'debt-initial-' + d.referenceId)
+              || (d.kind == 'debt_payment' && getAfter(/databases/$(database)/documents/users/$(uid)/debts/$(d.referenceId)).data.lastEventId == id)
+              || (d.kind == 'reimbursement' && getAfter(/databases/$(database)/documents/users/$(uid)/reimbursements/$(d.referenceId)).data.receivedAt > 0)
+              || (d.kind == 'recurring' && getAfter(/databases/$(database)/documents/users/$(uid)/recurring/$(d.referenceId)).data.lastEventId == id)
+              || (d.kind == 'bundle' && bundleLinked(d)) || (d.kind in ['goal_deposit','goal_withdrawal'] && goalLinked(d)));
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid();
+        allow update: if false;
+        allow delete: if owner(uid) && deletionConsistent(resource.data)
+          && (resource.data.transactionId == null || !existsAfter(/databases/$(database)/documents/users/$(uid)/transactions/$(resource.data.transactionId)));
+      }
+
+
+      // Data koneksi bank hanya boleh ditulis backend setelah verifikasi penyedia dan persetujuan pengguna.
+      match /connections/{id} { allow read: if owner(uid); allow write: if false; }
+      match /externalAccounts/{id} { allow read: if owner(uid); allow write: if false; }
+      match /syncEvents/{id} { allow read: if owner(uid); allow write: if false; }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

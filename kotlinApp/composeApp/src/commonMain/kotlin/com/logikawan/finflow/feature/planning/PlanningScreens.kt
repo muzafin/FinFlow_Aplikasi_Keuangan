@@ -1,0 +1,562 @@
+package com.logikawan.finflow.feature.planning
+
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.logikawan.finflow.core.model.*
+import com.logikawan.finflow.core.ui.*
+import com.logikawan.finflow.core.util.*
+import kotlinx.datetime.LocalDate
+import kotlin.math.roundToInt
+
+data class PlanningActions(
+    val bill:(Bill?)->Unit, val payBill:(Bill)->Unit,
+    val debt:(Debt?)->Unit, val payDebt:(Debt)->Unit,
+    val wish:(Wish?)->Unit, val fulfillWish:(Wish)->Unit,
+    val card:(WalletCard?)->Unit, val note:(FinanceNote?)->Unit,
+    val claim:(Reimbursement?)->Unit, val receiveClaim:(Reimbursement)->Unit,
+    val recurring:(RecurringTransaction?)->Unit, val processRecurring:()->Unit,
+    val manualScheduled:()->Unit, val addExpense:()->Unit, val reverse:(FinancialEvent)->Unit,
+    val payBundle:(FinanceNote,List<String>)->Unit = {_,_->}, val updateNote:(FinanceNote)->Unit = {},
+)
+
+@Composable
+fun PlanningScreen(page:String,data:FinanceData,busy:Boolean,actions:PlanningActions) {
+    when(page) {
+        "Tagihan" -> Bills(data,busy,actions)
+        "Utang" -> Debts(data,busy,actions)
+        "Keinginan" -> Wishes(data,busy,actions)
+        "Kartu" -> Cards(data,busy,actions)
+        "Catatan" -> Notes(data,busy,actions)
+        "Reimburse" -> Claims(data,busy,actions)
+        "Terjadwal" -> Recurring(data,busy,actions)
+    }
+}
+
+@Composable
+private fun PlanningList(data:FinanceData,busy:Boolean,addLabel:String,add:()->Unit,content:LazyListScope.()->Unit) {
+    Column(Modifier.fillMaxSize().testTag("planning-page")) {
+        if(!data.featuresReady) {
+            Box(Modifier.weight(1f).fillMaxWidth().padding(24.dp),contentAlignment=Alignment.Center) {
+                Text(data.featuresError?.let{"Data fitur gagal dimuat. $it\nBuka ulang aplikasi untuk memuat kembali."} ?: "Memuat data…",style=FFType.bodyMain,color=if(data.featuresError!=null) FFColors.expense else FFColors.outline)
+            }
+        } else LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("planning-list"),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp),content=content)
+        Button(onClick=add,enabled=data.featuresReady && !busy,modifier=Modifier.fillMaxWidth().padding(20.dp).height(50.dp),shape=RoundedCornerShape(20.dp)) { Text(addLabel,fontWeight=FontWeight.Bold) }
+    }
+}
+
+@Composable
+private fun EmptyPlanning(title:String,message:String) {
+    DesignCard {
+        Text(title,style=FFType.sectionTitle)
+        Spacer(Modifier.height(8.dp));Text(message,style=FFType.bodyMain,color=FFColors.outline)
+    }
+}
+
+@Composable
+private fun PaymentHistory(event:FinancialEvent,busy:Boolean,reverse:(FinancialEvent)->Unit) {
+    val accent=when(event.kind){"goal_withdrawal"->FFColors.income else->FFColors.expense}
+    val icon=when(event.kind){"goal_deposit","reimbursement"->"arrow_downward_rounded" "goal_withdrawal"->"arrow_upward_rounded" "bundle"->"checklist_rounded" "bill"->"receipt_long_rounded" else->"payments_rounded"}
+    DesignCard {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(accent.copy(alpha=.12f)),contentAlignment=Alignment.Center){FFIcon(icon,accent,20.dp)}
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(event.title,style=FFType.bodyMain.copy(fontSize=15.sp,lineHeight=20.sp),fontWeight=FontWeight.SemiBold,color=FFColors.onSurface,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(shortDateLabel(event.date),style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            }
+            Box(Modifier.weight(1f)){FitMoneyText(moneyLabel(event.amountMinor,event.currency),FFType.amountMd,accent,TextAlign.End)}
+            OlloMenuButton(listOf(OlloMenuItem("reverse","Batalkan Pencatatan","delete_outline_rounded"))){key->if(key=="reverse"&&!busy)reverse(event)}
+        }
+    }
+}
+
+@Composable
+private fun Bills(data:FinanceData,busy:Boolean,a:PlanningActions) {
+    var tab by rememberSaveable{mutableIntStateOf(0)}
+    var sortAmount by rememberSaveable{mutableStateOf(false)}
+    var showArchived by rememberSaveable{mutableStateOf(false)}
+    val unpaid=data.bills.filter{!it.archived && it.paidAt==0L}.let{list->if(sortAmount)list.sortedBy{it.amountMinor} else list.sortedBy{it.dueDate}}
+    val paid=data.bills.filter{it.paidAt>0L}.sortedByDescending{it.paidAt}
+    val archived=data.bills.filter{it.archived}.sortedBy{it.dueDate}
+    val events=data.financialEvents.filter{it.kind=="bill"}.sortedByDescending{it.createdAt}
+    Box(Modifier.fillMaxSize().testTag("planning-page")) {
+        if(!data.featuresReady) {
+            Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.Center) {
+                Text(data.featuresError?.let{"Data fitur gagal dimuat. $it\nBuka ulang aplikasi untuk memuat kembali."} ?: "Memuat data…",style=FFType.bodyMain,color=if(data.featuresError!=null) FFColors.expense else FFColors.outline,textAlign=TextAlign.Center)
+            }
+        } else LazyColumn(Modifier.fillMaxSize().testTag("planning-list"),contentPadding=PaddingValues(start=16.dp,end=16.dp,bottom=104.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(top=4.dp),horizontalArrangement=Arrangement.End) {
+                    OlloMenuButton(listOf(
+                        OlloMenuItem("sort",if(sortAmount)"Urutkan Jatuh Tempo" else "Urutkan Nominal","filter_list_rounded"),
+                        OlloMenuItem("archive",if(showArchived)"Sembunyikan Arsip" else "Tampilkan Arsip","archive_rounded"),
+                    )){key->when(key){"sort"->sortAmount=!sortAmount;else->showArchived=!showArchived}}
+                }
+            }
+            (if(unpaid.isEmpty()) listOf(data.profile?.baseCurrency ?: "IDR") else unpaid.map{it.currency}.distinct()).forEach{currency->
+                item(key="bill-summary-$currency"){BillsSummary(unpaid.filter{it.currency==currency},currency)}
+            }
+            item { OlloSegmented(listOf("unpaid" to "Belum Bayar","paid" to "Lunas"),if(tab==0)"unpaid" else "paid",{tab=if(it=="unpaid")0 else 1},trailing={OlloRefreshButton{sortAmount=!sortAmount}}) }
+            if(tab==0) {
+                if(unpaid.isEmpty()) item { OlloEmptyState("check_rounded","SEMUA BERES!","Tagihan berulang berikutnya akan muncul di sini mendekati jatuh tempo.","Ketuk menu kanan atas untuk menampilkan arsip tagihan.") }
+                items(unpaid,key={it.id}){bill->BillCard(bill,busy,false,a)}
+                if(showArchived && archived.isNotEmpty()) {
+                    item{Text("Arsip Tagihan",style=FFType.sectionTitle,color=FFColors.onSurface)}
+                    items(archived,key={"arch-${it.id}"}){bill->BillCard(bill,busy,true,a)}
+                }
+            } else {
+                if(paid.isEmpty() && events.isEmpty()) item { OlloEmptyState("history_rounded","BELUM ADA PEMBAYARAN","Pembayaran tagihan akan tercatat di sini dan di jurnal transaksi.") }
+                items(paid,key={"paid-${it.id}"}){bill->PaidBillRow(bill,a)}
+                if(events.isNotEmpty()) item{Text("Riwayat Pembayaran",style=FFType.sectionTitle,color=FFColors.onSurface)}
+                items(events,key={"event-${it.id}"}){event->PaymentHistory(event,busy,a.reverse)}
+            }
+        }
+        if(data.featuresReady)Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){OlloFab({a.bill(null)},"Tambah tagihan")}
+    }
+}
+
+@Composable
+private fun BillsSummary(unpaid:List<Bill>,currency:String) {
+    val total=unpaid.fold(0L){sum,bill->checkedAdd(sum,bill.amountMinor)}
+    DesignCard {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Text("Total Belum Dibayar",Modifier.weight(1f),style=FFType.bodyMain.copy(fontSize=15.sp,lineHeight=20.sp),color=FFColors.onSurfaceVariant)
+            OlloPill("${unpaid.size} Tagihan",FFColors.outlineVariant,FFColors.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(10.dp))
+        FitMoneyText(moneyLabel(total,currency),FFType.amountLg.copy(fontSize=32.sp,lineHeight=40.sp),FFColors.onSurface)
+        Spacer(Modifier.height(14.dp))
+        if(unpaid.isEmpty()) OlloPill("Semua Lunas!",FFColors.income.copy(alpha=.12f),FFColors.income,icon="check_rounded")
+        else OlloPill("Jatuh tempo ${shortDateLabel(unpaid.minOf{it.dueDate})}",FFColors.expense.copy(alpha=.10f),FFColors.expense,icon="calendar_today_rounded")
+    }
+}
+
+@Composable
+private fun BillCard(bill:Bill,busy:Boolean,archived:Boolean,a:PlanningActions) {
+    val overdue=!archived && bill.dueDate<today().toString()
+    val accent=categoryColor(bill.categoryId)
+    val dueLabel=when{archived->"Diarsipkan";bill.frequency!="once"->"Jatuh tempo ${shortDateLabel(bill.dueDate)} · Berulang";else->"Jatuh tempo ${shortDateLabel(bill.dueDate)}"}
+    DesignCard(onClick={a.bill(bill)}) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(accent.copy(alpha=.12f)),contentAlignment=Alignment.Center){FFIcon(categoryIcon(bill.categoryId),accent,22.dp)}
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(bill.title,style=FFType.bodyMain.copy(fontSize=16.sp,lineHeight=22.sp),fontWeight=FontWeight.SemiBold,color=FFColors.onSurface,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(dueLabel,style=FFType.metaData,color=when{archived->FFColors.outline;overdue->FFColors.expense;else->FFColors.onSurfaceVariant})
+            }
+            if(!busy)OlloMenuButton(listOf(OlloMenuItem("pay","Bayar Tagihan","payments_rounded"),OlloMenuItem("edit","Edit Tagihan","edit_rounded"))){key->if(key=="pay")a.payBill(bill) else a.bill(bill)}
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)){FitMoneyText(moneyLabel(bill.amountMinor,bill.currency),FFType.amountMd.copy(fontSize=20.sp,lineHeight=26.sp,fontWeight=FontWeight.SemiBold),FFColors.onSurface)}
+            OlloPill(if(archived)"Arsip" else "Belum Bayar",if(archived)FFColors.outlineVariant else FFColors.expense.copy(alpha=.10f),if(archived)FFColors.onSurfaceVariant else FFColors.expense)
+        }
+        if(!archived){Spacer(Modifier.height(14.dp));OlloPrimaryButton("Bayar Tagihan",enabled=!busy){a.payBill(bill)}}
+    }
+}
+
+@Composable
+private fun PaidBillRow(bill:Bill,a:PlanningActions) {
+    DesignCard(onClick={a.bill(bill)}) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(FFColors.income.copy(alpha=.12f)),contentAlignment=Alignment.Center){FFIcon("check_rounded",FFColors.income,22.dp)}
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(bill.title,style=FFType.bodyMain.copy(fontSize=16.sp,lineHeight=22.sp),fontWeight=FontWeight.SemiBold,color=FFColors.onSurface,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text("Lunas · ${shortDateLabel(bill.dueDate)}",style=FFType.metaData,color=FFColors.income)
+            }
+            Box(Modifier.weight(1f)){FitMoneyText(moneyLabel(bill.amountMinor,bill.currency),FFType.amountMd,FFColors.onSurface,TextAlign.End)}
+        }
+    }
+}
+
+@Composable
+private fun Debts(data:FinanceData,busy:Boolean,a:PlanningActions) {
+    var direction by rememberSaveable{mutableStateOf("borrowed")}
+    var closed by rememberSaveable{mutableStateOf(false)}
+    var expanded by rememberSaveable{mutableStateOf<String?>(null)}
+    val entries=data.debts.filter{it.direction==direction && if(closed) it.archived || it.paidMinor>=it.amountMinor else !it.archived && it.paidMinor<it.amountMinor}
+    Box(Modifier.fillMaxSize().testTag("planning-page")) {
+        if(!data.featuresReady) {
+            Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.Center) {
+                Text(data.featuresError?.let{"Data fitur gagal dimuat. $it\nBuka ulang aplikasi untuk memuat kembali."} ?: "Memuat data…",style=FFType.bodyMain,color=if(data.featuresError!=null) FFColors.expense else FFColors.outline,textAlign=TextAlign.Center)
+            }
+        } else LazyColumn(Modifier.fillMaxSize().testTag("planning-list"),contentPadding=PaddingValues(start=16.dp,end=16.dp,bottom=104.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(top=4.dp),horizontalArrangement=Arrangement.End) {
+                    OlloMenuButton(listOf(OlloMenuItem("closed",if(closed)"Tampilkan Aktif" else "Tampilkan Lunas / Arsip","visibility_off_rounded"))){key->if(key=="closed")closed=!closed}
+                }
+            }
+            (if(entries.isEmpty()) listOf(data.profile?.baseCurrency ?: "IDR") else entries.map{it.currency}.distinct()).forEach{currency->
+                item(key="debt-summary-$currency"){DebtsSummary(entries.filter{it.currency==currency},direction,currency)}
+            }
+            item { OlloSegmented(listOf("borrowed" to "Hutang Saya","lent" to "Piutang Saya"),direction,{direction=it}) }
+            item { Text(if(direction=="borrowed")"Daftar Hutang" else "Daftar Piutang",style=FFType.sectionTitle,color=FFColors.onSurface) }
+            if(entries.isEmpty()) item { OlloEmptyState("payments_rounded",if(closed)"Belum ada catatan lunas" else if(direction=="borrowed")"Belum ada hutang" else "Belum ada piutang","Catat pinjaman, cicilan, dan jatuh tempo dalam satu tempat.","Saldo dompet mengikuti pilihan catat ke saldo saat hutang dibuat.") }
+            items(entries,key={it.id}){debt->DebtCard(debt,data,busy,expanded==debt.id,{expanded=if(expanded==debt.id)null else debt.id},a)}
+        }
+        if(data.featuresReady)Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){OlloFab({a.debt(null)},"Tambah hutang atau piutang")}
+    }
+}
+
+@Composable
+private fun DebtsSummary(entries:List<Debt>,direction:String,currency:String) {
+    val remaining=entries.fold(0L){sum,debt->checkedAdd(sum,checkedAdd(debt.amountMinor,-debt.paidMinor))}
+    val paidCount=entries.count{it.paidMinor>=it.amountMinor || it.archived}
+    DesignCard {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Text(if(direction=="borrowed")"Sisa Hutang" else "Sisa Piutang",Modifier.weight(1f),style=FFType.bodyMain.copy(fontSize=15.sp,lineHeight=20.sp),color=FFColors.onSurfaceVariant)
+            OlloPill("${entries.size} Catatan",FFColors.outlineVariant,FFColors.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(10.dp))
+        FitMoneyText(moneyLabel(remaining,currency),FFType.amountLg.copy(fontSize=32.sp,lineHeight=40.sp),if(direction=="borrowed")FFColors.expense else FFColors.income)
+        Spacer(Modifier.height(14.dp))
+        if(entries.isEmpty()) OlloPill(if(direction=="borrowed")"Tidak ada hutang" else "Tidak ada piutang",FFColors.outlineVariant,FFColors.onSurfaceVariant)
+        else OlloPill("$paidCount Lunas",FFColors.income.copy(alpha=.12f),FFColors.income,icon="check_rounded")
+    }
+}
+
+@Composable
+private fun DebtCard(debt:Debt,data:FinanceData,busy:Boolean,expanded:Boolean,toggle:()->Unit,a:PlanningActions) {
+    val paid=debt.paidMinor>=debt.amountMinor
+    val remaining=(debt.amountMinor-debt.paidMinor).coerceAtLeast(0)
+    val fraction=if(debt.amountMinor>0)(debt.paidMinor.toFloat()/debt.amountMinor).coerceIn(0f,1f) else 0f
+    val accent=if(debt.direction=="borrowed")FFColors.expense else FFColors.income
+    val payLabel=if(debt.direction=="borrowed")"Bayar Cicilan" else "Terima Cicilan"
+    val status=if(debt.archived)"Diarsipkan" else if(paid)"Lunas" else "Jatuh tempo ${shortDateLabel(debt.dueDate)}"
+    DesignCard(onClick=toggle) {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(accent.copy(alpha=.12f)),contentAlignment=Alignment.Center){FFIcon(if(debt.direction=="borrowed")"south_west_rounded" else "north_east_rounded",accent,22.dp)}
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(debt.person,style=FFType.bodyMain.copy(fontSize=16.sp,lineHeight=22.sp),fontWeight=FontWeight.SemiBold,color=FFColors.onSurface,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(status,style=FFType.metaData,color=when{debt.archived->FFColors.outline;paid->FFColors.income;debt.dueDate<today().toString()->FFColors.expense;else->FFColors.onSurfaceVariant})
+            }
+            if(!busy)OlloMenuButton(listOf(OlloMenuItem("pay",payLabel,"payments_rounded"),OlloMenuItem("edit","Detail / Edit","edit_rounded"))){key->if(key=="pay")a.payDebt(debt) else a.debt(debt)}
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom) {
+            Box(Modifier.weight(1f)){FitMoneyText("Sisa ${moneyLabel(remaining,debt.currency)}",FFType.amountMd.copy(fontSize=20.sp,lineHeight=26.sp,fontWeight=FontWeight.SemiBold),if(paid)FFColors.income else FFColors.onSurface)}
+            Box(Modifier.weight(1f)){FitMoneyText("dari ${moneyLabel(debt.amountMinor,debt.currency)}",FFType.metaData,FFColors.onSurfaceVariant,TextAlign.End)}
+        }
+        Spacer(Modifier.height(10.dp))
+        OlloProgress(fraction,6.dp,accent)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)){FitMoneyText("Terbayar ${moneyLabel(debt.paidMinor,debt.currency)}",FFType.metaData,FFColors.onSurfaceVariant)}
+            OlloPill(if(paid)"Lunas" else "Berjalan",if(paid)FFColors.income.copy(alpha=.12f) else FFColors.outlineVariant,if(paid)FFColors.income else FFColors.onSurfaceVariant)
+        }
+        if(!paid && !debt.archived){Spacer(Modifier.height(14.dp));OlloPrimaryButton(payLabel,enabled=!busy){a.payDebt(debt)}}
+        if(expanded) {
+            Spacer(Modifier.height(14.dp))
+            Text("Mulai ${shortDateLabel(debt.issueDate)} · ${if(debt.includeBalance)"tercatat di saldo dompet" else "pelacakan saja; saldo tidak berubah"}",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            if(debt.note.isNotBlank()){Spacer(Modifier.height(6.dp));Text(debt.note,style=FFType.bodyMain,color=FFColors.onSurface)}
+            data.financialEvents.filter{it.kind=="debt_payment" && it.referenceId==debt.id}.sortedByDescending{it.createdAt}.forEach{event->
+                Spacer(Modifier.height(8.dp));PaymentHistory(event,busy,a.reverse)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Wishes(data:FinanceData,busy:Boolean,a:PlanningActions) {
+    val links=androidx.compose.ui.platform.LocalUriHandler.current
+    var linkError by remember{mutableStateOf<String?>(null)}
+    var completed by rememberSaveable{mutableStateOf(false)}
+    val entries=data.wishes.filter{it.fulfilled==completed}.sortedBy{listOf("high","medium","low").indexOf(it.priority)}
+    PlanningList(data,busy,"+  Tambah Keinginan",{a.wish(null)}) {
+        item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DesignPill("Wishlist",!completed,{completed=false});DesignPill("Terpenuhi",completed,{completed=true})}}
+        if(entries.isEmpty())item{EmptyPlanning("Wishlist kosong","Simpan keinginan, perkiraan biaya, tautan produk dan prioritasmu.")}
+        items(entries,key={it.id}){wish->DesignCard(onClick={a.wish(wish)}) {
+            Row {Text(wish.title,Modifier.weight(1f),style=FFType.sectionTitle);FFIcon("favorite_border_rounded",FFColors.expense)}
+            Text(displayMoney(wish.targetMinor,wish.currency),style=FFType.amountMd)
+            Text("Prioritas: ${when(wish.priority){"high"->"Tinggi";"low"->"Rendah";else->"Sedang"}}",style=FFType.metaData,color=FFColors.outline)
+            if(wish.link.isNotBlank())TextButton(enabled=!busy,onClick={try{links.openUri(wish.link)}catch(e:Exception){linkError="Tautan tidak dapat dibuka. Periksa aplikasi browser dan alamat tautan."}}){Text("Buka Tautan Produk",style=FFType.metaData)}
+            if(wish.note.isNotBlank())Text(wish.note,style=FFType.bodyMain)
+            TextButton(onClick={a.fulfillWish(wish.copy(fulfilled=!wish.fulfilled))},enabled=!busy) {Text(if(wish.fulfilled)"Kembalikan ke Wishlist" else "Tandai Terpenuhi")}
+        }}
+    }
+    linkError?.let{AlertDialog(onDismissRequest={linkError=null},title={Text("Tautan Produk")},text={Text(it)},confirmButton={TextButton(onClick={linkError=null}){Text("Tutup")}})}
+}
+
+@Composable
+private fun Cards(data:FinanceData,busy:Boolean,a:PlanningActions) {
+    var tab by rememberSaveable{mutableStateOf(if(data.cards.any{it.recordType=="card"})"card" else "bank")}
+    val entries=data.cards.filter{it.recordType==tab}.sortedWith(compareByDescending<WalletCard>{it.pinned}.thenByDescending{it.createdAt})
+    PlanningList(data,busy,"+  Tambah Kartu / Rekening",{a.card(null)}) {
+        item { SegmentedTabs(listOf("bank" to "Bank","card" to "Kartu","ewallet" to "E-Wallet","other" to "Lainnya"),tab,{tab=it}) }
+        if(entries.isEmpty())item{EmptyPlanning("Belum ada ${when(tab){"bank"->"rekening bank";"card"->"kartu";"ewallet"->"e-wallet";else->"akun lain"}}","Simpan identitas akun, pemilik, label, dan tautan dompet dalam satu tempat.")}
+        if(tab=="card")item{Text("Catatan kartu hanya menyimpan empat digit terakhir.",style=FFType.metaData,color=FFColors.onSurfaceVariant)}
+        items(entries,key={it.id}){card->
+            WalletCardPreview(card,if(card.accountId.isNotBlank())data.accountName(card.accountId) else "",onClick={if(!busy)a.card(card)})
+        }
+    }
+}
+
+@Composable
+private fun Notes(data:FinanceData,busy:Boolean,a:PlanningActions) {
+    var query by rememberSaveable{mutableStateOf("")}
+    var tab by rememberSaveable{mutableStateOf("active")}
+    val entries=data.notes.filter{note->
+        (query.isBlank() || "${note.title} ${note.body} ${note.items.joinToString(" "){it.name}}".contains(query,true)) &&
+            when(tab){"notes"->note.kind=="note";"history"->note.kind=="bundle" && (note.archived || note.items.any{it.paymentId!=null});else->note.kind=="bundle" && !note.archived && note.items.any{it.paymentId==null}}
+    }.sortedWith(compareByDescending<FinanceNote>{it.pinned}.thenByDescending{it.updatedAt})
+    PlanningList(data,busy,"+  Bundle / Catatan Baru",{a.note(null)}) {
+        item{SegmentedTabs(listOf("active" to "Aktif","history" to "Riwayat","notes" to "Catatan"),tab,{tab=it})}
+        item{Field("Cari bundle atau catatan",query,{query=it})}
+        if(entries.isEmpty())item{EmptyPlanning(when(tab){"notes"->"Belum ada catatan";"history"->"Riwayat kosong";else->"Belum ada bundle belanja"},
+            if(tab=="notes")"Catatan teks yang sudah ada tetap tersimpan di sini." else "Susun daftar belanja, centang item, lalu konfirmasi pembayaran untuk mencatat pengeluaran.")}
+        items(entries,key={it.id}){note->
+            if(note.kind=="note")DesignCard(onClick={a.note(note)}) {
+                Row {Text(note.title,Modifier.weight(1f),style=FFType.sectionTitle);if(note.pinned)Text("Disematkan",style=FFType.badgeLabel,color=FFColors.primary)}
+                Spacer(Modifier.height(8.dp));Text(note.body,style=FFType.bodyMain,color=FFColors.onSurfaceVariant,maxLines=5,overflow=TextOverflow.Ellipsis)
+            } else BundleCard(note,data,busy,tab=="history",a)
+        }
+    }
+}
+
+@Composable
+private fun BundleCard(note:FinanceNote,data:FinanceData,busy:Boolean,history:Boolean,a:PlanningActions) {
+    val selected=note.items.filter{it.checked && it.paymentId==null}
+    val total=note.items.fold(0L){sum,item->checkedAdd(sum,item.amountMinor)}
+    val payable=selected.fold(0L){sum,item->checkedAdd(sum,item.amountMinor)}
+    val paidCount=note.items.count{it.paymentId!=null}
+    DesignCard(modifier=Modifier.testTag("bundle-${note.id}")) {
+        Row(verticalAlignment=Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(note.title,style=FFType.sectionTitle)
+                Text("$paidCount/${note.items.size} dibayar · ${if(note.recordAs=="single")"Satu transaksi" else "Per item"}",style=FFType.metaData,color=FFColors.outline)
+            }
+            TextButton(onClick={a.note(note)},enabled=!busy){Text("Detail")}
+        }
+        Spacer(Modifier.height(12.dp))
+        note.items.forEach { item ->
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Checkbox(checked=item.checked,onCheckedChange={checked->
+                    a.updateNote(note.copy(items=note.items.map{if(it.id==item.id)it.copy(checked=checked) else it}))
+                },enabled=!busy && !note.archived && item.paymentId==null && !history,modifier=Modifier.semantics{contentDescription="Item ${item.name}"})
+                Column(Modifier.weight(1f)) {
+                    Text(item.name,style=FFType.bodyMain,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    if(item.paymentId!=null)Text("Sudah dibayar",style=FFType.metaData,color=FFColors.income)
+                }
+                Text(displayMoney(item.amountMinor,note.currency),style=FFType.metaData,fontWeight=FontWeight.SemiBold)
+            }
+        }
+        HorizontalDivider(Modifier.padding(vertical=12.dp),color=FFColors.outlineVariant)
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+            Text("Total estimasi",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            Text(displayMoney(total,note.currency),style=FFType.bodyMain,fontWeight=FontWeight.SemiBold)
+        }
+        if(note.body.isNotBlank()){Spacer(Modifier.height(8.dp));Text(note.body,style=FFType.metaData,color=FFColors.onSurfaceVariant,maxLines=3,overflow=TextOverflow.Ellipsis)}
+        Spacer(Modifier.height(12.dp))
+        if(!history && !note.archived)Button(onClick={a.payBundle(note,selected.map{it.id})},enabled=!busy && selected.isNotEmpty(),modifier=Modifier.fillMaxWidth()) {
+            Text(if(selected.isEmpty())"Centang item untuk membayar" else "Bayar ${displayMoney(payable,note.currency)}")
+        }
+        if(history) {
+            if(note.archived)Text("Diarsipkan",style=FFType.metaData,color=FFColors.outline)
+            data.financialEvents.filter{it.kind=="bundle" && it.referenceId==note.id}.sortedByDescending{it.createdAt}.forEach { event ->
+                Spacer(Modifier.height(8.dp));PaymentHistory(event,busy,a.reverse)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Claims(data:FinanceData,busy:Boolean,a:PlanningActions) {
+    var received by rememberSaveable{mutableStateOf(false)}
+    val entries=data.reimbursements.filter{(it.receivedAt>0)==received}
+    val available=data.transactions.any{it.type=="expense" && !it.scheduled && data.reimbursements.none{c->c.expenseId==it.id}}
+    PlanningList(data,busy,if(available)"+  Klaim Reimburse" else "+  Catat Pengeluaran",if(available)({a.claim(null)}) else a.addExpense) {
+        item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DesignPill("Menunggu",!received,{received=false});DesignPill("Diterima",received,{received=true})}}
+        if(entries.isEmpty())item{EmptyPlanning(if(received)"Belum ada penerimaan" else "Belum ada klaim","Buat klaim dari pengeluaran yang sudah tercatat, lalu tandai saat uang penggantinya diterima.")}
+        items(entries,key={it.id}){claim->DesignCard(onClick=if(claim.receivedAt==0L)({a.claim(claim)}) else null) {
+            Text(claim.title,style=FFType.sectionTitle)
+            Text(claim.party,style=FFType.metaData,color=FFColors.outline)
+            Text(displayMoney(claim.amountMinor,claim.currency),style=FFType.amountMd)
+            Spacer(Modifier.height(8.dp))
+            if(claim.receivedAt==0L)Button(onClick={a.receiveClaim(claim)},enabled=!busy){Text("Terima Reimburse")}
+            else data.financialEvents.find{it.kind=="reimbursement" && it.referenceId==claim.id}?.let {PaymentHistory(it,busy,a.reverse)}
+        }}
+    }
+}
+
+@Composable
+private fun Recurring(data:FinanceData,busy:Boolean,a:PlanningActions) {
+    var inactive by rememberSaveable{mutableStateOf(false)}
+    var month by rememberSaveable{mutableStateOf(today().toString().take(7))}
+    var selectedDay by rememberSaveable{mutableStateOf(today().toString())}
+    val entries=data.recurring.filter{it.active!=inactive}
+    val calendarEntries=calendarDates(month,LocalPreferences.current.weekStart).flatMap{date->
+        data.recurring.filter{recurringOn(it,date)}.map{rule->Transaction(id="${rule.id}:$date",type=rule.type,amountMinor=rule.amountMinor,
+            currency=rule.currency,accountId=rule.accountId,categoryId=rule.categoryId,title=rule.title,date=date.toString())}
+    }
+    PlanningList(data,busy,"+  Transaksi Berulang Baru",{a.recurring(null)}) {
+        item{TransactionCalendar(month,{month=it},selectedDay,{selectedDay=it},calendarEntries)}
+        item{DesignCard{
+            Text("Jadwal pada $selectedDay",style=FFType.sectionTitle)
+            val due=calendarEntries.filter{it.date==selectedDay}
+            Text("${due.size} transaksi terjadwal",style=FFType.metaData)
+            due.groupBy{it.currency}.forEach{(currency,items)->
+                FitMoneyText(displayMoney(items.fold(0L){sum,t->checkedAdd(sum,t.amountMinor)},currency),FFType.amountMd)
+            }
+        }}
+        item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){DesignPill("Aktif",!inactive,{inactive=false});DesignPill("Nonaktif",inactive,{inactive=true})}}
+        item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {OutlinedButton(onClick=a.processRecurring,enabled=!busy){Text("Proses Jadwal")};TextButton(onClick=a.manualScheduled){Text("Kalender Terjadwal")}}}
+        if(entries.isEmpty())item{EmptyPlanning("Belum ada jadwal berulang","Buat pemasukan atau pengeluaran rutin. Setiap periode dicatat sekali ke jurnal.")}
+        items(entries,key={it.id}){rule->DesignCard(onClick={a.recurring(rule)}) {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)){Text(rule.title,style=FFType.sectionTitle);Text("Berikutnya ${rule.nextDate}",style=FFType.metaData,color=FFColors.outline)}
+                Text(displayMoney(rule.amountMinor,rule.currency),style=FFType.amountMd,color=if(rule.type=="income")FFColors.income else FFColors.expense)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("Setiap ${rule.interval} ${when(rule.frequency){"daily"->"hari";"weekly"->"minggu";"yearly"->"tahun";else->"bulan"}} · ${data.accountName(rule.accountId)}",style=FFType.metaData)
+            if(rule.endDate!=null)Text("Sampai ${rule.endDate}",style=FFType.metaData,color=FFColors.outline)
+        }}
+    }
+}
+
+// ---------------- Komponen paritas Ollo ----------------
+// Dipakai layar Tagihan/Utang di berkas ini serta layar Target di feature/goal.
+
+@Composable
+internal fun OlloFormSection(title: String) {
+    Text(title, style = FFType.sectionTitle, color = FFColors.onSurface)
+}
+
+@Composable
+internal fun OlloSegmented(options: List<Pair<String, String>>, selected: String, select: (String) -> Unit, trailing: (@Composable () -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(28.dp)).background(FFColors.surface).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        options.forEach { (value, label) ->
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(if (value == selected) FFColors.onSurface else Color.Transparent).clickable(role = Role.Tab) { select(value) }, contentAlignment = Alignment.Center) {
+                Text(label, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 20.sp), fontWeight = if (value == selected) FontWeight.SemiBold else FontWeight.Medium, color = if (value == selected) FFColors.canvas else FFColors.onSurfaceVariant, maxLines = 1)
+            }
+        }
+        trailing?.invoke()
+    }
+}
+
+@Composable
+internal fun OlloRefreshButton(onClick: () -> Unit) {
+    Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+        FFIcon("sync_rounded", FFColors.onSurfaceVariant, 22.dp, "Muat ulang")
+    }
+}
+
+internal data class OlloMenuItem(val key: String, val label: String, val icon: String = "")
+
+@Composable
+internal fun OlloMenuButton(items: List<OlloMenuItem>, tint: Color = FFColors.onSurfaceVariant, onSelect: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton({ open = true }) { FFIcon("more_vert", tint, 22.dp, "Menu") }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item.label, style = FFType.bodyMain) },
+                    leadingIcon = if (item.icon.isBlank()) null else ({
+                        Box(Modifier.size(34.dp).clip(RoundedCornerShape(12.dp)).background(FFColors.surfaceLow), contentAlignment = Alignment.Center) {
+                            FFIcon(item.icon, FFColors.onSurface, 18.dp)
+                        }
+                    }),
+                    onClick = { open = false; onSelect(item.key) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun OlloPrimaryButton(label: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    Surface(onClick = onClick, enabled = enabled, modifier = modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), color = FFColors.onSurface) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(label, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 20.sp), fontWeight = FontWeight.SemiBold, color = FFColors.canvas)
+        }
+    }
+}
+
+@Composable
+internal fun OlloSecondaryButton(label: String, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    Surface(onClick = onClick, enabled = enabled, modifier = modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), color = FFColors.canvas) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(label, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 20.sp), fontWeight = FontWeight.SemiBold, color = FFColors.onSurface)
+        }
+    }
+}
+
+@Composable
+internal fun OlloFab(onClick: () -> Unit, description: String = "Tambah") {
+    Surface(onClick = onClick, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(20.dp), color = FFColors.onSurface, shadowElevation = 8.dp) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { FFIcon("add_rounded", FFColors.canvas, 26.dp, description) }
+    }
+}
+
+@Composable
+internal fun OlloPill(label: String, background: Color, contentColor: Color, icon: String? = null) {
+    Row(Modifier.clip(RoundedCornerShape(100.dp)).background(background).padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) { FFIcon(icon, contentColor, 14.dp); Spacer(Modifier.width(5.dp)) }
+        Text(label, style = FFType.badgeLabel, color = contentColor, maxLines = 1)
+    }
+}
+
+@Composable
+internal fun OlloProgress(progress: Float, height: Dp = 6.dp, color: Color = FFColors.onSurface) {
+    val fraction = progress.coerceIn(0f, 1f)
+    Box(Modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(100.dp)).background(FFColors.outlineVariant)) {
+        if (fraction > 0f) Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().clip(RoundedCornerShape(100.dp)).background(color))
+    }
+}
+
+@Composable
+internal fun OlloDashedProgress(progress: Float) {
+    val filled = (progress.coerceIn(0f, 1f) * 12f).roundToInt()
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        repeat(12) { index ->
+            Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(100.dp)).background(if (index < filled) FFColors.onSurface else FFColors.outlineVariant))
+        }
+    }
+}
+
+@Composable
+internal fun OlloEmptyState(icon: String, title: String, message: String, tip: String? = null) {
+    Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(76.dp).clip(CircleShape).background(FFColors.outlineVariant), contentAlignment = Alignment.Center) { FFIcon(icon, FFColors.onSurfaceVariant, 32.dp) }
+        Spacer(Modifier.height(18.dp))
+        Text(title, style = FFType.sectionTitle, color = FFColors.onSurface, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(10.dp))
+        Text(message, style = FFType.bodyMain, color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
+        if (tip != null) {
+            Spacer(Modifier.height(18.dp))
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                FFIcon("light_outlined", Color(0xFFF0A63A), 20.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(tip, style = FFType.metaData, color = FFColors.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun moneyLabel(value: Long, currency: String): String {
+    val preferences = LocalPreferences.current
+    return if (preferences.hideBalances) "••••" else formatBalance(value, currency, preferences)
+}

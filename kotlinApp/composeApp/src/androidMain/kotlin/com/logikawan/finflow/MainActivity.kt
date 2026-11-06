@@ -1,0 +1,352 @@
+package com.logikawan.finflow
+
+import com.logikawan.finflow.app.App
+import com.logikawan.finflow.core.platform.AppLifecycle
+import com.logikawan.finflow.core.platform.NativeServices
+import com.logikawan.finflow.feature.importdata.CsvImport
+import com.logikawan.finflow.notificationimport.NotificationImportStore
+
+import android.Manifest
+import android.app.Activity
+import android.app.KeyguardManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import android.content.ClipData
+import android.content.pm.PackageManager
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.pdf.PdfDocument
+import android.os.Build
+import android.os.Bundle
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.text.TextUtils
+import android.view.WindowManager
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+
+class MainActivity : FragmentActivity(), NativeServices {
+    override fun localFinancePersistence() = AndroidLocalFinancePersistence.get(this)
+    override fun closeApp():Boolean { finishAndRemoveTask();return true }
+    override fun appVersion():String = packageManager.getPackageInfo(packageName,0).versionName ?: "1.0.0"
+    override fun deleteLocalProfilePhoto():String? {
+        val file=File(noBackupFilesDir,"finflow-local/avatar.jpg")
+        return if(!file.exists() || file.delete())null else "Data keuangan dihapus, tetapi foto lokal belum dapat dibersihkan."
+    }
+    override fun composeSupport(subject:String,body:String):String? = try {
+        val uri=android.net.Uri.parse("mailto:muzafinarifin.dev@gmail.com?subject="+android.net.Uri.encode(subject)+"&body="+android.net.Uri.encode(body))
+        startActivity(Intent(Intent.ACTION_SENDTO,uri));null
+    }catch(e:Exception){"Tidak ada aplikasi email yang dapat dibuka. Pasang atau aktifkan aplikasi email terlebih dahulu."}
+    override fun shareApp():String? = try {
+        val file=exportFile("FinFlow.apk")
+        File(applicationInfo.sourceDir).copyTo(file,overwrite=true)
+        shareExport(file,"application/vnd.android.package-archive");null
+    }catch(e:Exception){"APK belum dapat dibagikan. Periksa ruang penyimpanan dan coba lagi."}
+    private val profilePhotos = ProfilePhotos(this)
+    override fun pickProfilePhoto(result: (ByteArray?, String?) -> Unit) = profilePhotos.pick(result)
+    override fun uploadProfilePhoto(userId: String, bytes: ByteArray, result: (String?, String?) -> Unit) = profilePhotos.upload(userId, bytes, result)
+    override fun loadProfilePhoto(path: String, result: (ByteArray?, String?) -> Unit) = profilePhotos.load(path, result)
+    private val aiDevice = AiDevice(this)
+    override fun recognizeSpeech(languageTag: String, result: (String?, String?) -> Unit) = aiDevice.recognizeSpeech(languageTag, result)
+    override fun captureReceiptPhoto(result: (ByteArray?, String?) -> Unit) = aiDevice.captureReceipt(result)
+    override fun pickReceiptPhotos(max: Int, result: (List<ByteArray>?, String?) -> Unit) = aiDevice.pickReceipts(max, result)
+    private val premiumBilling = PremiumBilling(this)
+    override fun premiumConfigured() = premiumBilling.configured()
+    override fun premiumPlans(userId: String, result: (List<com.logikawan.finflow.core.platform.PremiumPlan>?, String?) -> Unit) = premiumBilling.plans(userId, result)
+    override fun purchasePremium(planId: String, result: (Boolean, String?) -> Unit) = premiumBilling.purchase(planId, result)
+    override fun restorePremium(userId: String, result: (Boolean, String?) -> Unit) = premiumBilling.restore(userId, result)
+    override fun manageSubscription(): String? = premiumBilling.manage()
+    private val prefs by lazy { getSharedPreferences("finflow", MODE_PRIVATE) }
+    private val appLifecycle = AppLifecycle()
+    private var csvResult: ((String?, String?) -> Unit)? = null
+    private var reminderResult: ((String?) -> Unit)? = null
+    private var budgetPermissionResult: ((String?) -> Unit)? = null
+    private var credentialResult: ((Boolean) -> Unit)? = null
+    private var requestedHour = 20
+    private var requestedMinute = 0
+    private val deviceCredential = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { response ->
+        val callback = credentialResult
+        credentialResult = null
+        callback?.invoke(response.resultCode == Activity.RESULT_OK)
+    }
+    private val openCsv = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val callback = csvResult ?: return@registerForActivityResult
+        csvResult = null
+        if (uri == null) { callback(null, null); return@registerForActivityResult }
+        lifecycleScope.launch {
+            try {
+                val text = withContext(Dispatchers.IO) {
+                    contentResolver.openInputStream(uri).use { stream ->
+                        requireNotNull(stream) { "File tidak dapat dibaca" }
+                        val output = ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = stream.read(buffer)
+                            if (count < 0) break
+                            require(output.size() + count <= CsvImport.MAX_FILE_BYTES) { "CSV maksimal 5 MB" }
+                            output.write(buffer, 0, count)
+                        }
+                        Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(output.toByteArray())).toString()
+                    }
+                }
+                callback(text, null)
+            } catch (e: Exception) { callback(null, e.message ?: "File gagal dibaca. Gunakan CSV UTF-8.") }
+        }
+    }
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val callback = reminderResult
+        reminderResult = null
+        if (granted) { saveReminder(true, requestedHour, requestedMinute); callback?.invoke(null) }
+        else callback?.invoke("Izin notifikasi ditolak; pengingat belum diaktifkan")
+    }
+    private val budgetNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val callback = budgetPermissionResult
+        budgetPermissionResult = null
+        if (granted) { callback?.let { setBudgetAlerts(true, it) } }
+        else callback?.invoke("Izin notifikasi ditolak; peringatan anggaran belum diaktifkan")
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+        )
+        // Screenshot debug dipakai untuk pemeriksaan UI; perlindungan rilis tetap aktif.
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!appLifecycle.back()) {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    isEnabled = true
+                }
+            }
+        })
+        val previewFirstRun = intent.getBooleanExtra("finflow_preview_first_run", false)
+        setContent { App(this, appLifecycle, previewFirstRun = previewFirstRun) }
+    }
+    override fun onStop() { super.onStop(); appLifecycle.background() }
+    override fun onboardingComplete() = prefs.getBoolean("onboarding.complete", false)
+    override fun setOnboardingComplete() { prefs.edit().putBoolean("onboarding.complete", true).apply() }
+    override fun readSetting(key: String): String? = prefs.getString(key, null)
+    override fun sha256(text: String): String = java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString(""){"%02x".format(it.toInt() and 255)}
+    override fun writeSetting(key: String, value: String) {
+        val edit=prefs.edit().putString(key,value)
+        if(key=="data.mode" || key.startsWith("local.sync.") || key.startsWith("restore.") || key.startsWith("reset."))check(edit.commit()){"Status penyimpanan gagal disimpan"}else edit.apply()
+    }
+    override fun setNotificationImportUser(userId: String?) {
+        NotificationImportStore(this).setOwner(userId)
+        RecurringTransactionsWorker.schedule(this, userId)
+    }
+    override fun pickCsv(result: (String?, String?) -> Unit) {
+        csvResult = result
+        openCsv.launch(arrayOf("text/*", "application/csv", "application/json", "application/vnd.ms-excel", "application/octet-stream"))
+    }
+    override fun shareCsv(name: String, content: String) = shareTextFile(name, content, "text/csv")
+    override fun shareTextFile(name: String, content: String, mimeType: String) {
+        require(mimeType.matches(Regex("[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+"))) { "Jenis file tidak valid" }
+        require(content.toByteArray(Charsets.UTF_8).size <= CsvImport.MAX_FILE_BYTES) { "File ekspor maksimal 5 MB" }
+        val file = exportFile(name)
+        file.writeText(content, Charsets.UTF_8)
+        shareExport(file, mimeType)
+    }
+    override fun deviceDescription(): String = "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}"
+    override fun deviceDiagnostics(): String {
+        val metrics = resources.displayMetrics
+        val config = resources.configuration
+        val info = android.app.ActivityManager.MemoryInfo()
+        (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(info)
+        val widthDp = (metrics.widthPixels / metrics.density).toInt()
+        val heightDp = (metrics.heightPixels / metrics.density).toInt()
+        return listOf(
+            "Perangkat: ${Build.MANUFACTURER} ${Build.MODEL}",
+            "OS: Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+            "Build: ${Build.DISPLAY}",
+            "ABI: ${Build.SUPPORTED_ABIS.joinToString()}",
+            "Layar: ${metrics.widthPixels} × ${metrics.heightPixels} px · $widthDp × $heightDp dp · ${metrics.density}×",
+            "Skala font: ${config.fontScale}",
+            "RAM: ${info.totalMem / (1024 * 1024)} MB",
+            "Bahasa: ${config.locales.toLanguageTags()}",
+            "Zona waktu: ${java.util.TimeZone.getDefault().id}",
+        ).joinToString("\n")
+    }
+    override fun sharePdf(name: String, title: String, lines: List<String>) {
+        require(lines.size <= 25_000 && lines.sumOf { it.length.toLong() } <= 5L * 1024 * 1024) { "PDF terlalu besar. Persempit periode ekspor." }
+        val file = exportFile(name)
+        val document = PdfDocument()
+        val width = 595
+        val height = 842
+        val margin = 36f
+        val textWidth = width - (margin * 2).toInt()
+        val body = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 11f; color = android.graphics.Color.DKGRAY }
+        val heading = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 18f; typeface = Typeface.DEFAULT_BOLD; color = android.graphics.Color.BLACK }
+        val footer = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 9f; color = android.graphics.Color.GRAY }
+        val titleLayout = StaticLayout.Builder.obtain(title, 0, title.length, heading, textWidth)
+            .setIncludePad(false).setMaxLines(2).setEllipsize(TextUtils.TruncateAt.END).build()
+        var page: PdfDocument.Page? = null
+        var pageNumber = 0
+        var baseline = 0f
+        fun finishPage() { page?.let { document.finishPage(it) }; page = null }
+        fun beginPage() {
+            require(pageNumber < 500) { "PDF terlalu besar. Persempit periode ekspor." }
+            finishPage()
+            pageNumber++
+            page = document.startPage(PdfDocument.PageInfo.Builder(width, height, pageNumber).create())
+            val canvas = page!!.canvas
+            canvas.save(); canvas.translate(margin, margin); titleLayout.draw(canvas); canvas.restore()
+            canvas.drawText("FinFlow · Halaman $pageNumber", margin, height - margin, footer)
+            baseline = margin + titleLayout.height + 20f - body.fontMetrics.ascent
+        }
+        try {
+            beginPage()
+            val content = lines.ifEmpty { listOf("Tidak ada catatan pada periode ini.") }
+            content.forEach { row ->
+                row.replace('\t', ' ').split('\n').forEach { paragraph ->
+                    val layout = StaticLayout.Builder.obtain(paragraph, 0, paragraph.length, body, textWidth).setIncludePad(false).build()
+                    repeat(layout.lineCount.coerceAtLeast(1)) { line ->
+                        if (baseline + body.fontMetrics.descent > height - margin - 20f) beginPage()
+                        if (paragraph.isNotEmpty()) page!!.canvas.drawText(paragraph, layout.getLineStart(line), layout.getLineEnd(line), margin, baseline, body)
+                        baseline += 16f
+                    }
+                }
+            }
+            finishPage()
+            file.outputStream().use { document.writeTo(it) }
+        } finally { finishPage(); document.close() }
+        shareExport(file, "application/pdf")
+    }
+    private fun exportFile(name: String): File {
+        val directory = File(cacheDir, "exports")
+        check(directory.isDirectory || directory.mkdirs()) { "Folder ekspor tidak dapat dibuat" }
+        val clean = name.replace(Regex("[^a-zA-Z0-9._-]"), "_").takeLast(120)
+        return File(directory, clean.takeUnless { it.isBlank() || it == "." || it == ".." } ?: "finflow-export")
+    }
+    private fun shareExport(file: File, mimeType: String) {
+        val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = mimeType; putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newUri(contentResolver, file.name, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }, if (mimeType == "text/csv") "Simpan atau bagikan CSV" else "Simpan atau bagikan file"))
+    }
+    override fun googleSignIn(result: (String?, String?) -> Unit) {
+        val clientIdResource = resources.getIdentifier("default_web_client_id", "string", packageName)
+        if (clientIdResource == 0) {
+            result(null, "Aktifkan Google pada Firebase Authentication, lalu unduh ulang google-services.json.")
+            return
+        }
+        lifecycleScope.launch {
+            try {
+                val option = GetSignInWithGoogleOption.Builder(getString(clientIdResource)).build()
+                val credential = CredentialManager.create(this@MainActivity).getCredential(this@MainActivity,
+                    GetCredentialRequest.Builder().addCredentialOption(option).build()).credential
+                require(credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) { "Jenis kredensial Google tidak dikenali" }
+                result(GoogleIdTokenCredential.createFrom(credential.data).idToken, null)
+            } catch (_: GetCredentialCancellationException) { result(null, "Login Google dibatalkan") }
+            catch (e: Exception) { result(null, e.message ?: "Login Google gagal") }
+        }
+    }
+    override fun unlock(result: (Boolean) -> Unit) {
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        val allowed = if (Build.VERSION.SDK_INT >= 30) authenticators else BiometricManager.Authenticators.BIOMETRIC_STRONG
+        if (BiometricManager.from(this).canAuthenticate(allowed) != BiometricManager.BIOMETRIC_SUCCESS) {
+            if (Build.VERSION.SDK_INT < 30) unlockWithDeviceCredential(result) else result(false)
+            return
+        }
+        val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(value: BiometricPrompt.AuthenticationResult) { result(true) }
+            override fun onAuthenticationError(code: Int, message: CharSequence) {
+                if (Build.VERSION.SDK_INT < 30 && code == BiometricPrompt.ERROR_NEGATIVE_BUTTON) unlockWithDeviceCredential(result)
+                else result(false)
+            }
+        })
+        val info = BiometricPrompt.PromptInfo.Builder().setTitle("Buka FinFlow").setAllowedAuthenticators(allowed)
+        if (Build.VERSION.SDK_INT < 30) info.setNegativeButtonText("Gunakan kunci perangkat")
+        prompt.authenticate(info.build())
+    }
+    @Suppress("DEPRECATION")
+    private fun unlockWithDeviceCredential(result: (Boolean) -> Unit) {
+        val keyguard = getSystemService(KeyguardManager::class.java)
+        val intent = keyguard.createConfirmDeviceCredentialIntent("Buka FinFlow", "Konfirmasi kunci perangkat")
+        if (intent == null) result(false) else { credentialResult = result; deviceCredential.launch(intent) }
+    }
+    override fun lockEnabled() = prefs.getBoolean("lock", false)
+    override fun setLockEnabled(enabled: Boolean) { prefs.edit().putBoolean("lock", enabled).apply() }
+    override fun reminderEnabled() = prefs.getBoolean("reminder", false)
+    override fun reminderHour() = prefs.getInt("hour", 20)
+    override fun reminderMinute() = prefs.getInt("minute", 0)
+    override fun setReminder(enabled: Boolean, hour: Int, minute: Int, result: (String?) -> Unit) {
+        require(hour in 0..23 && minute in 0..59)
+        if (enabled && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestedHour = hour; requestedMinute = minute; reminderResult = result
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else { saveReminder(enabled, hour, minute); result(null) }
+    }
+    private fun saveReminder(enabled: Boolean, hour: Int, minute: Int) {
+        prefs.edit().putBoolean("reminder", enabled).putInt("hour", hour).putInt("minute", minute).apply()
+        ReminderWorker.schedule(this)
+    }
+    override fun budgetAlertsEnabled() = prefs.getBoolean("budget.enabled", false)
+    override fun setBudgetAlerts(enabled: Boolean, result: (String?) -> Unit) {
+        if (!enabled) { prefs.edit().putBoolean("budget.enabled", false).apply(); result(null); return }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            if (budgetPermissionResult != null) { result("Permintaan izin notifikasi masih berlangsung"); return }
+            budgetPermissionResult = result
+            budgetNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            result("Notifikasi FinFlow dinonaktifkan pada pengaturan perangkat")
+        } else {
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(NotificationChannel("budget", "Peringatan anggaran", NotificationManager.IMPORTANCE_DEFAULT))
+            if (manager.getNotificationChannel("budget").importance == NotificationManager.IMPORTANCE_NONE) {
+                result("Kanal peringatan anggaran dinonaktifkan pada pengaturan perangkat")
+            } else { prefs.edit().putBoolean("budget.enabled", true).apply(); result(null) }
+        }
+    }
+    override fun showBudgetAlert(userId: String, alertId: String, title: String, message: String) {
+        val key = "budget.sent.$userId.$alertId"
+        if (!budgetAlertsEnabled() || prefs.getBoolean(key, false) || !NotificationManagerCompat.from(this).areNotificationsEnabled()) return
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel("budget", "Peringatan anggaran", NotificationManager.IMPORTANCE_DEFAULT))
+        if (manager.getNotificationChannel("budget").importance == NotificationManager.IMPORTANCE_NONE) return
+        val intent = PendingIntent.getActivity(this, 1002, Intent(this, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        try {
+            manager.notify("$userId:$alertId", 1002, NotificationCompat.Builder(this, "budget")
+                .setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title).setContentText(message)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setContentIntent(intent).setAutoCancel(true).build())
+            prefs.edit().putBoolean(key, true).apply()
+        } catch (_: SecurityException) {
+            // Izin dapat dicabut ketika aplikasi sedang terbuka; coba lagi setelah diaktifkan.
+        }
+    }
+}
