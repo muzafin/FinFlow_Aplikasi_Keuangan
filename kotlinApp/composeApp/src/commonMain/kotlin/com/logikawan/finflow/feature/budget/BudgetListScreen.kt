@@ -54,14 +54,13 @@ fun BudgetScreen(data: FinanceData, month: String, monthChange: (String) -> Unit
     val currencies = budgets.map { it.currency }.distinct().ifEmpty { listOf(data.profile?.baseCurrency ?: "IDR") }
 
     Box(Modifier.fillMaxSize()) {
+        // Ollo: pilihan periode ada di menu ⋮ header, bukan tab.
         LazyColumn(
             Modifier.fillMaxSize().testTag("budget-page"),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            item {
-                BudgetPeriodTabs(period) { period = it }
-            }
+
             currencies.forEach { currency ->
                 val entries = budgets.filter { it.currency == currency }
                 val limit = entries.fold(0L) { sum, b -> checkedAdd(sum, b.limitMinor) }
@@ -93,32 +92,19 @@ fun BudgetScreen(data: FinanceData, month: String, monthChange: (String) -> Unit
                 }
             }
         }
+        // Diletakkan setelah daftar agar versi tanpa App (uji) tetap dapat disentuh.
+        TopBarActions {
+            com.logikawan.finflow.feature.planning.OlloMenuButton(listOf(
+                com.logikawan.finflow.feature.planning.OlloMenuItem("monthly", (if (period == "monthly") "✓ " else "") + "Anggaran Bulanan", "hi_calendar"),
+                com.logikawan.finflow.feature.planning.OlloMenuItem("weekly", (if (period == "weekly") "✓ " else "") + "Anggaran Mingguan", "hi_calendar"),
+            ), tint = FFColors.onSurface) { period = it }
+        }
         Box(
             Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp).size(56.dp)
-                .shadow(8.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(FFColors.primary)
+                .shadow(6.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Color(0xFFE4E4E7))
                 .clickable(onClick = add).testTag("budget-fab"),
             contentAlignment = Alignment.Center,
-        ) { FFIcon("add_rounded", Color.White, 26.dp, "Buat anggaran") }
-    }
-}
-
-@Composable
-private fun BudgetPeriodTabs(period: String, select: (String) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(4.dp),
-    ) {
-        listOf("monthly" to "Bulanan", "weekly" to "Mingguan").forEach { (value, label) ->
-            val selected = period == value
-            Box(
-                Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) FFColors.canvas else Color.Transparent)
-                    .clickable { select(value) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(label, style = FFType.bodyMain, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (selected) FFColors.onSurface else FFColors.onSurfaceVariant)
-            }
-        }
+        ) { FFIcon("hi_add", Color(0xFF18181B), 26.dp, "Buat anggaran") }
     }
 }
 
@@ -140,37 +126,36 @@ private fun BudgetSummaryCard(month: String, period: String, range: FinancePerio
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onPrev).testTag("budget-prev"), contentAlignment = Alignment.Center) {
-                FFIcon("chevron_left_rounded", FFColors.outline, 22.dp, "Periode sebelumnya")
+                FFIcon("hi_chevron_left", FFColors.onSurfaceVariant, 20.dp, "Periode sebelumnya")
             }
-            Text(title, Modifier.weight(1f), style = FFType.sectionTitle, color = FFColors.onSurface, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, Modifier.weight(1f), style = FFType.bodyMain.copy(fontSize = 16.5.sp, lineHeight = 22.sp), color = FFColors.onSurface, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Box(Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onNext).testTag("budget-next"), contentAlignment = Alignment.Center) {
-                FFIcon("chevron_right_rounded", FFColors.outline, 22.dp, "Periode berikutnya")
+                FFIcon("hi_chevron_right", FFColors.onSurfaceVariant, 20.dp, "Periode berikutnya")
             }
         }
-        Spacer(Modifier.height(18.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Anda bisa belanja", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
-                FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(remaining, currency, preferences), FFType.amountLg)
-                Text(periodLabel, style = FFType.metaData, color = FFColors.outline)
-                Spacer(Modifier.height(4.dp))
-                Text(if (period == "weekly") "Sisa minggu ini" else "Sisa bulan ini", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Anda bisa belanja", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(remaining, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp, lineHeight = 24.sp))
+                Text(periodLabel, style = FFType.metaData.copy(fontSize = 10.sp, lineHeight = 13.sp), color = FFColors.onSurfaceVariant)
+                Text(if (period == "weekly") "Sisa minggu ini" else "Sisa bulan ini", style = FFType.metaData, color = FFColors.onSurfaceVariant)
             }
             Row(
                 Modifier.clip(RoundedCornerShape(100.dp)).background(statusColor.copy(alpha = .12f)).padding(horizontal = 12.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                FFIcon("check_rounded", statusColor, 15.dp)
-                Spacer(Modifier.width(5.dp))
-                Text(statusLabel, style = FFType.bodyMain, fontWeight = FontWeight.SemiBold, color = statusColor, maxLines = 1)
+                FFIcon("hi_check_circle", statusColor, 16.dp)
+                Spacer(Modifier.width(6.dp))
+                Text(statusLabel, style = FFType.metaData, color = statusColor, maxLines = 1)
             }
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
         val trackColor = FFColors.outlineVariant
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.width(120.dp).height(76.dp)) {
-                Canvas(Modifier.width(120.dp).height(60.dp).align(Alignment.TopCenter)) {
-                    val strokeWidth = 9.dp.toPx()
+            Box(Modifier.width(100.dp).height(66.dp)) {
+                Canvas(Modifier.width(100.dp).height(50.dp).align(Alignment.TopCenter)) {
+                    val strokeWidth = 11.dp.toPx()
                     val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
                     val inset = strokeWidth / 2f
                     val arcSize = Size(size.width - strokeWidth, size.width - strokeWidth)
@@ -178,18 +163,18 @@ private fun BudgetSummaryCard(month: String, period: String, range: FinancePerio
                     if (ratio > 0f) drawArc(statusColor, 180f, 180f * ratio.coerceIn(0f, 1f), false, topLeft = Offset(inset, inset), size = arcSize, style = stroke)
                 }
                 Column(Modifier.align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-                    FitMoneyText("${(ratio * 100).roundToInt()}%", FFType.amountLg, FFColors.onSurface, TextAlign.Center)
+                    FitMoneyText("${(ratio * 100).roundToInt()}%", FFType.amountLg.copy(fontSize = 29.sp, lineHeight = 34.sp), FFColors.onSurface, TextAlign.Center)
                 }
             }
-            Text("Terpakai", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
-            Spacer(Modifier.height(10.dp))
+            Text("Terpakai", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                    FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(spent, currency, preferences), FFType.amountMd, FFColors.onSurface, TextAlign.End)
+                    FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(spent, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp), FFColors.onSurface, TextAlign.End)
                 }
-                Text(" / ", style = FFType.amountMd, color = FFColors.outline)
+                Text(" / ", style = FFType.amountMd.copy(fontSize = 18.sp), color = FFColors.onSurfaceVariant)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(limit, currency, preferences), FFType.amountMd, FFColors.outline)
+                    FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(limit, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp), FFColors.onSurfaceVariant)
                 }
             }
         }
@@ -249,12 +234,12 @@ private fun BudgetProgressCard(budget: Budget, data: FinanceData, used: Long, pr
 
 @Composable
 private fun BudgetEmptyState(add: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(top = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        FFIcon("pie_chart_outline_rounded", FFColors.outlineVariant, 56.dp)
-        Spacer(Modifier.height(14.dp))
-        Text("Belum ada anggaran", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
-        Spacer(Modifier.height(4.dp))
-        TextButton(onClick = add) { Text("Buat Anggaran", style = FFType.bodyMain, fontWeight = FontWeight.SemiBold, color = FFColors.onSurface) }
+    Column(Modifier.fillMaxWidth().padding(top = 64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        FFIcon("hi_image", FFColors.onSurfaceVariant.copy(alpha = .5f), 60.dp)
+        Spacer(Modifier.height(18.dp))
+        Text("Belum ada anggaran", style = FFType.bodyMain.copy(fontSize = 15.5.sp), color = FFColors.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        TextButton(onClick = add) { Text("Buat Anggaran", style = FFType.bodyMain, color = FFColors.onSurface) }
     }
 }
 

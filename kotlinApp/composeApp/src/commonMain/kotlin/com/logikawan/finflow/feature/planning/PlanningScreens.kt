@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -104,15 +105,8 @@ private fun Bills(data:FinanceData,busy:Boolean,a:PlanningActions) {
             Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.Center) {
                 Text(data.featuresError?.let{"Data fitur gagal dimuat. $it\nBuka ulang aplikasi untuk memuat kembali."} ?: "Memuat data…",style=FFType.bodyMain,color=if(data.featuresError!=null) FFColors.expense else FFColors.outline,textAlign=TextAlign.Center)
             }
-        } else LazyColumn(Modifier.fillMaxSize().testTag("planning-list"),contentPadding=PaddingValues(start=16.dp,end=16.dp,bottom=104.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            item {
-                Row(Modifier.fillMaxWidth().padding(top=4.dp),horizontalArrangement=Arrangement.End) {
-                    OlloMenuButton(listOf(
-                        OlloMenuItem("sort",if(sortAmount)"Urutkan Jatuh Tempo" else "Urutkan Nominal","filter_list_rounded"),
-                        OlloMenuItem("archive",if(showArchived)"Sembunyikan Arsip" else "Tampilkan Arsip","archive_rounded"),
-                    )){key->when(key){"sort"->sortAmount=!sortAmount;else->showArchived=!showArchived}}
-                }
-            }
+        } else {
+        LazyColumn(Modifier.fillMaxSize().testTag("planning-list"),contentPadding=PaddingValues(start=16.dp,end=16.dp,top=16.dp,bottom=104.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
             (if(unpaid.isEmpty()) listOf(data.profile?.baseCurrency ?: "IDR") else unpaid.map{it.currency}.distinct()).forEach{currency->
                 item(key="bill-summary-$currency"){BillsSummary(unpaid.filter{it.currency==currency},currency)}
             }
@@ -130,6 +124,14 @@ private fun Bills(data:FinanceData,busy:Boolean,a:PlanningActions) {
                 if(events.isNotEmpty()) item{Text("Riwayat Pembayaran",style=FFType.sectionTitle,color=FFColors.onSurface)}
                 items(events,key={"event-${it.id}"}){event->PaymentHistory(event,busy,a.reverse)}
             }
+        }
+        // Diletakkan setelah daftar agar versi tanpa App (uji) tetap dapat disentuh.
+        TopBarActions {
+            OlloMenuButton(listOf(
+                OlloMenuItem("sort",if(sortAmount)"Urutkan Jatuh Tempo" else "Urutkan Nominal","filter_list_rounded"),
+                OlloMenuItem("archive",if(showArchived)"Sembunyikan Arsip" else "Tampilkan Arsip","archive_rounded"),
+            ),tint=FFColors.onSurface){key->when(key){"sort"->sortAmount=!sortAmount;else->showArchived=!showArchived}}
+        }
         }
         if(data.featuresReady)Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){OlloFab({a.bill(null)},"Tambah tagihan")}
     }
@@ -201,12 +203,8 @@ private fun Debts(data:FinanceData,busy:Boolean,a:PlanningActions) {
             Box(Modifier.fillMaxSize().padding(24.dp),contentAlignment=Alignment.Center) {
                 Text(data.featuresError?.let{"Data fitur gagal dimuat. $it\nBuka ulang aplikasi untuk memuat kembali."} ?: "Memuat data…",style=FFType.bodyMain,color=if(data.featuresError!=null) FFColors.expense else FFColors.outline,textAlign=TextAlign.Center)
             }
-        } else LazyColumn(Modifier.fillMaxSize().testTag("planning-list"),contentPadding=PaddingValues(start=16.dp,end=16.dp,bottom=104.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            item {
-                Row(Modifier.fillMaxWidth().padding(top=4.dp),horizontalArrangement=Arrangement.End) {
-                    OlloMenuButton(listOf(OlloMenuItem("closed",if(closed)"Tampilkan Aktif" else "Tampilkan Lunas / Arsip","visibility_off_rounded"))){key->if(key=="closed")closed=!closed}
-                }
-            }
+        } else {
+        LazyColumn(Modifier.fillMaxSize().testTag("planning-list"),contentPadding=PaddingValues(start=16.dp,end=16.dp,top=16.dp,bottom=104.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
             (if(entries.isEmpty()) listOf(data.profile?.baseCurrency ?: "IDR") else entries.map{it.currency}.distinct()).forEach{currency->
                 item(key="debt-summary-$currency"){DebtsSummary(entries.filter{it.currency==currency},direction,currency)}
             }
@@ -214,6 +212,11 @@ private fun Debts(data:FinanceData,busy:Boolean,a:PlanningActions) {
             item { Text(if(direction=="borrowed")"Daftar Hutang" else "Daftar Piutang",style=FFType.sectionTitle,color=FFColors.onSurface) }
             if(entries.isEmpty()) item { OlloEmptyState("payments_rounded",if(closed)"Belum ada catatan lunas" else if(direction=="borrowed")"Belum ada hutang" else "Belum ada piutang","Catat pinjaman, cicilan, dan jatuh tempo dalam satu tempat.","Saldo dompet mengikuti pilihan catat ke saldo saat hutang dibuat.") }
             items(entries,key={it.id}){debt->DebtCard(debt,data,busy,expanded==debt.id,{expanded=if(expanded==debt.id)null else debt.id},a)}
+        }
+        // Diletakkan setelah daftar agar versi tanpa App (uji) tetap dapat disentuh.
+        TopBarActions {
+            OlloMenuButton(listOf(OlloMenuItem("closed",if(closed)"Tampilkan Aktif" else "Tampilkan Lunas / Arsip","visibility_off_rounded")),tint=FFColors.onSurface){key->if(key=="closed")closed=!closed}
+        }
         }
         if(data.featuresReady)Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){OlloFab({a.debt(null)},"Tambah hutang atau piutang")}
     }
@@ -445,10 +448,10 @@ internal fun OlloFormSection(title: String) {
 
 @Composable
 internal fun OlloSegmented(options: List<Pair<String, String>>, selected: String, select: (String) -> Unit, trailing: (@Composable () -> Unit)? = null) {
-    Row(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(28.dp)).background(FFColors.surface).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(18.dp)).background(FFColors.surface).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
         options.forEach { (value, label) ->
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(if (value == selected) FFColors.onSurface else Color.Transparent).clickable(role = Role.Tab) { select(value) }, contentAlignment = Alignment.Center) {
-                Text(label, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 20.sp), fontWeight = if (value == selected) FontWeight.SemiBold else FontWeight.Medium, color = if (value == selected) FFColors.canvas else FFColors.onSurfaceVariant, maxLines = 1)
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(14.dp)).background(if (value == selected) Color(0xFFE4E4E7) else Color.Transparent).semantics { this.selected = value == selected }.clickable(role = Role.Tab) { select(value) }, contentAlignment = Alignment.Center) {
+                Text(label, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 20.sp), color = if (value == selected) Color(0xFF18181B) else FFColors.onSurfaceVariant, maxLines = 1)
             }
         }
         trailing?.invoke()
@@ -458,7 +461,7 @@ internal fun OlloSegmented(options: List<Pair<String, String>>, selected: String
 @Composable
 internal fun OlloRefreshButton(onClick: () -> Unit) {
     Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
-        FFIcon("sync_rounded", FFColors.onSurfaceVariant, 22.dp, "Muat ulang")
+        FFIcon("hi_recurring", FFColors.onSurfaceVariant, 24.dp, "Muat ulang")
     }
 }
 
@@ -505,8 +508,8 @@ internal fun OlloSecondaryButton(label: String, modifier: Modifier = Modifier, e
 
 @Composable
 internal fun OlloFab(onClick: () -> Unit, description: String = "Tambah") {
-    Surface(onClick = onClick, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(20.dp), color = FFColors.onSurface, shadowElevation = 8.dp) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { FFIcon("add_rounded", FFColors.canvas, 26.dp, description) }
+    Surface(onClick = onClick, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(16.dp), color = Color(0xFFE4E4E7), shadowElevation = 6.dp) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { FFIcon("hi_add", Color(0xFF18181B), 26.dp, description) }
     }
 }
 
@@ -538,18 +541,18 @@ internal fun OlloDashedProgress(progress: Float) {
 
 @Composable
 internal fun OlloEmptyState(icon: String, title: String, message: String, tip: String? = null) {
-    Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(76.dp).clip(CircleShape).background(FFColors.outlineVariant), contentAlignment = Alignment.Center) { FFIcon(icon, FFColors.onSurfaceVariant, 32.dp) }
-        Spacer(Modifier.height(18.dp))
-        Text(title, style = FFType.sectionTitle, color = FFColors.onSurface, textAlign = TextAlign.Center)
+    Column(Modifier.fillMaxWidth().padding(top = 72.dp, bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(96.dp).clip(CircleShape).background(Color(0xFF171717)), contentAlignment = Alignment.Center) { FFIcon(if (icon == "check_rounded") "hi_check_circle" else icon, FFColors.onSurfaceVariant, 44.dp) }
+        Spacer(Modifier.height(22.dp))
+        Text(title, style = FFType.sectionTitle.copy(fontWeight = FontWeight.SemiBold), color = FFColors.onSurface, textAlign = TextAlign.Center)
         Spacer(Modifier.height(10.dp))
         Text(message, style = FFType.bodyMain, color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
         if (tip != null) {
-            Spacer(Modifier.height(18.dp))
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                FFIcon("light_outlined", Color(0xFFF0A63A), 20.dp)
-                Spacer(Modifier.width(10.dp))
-                Text(tip, style = FFType.metaData, color = FFColors.onSurfaceVariant)
+            Spacer(Modifier.height(24.dp))
+            Row(Modifier.padding(horizontal = 24.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, Color(0xFF26262A), RoundedCornerShape(16.dp)).background(FFColors.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                FFIcon("hi_bulb", Color(0xFFF0A63A), 20.dp)
+                Spacer(Modifier.width(12.dp))
+                Text(tip, style = FFType.metaData.copy(fontSize = 10.5.sp, lineHeight = 15.sp), color = FFColors.onSurfaceVariant)
             }
         }
     }

@@ -270,7 +270,7 @@ class FinFlowDesignDeviceTest {
         ui.onNodeWithText("Terpakai").assertExists()
         screenshot("budget-overview")
         ui.runOnIdle { screen = "goals" }
-        ui.onNodeWithText("Dana di dompet tabungan").assertExists()
+        ui.onNodeWithText("Total Tabungan").assertExists()
         screenshot("goals-overview")
         ui.runOnIdle { screen = "goal-detail" }
         ui.onNodeWithText("Laptop Baru").assertExists()

@@ -24,6 +24,8 @@ import com.logikawan.finflow.core.model.ImportPlan
 import com.logikawan.finflow.core.platform.AppLifecycle
 import com.logikawan.finflow.core.platform.NativeServices
 import com.logikawan.finflow.core.ui.FFColors
+import com.logikawan.finflow.core.ui.LocalTopBarActions
+import com.logikawan.finflow.core.model.financeMenus
 import com.logikawan.finflow.core.ui.FFIcon
 import com.logikawan.finflow.core.ui.FFIconButton
 import com.logikawan.finflow.core.ui.FFType
@@ -332,6 +334,8 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         lifecycle.onBack = { if (page !in mainPages) { back(); true } else false }
         onDispose { lifecycle.onBack = null }
     }
+    val topBarSlot = remember { mutableStateOf<(@Composable RowScope.() -> Unit)?>(null) }
+    CompositionLocalProvider(LocalTopBarActions provides topBarSlot) {
     Scaffold(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -345,6 +349,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 }, style = FFType.appTitle) },
                 navigationIcon = { FFIconButton("hi_chevron_left", ::back, tint = FFColors.onSurface) },
                 actions = {
+                    topBarSlot.value?.invoke(this)
                     when (page) {
                         "Investasi" -> FFIconButton("add_rounded", {
                             editor = when(page) { "Anggaran" -> Editor.Limit(); "Target" -> Editor.Target(); else -> Editor.Asset() }
@@ -359,7 +364,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                         } }
                     }
                 },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = FFColors.background),
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = if (page in financeMenus || page == "Terjadwal") FFColors.surface else FFColors.background),
             )
         },
         bottomBar = { if (!dataPaused && page in mainPages) MainNavigation(page, ::navigate, {
@@ -487,6 +492,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 "Tagihan", "Utang", "Keinginan", "Kartu", "Catatan", "Reimburse" -> PlanningScreen(page, data, busy, planningActions)
             } }
         }
+    }
     }
     if (addIntro) AddButtonIntroSheet(appearance.addButtonMode, onChoose = { mode ->
         preferenceStore?.update(appearance.copy(addButtonMode = mode))

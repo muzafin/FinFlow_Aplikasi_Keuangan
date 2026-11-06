@@ -57,10 +57,19 @@ fun GoalScreen(data:FinanceData,edit:(Goal)->Unit,add:()->Unit) {
             currencies.forEach{currency->
                 item(key="goal-summary-$currency"){GoalSummary(entries.filter{it.currency==currency},currency,preferences)}
             }
-            item { OlloSegmented(listOf("active" to "Aktif","archived" to "Arsip"),if(archived)"archived" else "active",{archived=it=="archived"}) }
             item { Text(if(archived)"Arsip Bucket" else "Bucket Keuangan",style=FFType.sectionTitle,color=FFColors.onSurface) }
-            if(entries.isEmpty()) item { OlloEmptyState("savings_rounded",if(archived)"Belum ada target diarsipkan" else "Belum ada target","Buat bucket untuk target impian, dana darurat, atau deposito.","Ketuk tombol + untuk membuat target pertamamu.") }
+            if(entries.isEmpty()) item {
+                Column(Modifier.fillMaxWidth().padding(top=48.dp),horizontalAlignment=Alignment.CenterHorizontally){
+                    FFIcon("hi_piggy",FFColors.onSurfaceVariant.copy(alpha=.5f),64.dp)
+                    Spacer(Modifier.height(14.dp))
+                    Text(if(archived)"Belum ada target diarsipkan" else "Belum ada target",style=FFType.bodyMain.copy(fontSize=15.5.sp),color=FFColors.onSurfaceVariant)
+                }
+            }
             items(entries,key={it.id}){goal->GoalCard(goal,preferences,edit)}
+        }
+        // Diletakkan setelah daftar agar versi tanpa App (uji) tetap dapat disentuh.
+        TopBarActions {
+            OlloMenuButton(listOf(OlloMenuItem("archived",if(archived)"Tampilkan Target Aktif" else "Tampilkan Arsip","archive_rounded")),tint=FFColors.onSurface){key->if(key=="archived")archived=!archived}
         }
         Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){OlloFab({add()},"Buat target baru")}
     }
@@ -74,30 +83,29 @@ private fun GoalSummary(goals:List<Goal>,currency:String,preferences:AppPreferen
     val fraction=if(target>0)(funded.toFloat()/target).coerceIn(0f,1f) else 0f
     val percent=fraction*100f
     DesignCard {
-        Text("Dana di dompet tabungan",style=FFType.bodyMain.copy(fontSize=15.sp,lineHeight=20.sp),color=FFColors.onSurfaceVariant)
+        Text("Total Tabungan",style=FFType.metaData,color=FFColors.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
-        FitMoneyText(goalMoney(funded,currency,preferences),FFType.amountLg.copy(fontSize=32.sp,lineHeight=40.sp),FFColors.onSurface)
+        FitMoneyText(goalMoney(funded,currency,preferences),FFType.amountLg.copy(fontSize=33.sp,lineHeight=40.sp),FFColors.onSurface)
         Spacer(Modifier.height(18.dp))
         OlloDashedProgress(fraction)
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
-                Text("Terkumpul",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+                Text("Terkumpul",style=FFType.metaData.copy(fontSize=10.5.sp),color=FFColors.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f,fill=false)){FitMoneyText(goalMoney(funded,currency,preferences),FFType.amountMd.copy(fontWeight=FontWeight.SemiBold),FFColors.onSurface)}
+                    Box(Modifier.weight(1f,fill=false)){FitMoneyText(goalMoney(funded,currency,preferences),FFType.metaData,FFColors.onSurface)}
                     if(!preferences.hideBalances){Spacer(Modifier.width(8.dp));OlloPill("+${percentText(fraction)}%",FFColors.income.copy(alpha=.12f),FFColors.income,icon="trending_up_rounded")}
                 }
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f),horizontalAlignment=Alignment.End) {
-                Text("Sisa Target",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+                Text("Sisa Target",style=FFType.metaData.copy(fontSize=10.5.sp),color=FFColors.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
-                Box(Modifier.fillMaxWidth()){FitMoneyText(goalMoney((target-funded).coerceAtLeast(0),currency,preferences),FFType.amountMd.copy(fontWeight=FontWeight.SemiBold),FFColors.onSurface,TextAlign.End)}
+                Box(Modifier.fillMaxWidth()){FitMoneyText(goalMoney((target-funded).coerceAtLeast(0),currency,preferences),FFType.metaData,FFColors.onSurface,TextAlign.End)}
             }
         }
-        Spacer(Modifier.height(10.dp))
-        Text("${percent.toInt()}% dari ${goalMoney(target,currency,preferences)}",style=FFType.metaData,color=FFColors.outline)
+
         if(legacy>0){Spacer(Modifier.height(6.dp));Text("Progres manual lama ${goalMoney(legacy,currency,preferences)} belum menjadi saldo dompet.",style=FFType.metaData,color=FFColors.onSurfaceVariant)}
     }
 }

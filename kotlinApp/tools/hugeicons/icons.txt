@@ -67,3 +67,7 @@ hi_assistant=Chatting01
 hi_voice=AudioWave01
 hi_scan=BarcodeScan
 hi_chat=Message01
+hi_bulb=Bulb
+hi_image=Image01
+hi_check_circle=CheckmarkCircle01
+hi_calendar_doc=Calendar03

@@ -76,37 +76,40 @@ fun RecurringListScreen(
         return
     }
 
-    LazyColumn(
-        Modifier.fillMaxSize().testTag("recurring-page"),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        item {
-            RecurringCalendarCard(
-                month = month,
-                monthChange = { month = it },
-                days = days,
-                selectedDate = if (selectedDate.startsWith(month)) selectedDate else "$month-01",
-                select = { selectedDate = it },
-                totalByCurrency = totalByCurrency,
-                baseCurrency = data.profile?.baseCurrency ?: "IDR",
-                count = occurrences.size,
-                selectedCount = selectedCount,
-                preferences = preferences,
-            )
-        }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(enabled = !busy, onClick = onProcess) { Text("Proses jadwal", style = FFType.bodyMain, color = FFColors.onSurfaceVariant) }
-                TextButton(onClick = onCalendar) { Text("Kalender terjadwal", style = FFType.bodyMain, color = FFColors.onSurfaceVariant) }
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize().testTag("recurring-page"),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                RecurringCalendarCard(
+                    month = month,
+                    monthChange = { month = it },
+                    days = days,
+                    selectedDate = if (selectedDate.startsWith(month)) selectedDate else "$month-01",
+                    select = { selectedDate = it },
+                    totalByCurrency = totalByCurrency,
+                    baseCurrency = data.profile?.baseCurrency ?: "IDR",
+                    count = occurrences.size,
+                    selectedCount = selectedCount,
+                    preferences = preferences,
+                )
+            }
+            if (active.isEmpty()) {
+                item { RecurringEmptyState(onAdd) }
+            } else {
+                items(active, key = { it.id }) { rule ->
+                    RecurringItemCard(rule, data, preferences, onEdit = { onEdit(rule) }, onArchive = { onArchive(rule) })
+                }
             }
         }
-        if (active.isEmpty()) {
-            item { RecurringEmptyState(onAdd) }
-        } else {
-            items(active, key = { it.id }) { rule ->
-                RecurringItemCard(rule, data, preferences, onEdit = { onEdit(rule) }, onArchive = { onArchive(rule) })
-            }
+        // Ollo tidak punya baris tautan; aksi khusus FinFlow pindah ke menu ⋮ header.
+        TopBarActions {
+            com.logikawan.finflow.feature.planning.OlloMenuButton(listOf(
+                com.logikawan.finflow.feature.planning.OlloMenuItem("process", "Proses jadwal", "hi_recurring"),
+                com.logikawan.finflow.feature.planning.OlloMenuItem("calendar", "Kalender terjadwal", "hi_calendar"),
+            ), tint = FFColors.onSurface) { key -> if (key == "process") { if (!busy) onProcess() } else onCalendar() }
         }
     }
 }
@@ -126,12 +129,12 @@ private fun RecurringCalendarCard(
 ) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(horizontal = 12.dp, vertical = 14.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).clip(CircleShape).clickable { moveMonth(month, -1, monthChange) }.testTag("recurring-prev"), contentAlignment = Alignment.Center) {
-                FFIcon("chevron_left_rounded", FFColors.outline, 22.dp, "Bulan sebelumnya")
+            Box(Modifier.size(40.dp).clip(CircleShape).clickable { moveMonth(month, -1, monthChange) }.testTag("recurring-prev"), contentAlignment = Alignment.Center) {
+                FFIcon("hi_chevron_left", FFColors.onSurface, 22.dp, "Bulan sebelumnya")
             }
             Text(monthLabel(month), Modifier.weight(1f), style = FFType.sectionTitle, color = FFColors.onSurface, textAlign = TextAlign.Center, maxLines = 1)
-            Box(Modifier.size(34.dp).clip(CircleShape).clickable { moveMonth(month, 1, monthChange) }.testTag("recurring-next"), contentAlignment = Alignment.Center) {
-                FFIcon("chevron_right_rounded", FFColors.outline, 22.dp, "Bulan berikutnya")
+            Box(Modifier.size(40.dp).clip(CircleShape).clickable { moveMonth(month, 1, monthChange) }.testTag("recurring-next"), contentAlignment = Alignment.Center) {
+                FFIcon("hi_chevron_right", FFColors.onSurface, 22.dp, "Bulan berikutnya")
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -139,7 +142,7 @@ private fun RecurringCalendarCard(
             days.take(7).forEach { day ->
                 Text(
                     listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")[day.dayOfWeek.isoDayNumber - 1],
-                    Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center,
+                    Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurfaceVariant.copy(alpha = .6f), textAlign = TextAlign.Center,
                 )
             }
         }
@@ -151,40 +154,37 @@ private fun RecurringCalendarCard(
                     val inMonth = date.take(7) == month
                     val selected = date == selectedDate
                     Box(
-                        Modifier.weight(1f).height(64.dp).clip(RoundedCornerShape(8.dp))
-                            .background(if (selected) FFColors.surfaceContainerHigh else if (inMonth) FFColors.canvas else Color.Transparent)
+                        Modifier.weight(1f).height(58.dp).clip(RoundedCornerShape(8.dp))
+                            .background(if (selected) FFColors.surfaceContainerHigh else if (inMonth) FFColors.canvas else FFColors.surfaceContainer.copy(alpha = .5f))
                             .then(if (selected) Modifier.border(1.5.dp, FFColors.onSurface, RoundedCornerShape(8.dp)) else Modifier)
                             .clickable { select(date); if (!inMonth) monthChange(date.take(7)) },
-                        contentAlignment = Alignment.TopCenter,
+                        contentAlignment = Alignment.TopStart,
                     ) {
                         Text(
                             day.dayOfMonth.toString(),
-                            Modifier.padding(top = 6.dp),
-                            style = FFType.metaData,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (inMonth) FFColors.onSurface else FFColors.outline,
+                            Modifier.padding(start = 7.dp, top = 6.dp),
+                            style = FFType.metaData.copy(fontSize = 10.7.sp),
+                            color = if (inMonth) FFColors.onSurface else FFColors.onSurfaceVariant.copy(alpha = .35f),
                         )
                     }
                 }
             }
         }
-        Spacer(Modifier.height(6.dp))
-        HorizontalDivider(thickness = 1.dp, color = FFColors.outlineVariant)
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF18181D)).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Total berulang bulan ini", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+                Text("Total berulang bulan ini", style = FFType.metaData, color = FFColors.onSurface.copy(alpha = .85f))
                 Text(
                     if (selectedCount > 0) "$selectedCount jadwal pada ${shortDateLabel(selectedDate)}" else "$count jadwal terjadwal",
-                    style = FFType.metaData, color = FFColors.outline,
+                    style = FFType.metaData.copy(fontSize = 10.7.sp), color = FFColors.onSurfaceVariant,
                 )
             }
             Column(Modifier.width(150.dp), horizontalAlignment = Alignment.End) {
                 if (totalByCurrency.isEmpty()) {
-                    FitMoneyText(formatBalance(0L, baseCurrency, preferences), FFType.amountMd, FFColors.onSurface, TextAlign.End)
+                    FitMoneyText(formatBalance(0L, baseCurrency, preferences), FFType.amountMd.copy(fontSize = 15.sp), FFColors.onSurface, TextAlign.End)
                 } else {
                     totalByCurrency.forEach { (currency, total) ->
-                        FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(total, currency, preferences), FFType.amountMd, FFColors.onSurface, TextAlign.End)
+                        FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(total, currency, preferences), FFType.amountMd.copy(fontSize = 15.sp), FFColors.onSurface, TextAlign.End)
                     }
                 }
             }
@@ -198,20 +198,19 @@ private fun moveMonth(month: String, delta: Int, monthChange: (String) -> Unit) 
 
 @Composable
 private fun RecurringEmptyState(onAdd: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        FFIcon("calendar_today_outlined", FFColors.outlineVariant, 56.dp)
-        Spacer(Modifier.height(14.dp))
+    Column(Modifier.fillMaxWidth().padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        FFIcon("hi_calendar_doc", FFColors.onSurfaceVariant.copy(alpha = .5f), 56.dp)
+        Spacer(Modifier.height(10.dp))
         Text("Belum ada jadwal berulang", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
         Row(
-            Modifier.height(52.dp).clip(RoundedCornerShape(100.dp)).background(FFColors.primary)
+            Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFE4E4E7))
                 .clickable(onClick = onAdd).testTag("recurring-add").padding(horizontal = 22.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            FFIcon("add_rounded", MaterialTheme.colorScheme.onPrimary, 20.dp)
-            Spacer(Modifier.width(8.dp))
-            Text("Tambah Berulang", style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onPrimary)
+            FFIcon("hi_add", Color(0xFF18181B), 20.dp)
+            Spacer(Modifier.width(10.dp))
+            Text("Tambah Berulang", style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), color = Color(0xFF18181B))
         }
     }
 }
