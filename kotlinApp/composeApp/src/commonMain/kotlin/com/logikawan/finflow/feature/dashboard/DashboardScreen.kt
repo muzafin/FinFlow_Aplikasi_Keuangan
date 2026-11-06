@@ -52,7 +52,7 @@ private val menuPastel=listOf(
     Pair(0xFFEDF0FD, 0xFF5C6BC0), Pair(0xFFE7F4FB, 0xFF0288D1),
 )
 // Mode gelap Ollo: ikon warna Material 500, latar = warna sama 18% di atas hitam (diukur: #2E1B00, #061B2C, #0E200E, #2C0C0A).
-private val menuDark=listOf(0xFFFF9800,0xFF2196F3,0xFF4CAF50,0xFFF44336,0xFF9C6ADE,0xFFEC407A,0xFF26A69A,0xFFFFB300,0xFF7986CB,0xFF29B6F6)
+private val menuDark=listOf(0xFFFF9800,0xFF2196F3,0xFF4CAF50,0xFFF44336,0xFF9C27B0,0xFFE91E63,0xFF5C6BC0,0xFF009688,0xFFFF9800,0xFF536DFE)
 @Composable private fun isDarkUi()=FFColors.background.luminance()<.5f
 internal val dashboardShortcuts=listOf(
     Triple("Notifikasi","Notifikasi","notifications_outlined"),
@@ -314,9 +314,15 @@ private fun MenuSection(menus:List<String>,page:Int,onMore:()->Unit,onNavigate:(
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             Text("Menu",Modifier.weight(1f),style=FFType.sectionTitle)
+            var menuPopup by remember{mutableStateOf(false)}
             Box(Modifier.testTag("dashboard-menu-more")) {
-                Box(Modifier.size(40.dp).clip(CircleShape).clickable(role=Role.Button,onClick=onMore).semantics{contentDescription="More"},contentAlignment=Alignment.Center){
+                Box(Modifier.size(40.dp).clip(CircleShape).clickable(role=Role.Button){menuPopup=true}.semantics{contentDescription="More"},contentAlignment=Alignment.Center){
                     FFIcon("more_vert",FFColors.onSurface,24.dp)
+                }
+                // Ollo: ⋮ membuka Tampilan Menu & Susunan Menu (halaman menu digeser, bukan diganti lewat ⋮).
+                DropdownMenu(menuPopup,{menuPopup=false},containerColor=FFColors.surface) {
+                    DropdownMenuItem(text={Text("Tampilan Menu",style=FFType.bodyMain)},leadingIcon={FFIcon("hi_paint",FFColors.onSurfaceVariant,20.dp)},onClick={menuPopup=false;onNavigate("Tampilan Menu")})
+                    DropdownMenuItem(text={Text("Susunan Menu",style=FFType.bodyMain)},leadingIcon={FFIcon("hi_sort",FFColors.onSurfaceVariant,20.dp)},onClick={menuPopup=false;onNavigate("Susunan Menu")})
                 }
             }
         }
@@ -344,15 +350,14 @@ private fun MenuSection(menus:List<String>,page:Int,onMore:()->Unit,onNavigate:(
                     }
                 }
             }
-            else -> {
-                val items=pages.getOrNull(page).orEmpty()
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                    items.forEach{destination->
+            else -> BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val tile=(maxWidth-12.dp*3)/4
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("dashboard-menu-row"),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                    menus.forEach{destination->
                         val (background,foreground)=menuColors(destination,menuTheme,dark)
                         val index=financeMenus.indexOf(destination).coerceAtLeast(0)
-                        MenuTile(menuTitles.getOrElse(index){destination},menuIcons.getOrElse(index){menuIcons[0]},background,foreground,Modifier.weight(1f)){onNavigate(destination)}
+                        MenuTile(menuTitles.getOrElse(index){destination},menuIcons.getOrElse(index){menuIcons[0]},background,foreground,Modifier.width(tile)){onNavigate(destination)}
                     }
-                    repeat(4-items.size){Spacer(Modifier.weight(1f))}
                 }
             }
         }

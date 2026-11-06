@@ -348,11 +348,9 @@ class FinFlowDesignDeviceTest {
         }
         ui.onNodeWithTag("balance-card-IDR").assert(hasAnyDescendant(hasText("••••••")))
         ui.onNodeWithTag("dashboard").performScrollToNode(hasTestTag("dashboard-menu-more"))
-        ui.onNodeWithTag("dashboard-menu-more").performClick()
-        ui.onNodeWithTag("dashboard-menu-more").performClick()
+        // Mode grid menampilkan semua menu; Anggaran tersembunyi sesuai preferensi.
         ui.onNodeWithText("Anggaran",false).assertDoesNotExist()
         ui.onNodeWithText("Investasi",false).assertExists()
-        ui.onNodeWithTag("dashboard-menu-more").performClick()
         ui.onNodeWithText("Target",false).performScrollTo().performClick()
         ui.runOnIdle { assertEquals("Target",destination) }
         screenshot("preferences-grid-hidden-budget")

@@ -9,6 +9,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -26,7 +30,25 @@ import com.logikawan.finflow.core.util.displayMoney
 @Composable
 fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> Unit) {
     if (data.investments.isEmpty()) {
-        FeatureEmpty("trending_up_rounded", FFColors.income, "Belum ada investasi", "Pantau portofolio investasimu\ndi satu tempat", "Tambah Investasi", add)
+        // Ollo (Asset Management): kartu Total Nilai Aset + kartu ajakan dengan tombol bergaris.
+        val currency = data.profile?.baseCurrency ?: "IDR"
+        Column(Modifier.fillMaxSize().padding(16.dp).testTag("investment-empty"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(20.dp)) {
+                Text("Total Nilai Aset", style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant)
+                Spacer(Modifier.height(14.dp))
+                Text(com.logikawan.finflow.core.util.formatBalance(0L, currency, com.logikawan.finflow.core.model.LocalPreferences.current), style = FFType.amountLg.copy(fontSize = 33.sp, lineHeight = 40.sp), color = FFColors.onSurface)
+            }
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(horizontal = 24.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                FFIcon("hi_wallet", FFColors.onSurfaceVariant.copy(alpha = .6f), 48.dp)
+                Spacer(Modifier.height(14.dp))
+                Text("Tambahkan asetmu untuk dipantau setiap hari", style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(18.dp))
+                Row(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(23.dp)).border(1.dp, FFColors.outlineVariant, RoundedCornerShape(23.dp)).clickable(onClick = add).testTag("investment-add"),
+                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    FFIcon("hi_add", FFColors.onSurface, 18.dp); Spacer(Modifier.width(8.dp)); Text("Tambah Investasi", style = FFType.bodyMain.copy(fontSize = 15.sp))
+                }
+            }
+        }
         return
     }
     val palette = listOf(FFColors.income, FFColors.secondary, Color(0xFFF5A623), Color(0xFF9B59B6), Color(0xFF5B8DEF), FFColors.tertiary)

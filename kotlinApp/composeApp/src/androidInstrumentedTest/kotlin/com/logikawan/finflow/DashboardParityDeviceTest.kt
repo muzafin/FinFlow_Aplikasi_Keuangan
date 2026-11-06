@@ -121,12 +121,15 @@ class DashboardParityDeviceTest {
         ui.mainClock.advanceTimeBy(400)
         ui.waitForIdle()
         ui.onNodeWithText("Anggaran",false).assertExists()
-        ui.onNodeWithTag("dashboard-menu-more").performClick()
-        ui.mainClock.advanceTimeBy(200)
-        ui.onNodeWithText("Kartu",false).assertExists()
+        // Ollo: menu satu baris digeser; ⋮ membuka Tampilan Menu / Susunan Menu.
+        ui.onNodeWithTag("dashboard-menu-row").performScrollToNode(hasText("Investasi"))
+        ui.onNodeWithText("Investasi").performClick()
+        ui.runOnIdle{ assertEquals("Investasi",destination) }
         screenshot("dashboard-menu-page-2")
         ui.onNodeWithTag("dashboard-menu-more").performClick()
         ui.mainClock.advanceTimeBy(200)
+        ui.onNodeWithText("Susunan Menu").performClick()
+        ui.runOnIdle{ assertEquals("Susunan Menu",destination) }
         ui.onNodeWithText("Lvl 1").performClick()
         ui.runOnIdle{ assertEquals("Aktivitas",destination) }
         ui.onNodeWithTag("dashboard-shortcuts-button").performClick()
