@@ -101,10 +101,10 @@ fun BudgetScreen(data: FinanceData, month: String, monthChange: (String) -> Unit
         }
         Box(
             Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 20.dp).size(56.dp)
-                .shadow(6.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Color(0xFFE4E4E7))
+                .shadow(6.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(FFColors.pill)
                 .clickable(onClick = add).testTag("budget-fab"),
             contentAlignment = Alignment.Center,
-        ) { FFIcon("hi_add", Color(0xFF18181B), 26.dp, "Buat anggaran") }
+        ) { FFIcon("hi_add", FFColors.onPill, 26.dp, "Buat anggaran") }
     }
 }
 

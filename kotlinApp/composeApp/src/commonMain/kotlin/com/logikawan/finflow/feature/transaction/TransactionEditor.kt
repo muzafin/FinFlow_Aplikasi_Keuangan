@@ -149,13 +149,13 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                         listOf("expense" to "Pengeluaran", "income" to "Pemasukan", "transfer" to "Transfer").forEach { (value, label) ->
                             val chosen = type == value
                             Box(Modifier.height(40.dp).clip(RoundedCornerShape(20.dp))
-                                .background(if (chosen) Color(0xFFE4E4E7) else Color.Transparent)
+                                .background(if (chosen) FFColors.pill else Color.Transparent)
                                 .semantics { selected = chosen }
                                 .clickable(enabled = !busy, role = Role.Tab) {
                                     type = value; categoryId = initialCategory(value); subcategoryId=null; error = null
                                 }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                                 Text(label, style = FFType.bodyMain.copy(fontSize = 13.5.sp),
-                                    color = if (chosen) Color(0xFF18181B) else FFColors.onSurfaceVariant)
+                                    color = if (chosen) FFColors.onPill else FFColors.onSurfaceVariant)
                             }
                         }
                     }
@@ -187,12 +187,12 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                         children.forEach{child->
                             val chosen=subcategoryId==child.id
                             val shape=RoundedCornerShape(24.dp)
-                            Row(Modifier.height(46.dp).clip(shape).background(if(chosen)Color(0xFFE4E4E7) else Color(0xFF18181D)).semantics{selected=chosen}
+                            Row(Modifier.height(46.dp).clip(shape).background(if(chosen)FFColors.pill else FFColors.chip).semantics{selected=chosen}
                                 .clickable(enabled=!busy,role=Role.RadioButton){subcategoryId=if(chosen)null else child.id}.padding(horizontal=16.dp).testTag("subcategory-${child.id}"),
                                 verticalAlignment=Alignment.CenterVertically){
-                                FFIcon(child.icon.ifBlank{categoryIcon(child.id)},if(chosen)Color(0xFF18181B) else FFColors.onSurfaceVariant,20.dp)
+                                FFIcon(child.icon.ifBlank{categoryIcon(child.id)},if(chosen)FFColors.onPill else FFColors.onSurfaceVariant,20.dp)
                                 Spacer(Modifier.width(10.dp))
-                                Text(child.name,style=FFType.metaData,color=if(chosen)Color(0xFF18181B) else FFColors.onSurface,maxLines=1)
+                                Text(child.name,style=FFType.metaData,color=if(chosen)FFColors.onPill else FFColors.onSurface,maxLines=1)
                             }
                         }
                     }
@@ -207,7 +207,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                 }
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Row(Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF171717)).clickable(enabled = !busy) { pickingAccount = true }
+                        Row(Modifier.clip(RoundedCornerShape(16.dp)).background(FFColors.raised).clickable(enabled = !busy) { pickingAccount = true }
                             .padding(horizontal = 14.dp, vertical = 8.dp).testTag("transaction-currency"), verticalAlignment = Alignment.CenterVertically) {
                             Text(if (currency == "IDR") "Rp" else currency, style = FFType.bodyMain.copy(fontSize = 18.sp))
                             Spacer(Modifier.width(6.dp)); FFIcon("hi_chevron_down", FFColors.onSurface, 18.dp)
@@ -242,7 +242,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                             placeholder = { Text("Tambah catatan...", style = FFType.bodyMain, color = FFColors.onSurfaceVariant) },
                             leadingIcon = { FFIcon("hi_note_doc", FFColors.onSurfaceVariant, 22.dp) }, textStyle = FFType.bodyMain, singleLine = true,
                             shape = RoundedCornerShape(16.dp), colors = transactionFieldColors())
-                        Row(Modifier.width(140.dp).height(56.dp).clip(RoundedCornerShape(16.dp)).border(1.dp, Color(0xFF26262A), RoundedCornerShape(16.dp))
+                        Row(Modifier.width(140.dp).height(56.dp).clip(RoundedCornerShape(16.dp)).border(1.dp, FFColors.hairline, RoundedCornerShape(16.dp))
                             .clickable(enabled = !busy) { pickingAccount = true }.padding(horizontal = 14.dp).testTag("transaction-wallet"), verticalAlignment = Alignment.CenterVertically) {
                             Text(account?.name ?: "Dompet", style = FFType.bodyMain.copy(fontSize = 13.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             FFIcon("hi_chevron_down", FFColors.onSurface, 18.dp)
@@ -322,7 +322,7 @@ private fun TransactionKeypad(busy: Boolean, date: String, createdAt: Long, type
         keys.forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { key ->
-                    val bg = when (key) { "backspace" -> FFColors.expense.copy(alpha = .10f); "confirm" -> Color(0xFFE4E4E7); else -> FFColors.surface }
+                    val bg = when (key) { "backspace" -> FFColors.expense.copy(alpha = .10f); "confirm" -> FFColors.pill; else -> FFColors.surface }
                     Box(Modifier.weight(1f).height(54.dp).clip(RoundedCornerShape(18.dp)).background(bg)
                         .testTag("key-$key").semantics { contentDescription = when (key) {
                             "backspace" -> "Hapus angka terakhir (tahan untuk kosongkan)"; "calculator" -> "Kalkulator"; "calendar" -> "Pilih tanggal"; "confirm" -> "Simpan $typeLabel"; else -> key
@@ -332,7 +332,7 @@ private fun TransactionKeypad(busy: Boolean, date: String, createdAt: Long, type
                         when (key) {
                             "backspace" -> FFIcon("backspace_outlined", FFColors.expense, 24.dp)
                             "calculator" -> FFIcon("hi_calculator", FFColors.onSurface, 24.dp)
-                            "confirm" -> if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color(0xFF18181B), strokeWidth = 2.dp) else FFIcon("check", Color(0xFF18181B), 26.dp)
+                            "confirm" -> if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = FFColors.onPill, strokeWidth = 2.dp) else FFIcon("check", FFColors.onPill, 26.dp)
                             "calendar" -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(transactionDateLabel(date).substringBeforeLast(' '), style = FFType.metaData.copy(lineHeight = 14.sp), color = FFColors.onSurfaceVariant, maxLines = 1)
                                 if (time.isNotBlank()) Text(time, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 18.sp), color = FFColors.onSurface, maxLines = 1)

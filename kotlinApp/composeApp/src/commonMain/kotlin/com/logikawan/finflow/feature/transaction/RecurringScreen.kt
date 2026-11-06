@@ -171,7 +171,7 @@ private fun RecurringCalendarCard(
             }
         }
         Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF18181D)).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.chip).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Total berulang bulan ini", style = FFType.metaData, color = FFColors.onSurface.copy(alpha = .85f))
                 Text(
@@ -204,13 +204,13 @@ private fun RecurringEmptyState(onAdd: () -> Unit) {
         Text("Belum ada jadwal berulang", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
         Row(
-            Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFE4E4E7))
+            Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(FFColors.pill)
                 .clickable(onClick = onAdd).testTag("recurring-add").padding(horizontal = 22.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            FFIcon("hi_add", Color(0xFF18181B), 20.dp)
+            FFIcon("hi_add", FFColors.onPill, 20.dp)
             Spacer(Modifier.width(10.dp))
-            Text("Tambah Berulang", style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), color = Color(0xFF18181B))
+            Text("Tambah Berulang", style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), color = FFColors.onPill)
         }
     }
 }

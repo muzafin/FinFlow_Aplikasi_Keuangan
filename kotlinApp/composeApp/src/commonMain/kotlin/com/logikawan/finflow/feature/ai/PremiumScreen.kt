@@ -196,9 +196,10 @@ private fun PlanCard(kind: String, plan: PremiumPlan?, selected: Boolean, onClic
 /** Kartu "Upgrade ke Premium" di Profil: biru tua dengan pola lingkaran dan chevron dalam lingkaran (seperti Ollo). */
 @Composable
 fun UpgradePremiumCard(controller: AiController, onClick: () -> Unit) {
+    val dark = FFColors.isDark
     Box(Modifier.fillMaxWidth().height(115.dp).clip(RoundedCornerShape(24.dp))
         .drawBehind {
-            drawRect(Brush.linearGradient(listOf(Color(0xFF112155), Color(0xFF1A48C9), Color(0xFF0F91E3)), Offset(0f, size.height), Offset(size.width, 0f)))
+            drawRect(Brush.linearGradient(if (dark) listOf(Color(0xFF112155), Color(0xFF1A48C9), Color(0xFF0F91E3)) else listOf(Color(0xFF2665EA), Color(0xFF377DF3), Color(0xFF37AFF6)), Offset(0f, size.height), Offset(size.width, 0f)))
             val center = Offset(size.width * 1.02f, size.height * .5f)
             listOf(.35f, .55f, .75f, .95f).forEach { r ->
                 drawCircle(Color.White.copy(alpha = .16f), radius = size.height * r * 1.2f, center = center, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))

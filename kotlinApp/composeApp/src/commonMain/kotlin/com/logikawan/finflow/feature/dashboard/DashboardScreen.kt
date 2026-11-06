@@ -167,7 +167,7 @@ private fun DashboardHeader(name:String,level:Int,onProfile:()->Unit,onLevel:()-
             }
         }
         Spacer(Modifier.width(8.dp))
-        Box(Modifier.size(40.dp).clip(CircleShape).background(FFColors.surface).clickable(role=Role.Button,onClick=onProfile).testTag("dashboard-profile"),contentAlignment=Alignment.Center){
+        Box(Modifier.size(40.dp).clip(CircleShape).background(if(FFColors.isDark)FFColors.surface else Color.Transparent).clickable(role=Role.Button,onClick=onProfile).testTag("dashboard-profile"),contentAlignment=Alignment.Center){
             FFIcon("hi_user",FFColors.onSurface,22.dp,contentDescription="Profil")
         }
         Box(Modifier.testTag("dashboard-shortcuts")) {
@@ -236,10 +236,10 @@ private fun DashboardPeriodTabs(period:String,select:(String)->Unit) {
     Row(Modifier.fillMaxWidth().height(40.dp)) {
         listOf("Hari Ini" to "Hari","Minggu Ini" to "Minggu","Bulan Ini" to "Bulan","Tahun" to "Tahun","Kalender" to "Kalender").forEach{(value,label)->
             val active=period==value
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(if(active)(if(dark)Color(0xFFE4E4E7) else FFColors.onSurface) else Color.Transparent)
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(if(active)(if(dark)FFColors.pill else FFColors.onSurface) else Color.Transparent)
                 .clickable(role=Role.Tab){select(value)},contentAlignment=Alignment.Center) {
                 Text(label,style=FFType.bodyMain.copy(fontSize=12.sp,lineHeight=16.sp,fontWeight=FontWeight.Normal),
-                    color=if(active)(if(dark)Color(0xFF18181B) else FFColors.canvas) else FFColors.onSurfaceVariant,maxLines=1)
+                    color=if(active)(if(dark)FFColors.onPill else FFColors.canvas) else FFColors.onSurfaceVariant,maxLines=1)
             }
         }
     }
@@ -249,11 +249,12 @@ private fun DashboardPeriodTabs(period:String,select:(String)->Unit) {
 private fun BalanceCard(currency:String,liquid:Boolean,balance:String,income:String,expense:String,gradient:List<Long>,angle:Float,
     showCurrencySwap:Boolean,privacy:Boolean,toggleLiquid:()->Unit,cycleCurrency:()->Unit,togglePrivacy:()->Unit,onIncome:()->Unit,onExpense:()->Unit) {
     val olloStyle=gradient==cardGradientColors("teal")
+    val darkCard=FFColors.isDark
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).drawWithCache {
         val colors=gradient.map{Color(it)}
         onDrawBehind{
             if(olloStyle){
-                drawOlloBalanceGradient()
+                drawOlloBalanceGradient(darkCard)
             } else {val radius=size.maxDimension*.7f;val offset=Offset(cos(angle)*radius,sin(angle)*radius);drawRect(Brush.linearGradient(colors,center-offset,center+offset))}
         }
     }.testTag("balance-card-$currency").padding(start=16.dp,end=16.dp,top=20.dp,bottom=16.dp),horizontalAlignment=Alignment.CenterHorizontally) {

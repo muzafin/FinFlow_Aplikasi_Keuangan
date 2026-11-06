@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +43,21 @@ object FFColors {
     val income: Color @Composable get() = Color(LocalPreferences.current.incomeColor)
     val expense: Color @Composable get() = Color(LocalPreferences.current.expenseColor)
     val navFab: Color @Composable get() = primary
+    // Token Ollo yang berbalik di mode terang (diukur dari Ollo 1.7.9 gelap & terang).
+    val isDark: Boolean @Composable get() = MaterialTheme.colorScheme.background.luminance() < .5f
+    /** Pil/tombol terpilih: terang di mode gelap, gelap di mode terang. */
+    val pill: Color @Composable get() = if (isDark) Color(0xFFE4E4E7) else Color(0xFF1C1E27)
+    val onPill: Color @Composable get() = if (isDark) Color(0xFF18181B) else Color.White
+    /** Wadah segmen/chip. */
+    val chip: Color @Composable get() = if (isDark) Color(0xFF18181D) else Color(0xFFF1F1F2)
+    /** Pil sekunder (Lvl, mata uang). */
+    val raised: Color @Composable get() = if (isDark) Color(0xFF171717) else Color(0xFFE7E8E9)
+    /** Lingkaran ikon. */
+    val iconCircle: Color @Composable get() = if (isDark) Color(0xFF393B41) else Color(0xFFE2E2E3)
+    /** Garis/bingkai tipis. */
+    val hairline: Color @Composable get() = if (isDark) Color(0xFF26262A) else Color(0xFFE5E6E9)
+    /** Latar paling dalam (sel kosong heatmap, lingkaran redup). */
+    val deep: Color @Composable get() = if (isDark) Color(0xFF09090C) else Color(0xFFF1F1F3)
 }
 
 private val LocalMoneyFont = staticCompositionLocalOf<FontFamily> { FontFamily.Monospace }

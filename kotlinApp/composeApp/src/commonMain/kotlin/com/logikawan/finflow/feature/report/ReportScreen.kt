@@ -161,7 +161,7 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
     }
     val rangeLabel = "(${shortRange(period.start)} - ${shortRange(period.endExclusive.plus(DatePeriod(days = -1)))})"
     val subtitle = listOfNotNull(rangeLabel, wallets.find { it.id == selectedWallet }?.name, currency.takeIf { currencies.size > 1 }).joinToString(" · ")
-    val chipBg = Color(0xFF18181D).takeIf { FFColors.background.luminance() < .5f } ?: FFColors.surfaceContainer
+    val chipBg = FFColors.chip.takeIf { FFColors.background.luminance() < .5f } ?: FFColors.surfaceContainer
     val heatColor = Color(0xFF00897B)
     var kindMenu by remember { mutableStateOf(false) }
 
@@ -356,7 +356,7 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
                                 Spacer(Modifier.height(4.dp))
                                 FitMoneyText(shown(average), FFType.amountMd.copy(fontSize = 20.sp))
                             }
-                            Box(Modifier.padding(horizontal = 12.dp).width(1.dp).height(52.dp).background(Color(0xFF26262D)))
+                            Box(Modifier.padding(horizontal = 12.dp).width(1.dp).height(52.dp).background(FFColors.hairline))
                             Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                                 Text("Proyeksi Total", style = FFType.metaData, color = FFColors.onSurfaceVariant)
                                 Spacer(Modifier.height(4.dp))
@@ -438,7 +438,7 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OlloDropdown(when (logType) { "income" -> "Pemasukan"; "expense" -> "Pengeluaran"; "transfer" -> "Transfer"; else -> "Semua" },
                             listOf("all" to "Semua", "income" to "Pemasukan", "expense" to "Pengeluaran", "transfer" to "Transfer"), null) { logType = it; logLimit = 5 }
-                        Row(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, Color(0xFF26262D), RoundedCornerShape(20.dp)).clickable { openFilters() }
+                        Row(Modifier.clip(RoundedCornerShape(20.dp)).border(1.dp, FFColors.hairline, RoundedCornerShape(20.dp)).clickable { openFilters() }
                             .padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(walletLabel, style = FFType.metaData); Spacer(Modifier.width(6.dp)); FFIcon("hi_chevron_down", FFColors.onSurface, 16.dp)
                         }
@@ -549,7 +549,7 @@ private fun OlloDropdown(label: String, options: List<Pair<String, String>>, bac
     var open by remember { mutableStateOf(false) }
     Box {
         val shape = RoundedCornerShape(if (background != null) 14.dp else 20.dp)
-        Row(Modifier.clip(shape).then(if (background != null) Modifier.background(background) else Modifier.border(1.dp, Color(0xFF26262D), shape))
+        Row(Modifier.clip(shape).then(if (background != null) Modifier.background(background) else Modifier.border(1.dp, FFColors.hairline, shape))
             .clickable { open = true }.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = FFType.metaData)
             Spacer(Modifier.width(if (background != null) 18.dp else 6.dp))
@@ -698,7 +698,7 @@ private fun ActivityHeatmap(first: LocalDate, values: List<Long>, color: Color, 
     val rows = (offset + shown.size + 6) / 7
     val maximum = (shown.maxOrNull() ?: 0L).coerceAtLeast(1).toFloat()
     val week = listOf("S", "S", "R", "K", "J", "S", "M")
-    val empty = if (FFColors.background.luminance() < .5f) Color(0xFF09090C) else FFColors.surfaceContainer
+    val empty = if (FFColors.background.luminance() < .5f) FFColors.deep else FFColors.surfaceContainer
     Row(Modifier.fillMaxWidth()) {
         repeat(7) { index -> Text(week[(weekStart - 1 + index) % 7], Modifier.weight(1f), style = FFType.metaData.copy(fontSize = 10.sp), color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center) }
     }
@@ -725,7 +725,7 @@ private fun ActivityHeatmap(first: LocalDate, values: List<Long>, color: Color, 
 // Analisis Lanjutan Ollo: skor 8 minggu lengkap, rata-rata per kategori, arus kas 12 bulan, kalkulator.
 @Composable
 private fun AdvancedAnalysis(data: FinanceData, eligible: List<Transaction>, currency: String, today: LocalDate, preferences: AppPreferences, chipBg: Color, shown: (Long) -> String) {
-    val divider = Color(0xFF26262D)
+    val divider = FFColors.hairline
     Text("Analisis Lanjutan", style = FFType.sectionTitle)
     Text("Gambaran cepat arus kas dan pola pengeluaran terbaru.", style = FFType.metaData, color = FFColors.onSurfaceVariant)
     Spacer(Modifier.height(20.dp))

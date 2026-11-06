@@ -102,7 +102,7 @@ private val paletteSwatches=mapOf(
 @Composable private fun PaletteTile(value:String,label:String,selected:Boolean,select:()->Unit){
     val colors=paletteSwatches.getValue(value).map{Color(it)}
     val shape=RoundedCornerShape(14.dp)
-    Column(Modifier.width(76.dp).clip(shape).background(FFColors.surface).border(1.dp,if(selected)FFColors.onSurface.copy(alpha=.6f) else Color(0xFF26262A),shape)
+    Column(Modifier.width(76.dp).clip(shape).background(FFColors.surface).border(1.dp,if(selected)FFColors.onSurface.copy(alpha=.6f) else FFColors.hairline,shape)
         .clickable(onClick=select).padding(top=8.dp,bottom=6.dp).testTag("palette-$value"),horizontalAlignment=Alignment.CenterHorizontally){
         Column(Modifier.size(50.dp,44.dp).clip(RoundedCornerShape(9.dp)).background(Color(0xFF09090B)).padding(6.dp),verticalArrangement=Arrangement.spacedBy(4.dp)){
             Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(3.dp)).background(colors[0])){Box(Modifier.padding(start=4.dp).align(Alignment.CenterStart).size(10.dp,2.dp).background(Color(0xFF09090B).copy(alpha=.5f)))}
@@ -119,9 +119,9 @@ private fun ProfileHeader(native:NativeServices,name:String,data:FinanceData,day
     val dark=FFColors.background.luminance()<.5f
     Row(Modifier.fillMaxWidth().testTag("profile-header").clickable{onNavigate("Profil akun")}.padding(top=12.dp,bottom=6.dp),verticalAlignment=Alignment.CenterVertically) {
         Box(Modifier.testTag("profile-avatar")) {
-            ProfilePhoto(data.profile,native,Modifier.size(78.dp).clip(CircleShape).background(if(dark)Color(0xFF18181D) else FFColors.surface).border(1.5.dp,if(dark)Color(0xFF26262A) else FFColors.outlineVariant,CircleShape))
-            Box(Modifier.align(Alignment.BottomEnd).offset(x=2.dp,y=2.dp).size(26.dp).clip(CircleShape).background(Color(0xFFE4E4E7)),contentAlignment=Alignment.Center){
-                FFIcon("hi_pencil",Color(0xFF18181B),14.dp)
+            ProfilePhoto(data.profile,native,Modifier.size(78.dp).clip(CircleShape).background(if(dark)FFColors.chip else FFColors.surface).border(1.5.dp,if(dark)FFColors.hairline else FFColors.outlineVariant,CircleShape))
+            Box(Modifier.align(Alignment.BottomEnd).offset(x=2.dp,y=2.dp).size(26.dp).clip(CircleShape).background(FFColors.pill),contentAlignment=Alignment.Center){
+                FFIcon("hi_pencil",FFColors.onPill,14.dp)
             }
         }
         Spacer(Modifier.width(18.dp))
@@ -150,7 +150,7 @@ fun recordingStreak(data:FinanceData):Int {
 @Composable private fun ProfileCounter(label:String,value:String,modifier:Modifier){Column(modifier){Text(value,style=FFType.bodyMain.copy(fontSize=16.sp,lineHeight=22.sp));Text(label,style=FFType.metaData.copy(fontSize=10.sp,lineHeight=13.sp),color=FFColors.onSurfaceVariant,maxLines=1)}}
 @Composable private fun ProfileIconBox(icon:String,circle:Boolean){
     val dark=FFColors.background.luminance()<.5f
-    Box(Modifier.size(40.dp).clip(if(circle)CircleShape else RoundedCornerShape(12.dp)).background(if(dark)Color(0xFF26262A) else FFColors.surfaceContainerHigh),contentAlignment=Alignment.Center){FFIcon(icon,FFColors.onSurface,20.dp)}
+    Box(Modifier.size(40.dp).clip(if(circle)CircleShape else RoundedCornerShape(12.dp)).background(if(dark)FFColors.hairline else FFColors.surfaceContainerHigh),contentAlignment=Alignment.Center){FFIcon(icon,FFColors.onSurface,20.dp)}
 }
 @Composable private fun ProfileTile(item:ProfileItem,modifier:Modifier,navigate:(String)->Unit){
     Column(modifier.height(124.dp).clip(RoundedCornerShape(20.dp)).background(FFColors.surface).clickable{navigate(item.route)}.padding(horizontal=14.dp,vertical=12.dp)){

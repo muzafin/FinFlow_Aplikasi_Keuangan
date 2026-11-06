@@ -64,9 +64,9 @@ private fun PlanningList(data:FinanceData,busy:Boolean,addLabel:String,add:()->U
         // Ollo: tombol + mengambang di kanan-bawah (Catatan memakai pil berlabel).
         val label=addLabel.removePrefix("+").trim()
         if(data.featuresReady)Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){
-            if(extendedFab)Surface(onClick=add,enabled=!busy,modifier=Modifier.height(56.dp).semantics{contentDescription=label},shape=RoundedCornerShape(16.dp),color=Color(0xFFE4E4E7),shadowElevation=6.dp){
+            if(extendedFab)Surface(onClick=add,enabled=!busy,modifier=Modifier.height(56.dp).semantics{contentDescription=label},shape=RoundedCornerShape(16.dp),color=FFColors.pill,shadowElevation=6.dp){
                 Row(Modifier.padding(horizontal=20.dp),verticalAlignment=Alignment.CenterVertically){
-                    FFIcon("hi_add",Color(0xFF18181B),22.dp);Spacer(Modifier.width(12.dp));Text(label,style=FFType.bodyMain.copy(fontSize=15.sp),color=Color(0xFF18181B))
+                    FFIcon("hi_add",FFColors.onPill,22.dp);Spacer(Modifier.width(12.dp));Text(label,style=FFType.bodyMain.copy(fontSize=15.sp),color=FFColors.onPill)
                 }
             } else OlloFab({if(!busy)add()},label)
         }
@@ -537,8 +537,8 @@ internal fun OlloFormSection(title: String) {
 internal fun OlloSegmented(options: List<Pair<String, String>>, selected: String, select: (String) -> Unit, trailing: (@Composable () -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(18.dp)).background(FFColors.surface).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
         options.forEach { (value, label) ->
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(14.dp)).background(if (value == selected) Color(0xFFE4E4E7) else Color.Transparent).semantics { this.selected = value == selected }.clickable(role = Role.Tab) { select(value) }, contentAlignment = Alignment.Center) {
-                Text(label, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 20.sp), color = if (value == selected) Color(0xFF18181B) else FFColors.onSurfaceVariant, maxLines = 1)
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(14.dp)).background(if (value == selected) FFColors.pill else Color.Transparent).semantics { this.selected = value == selected }.clickable(role = Role.Tab) { select(value) }, contentAlignment = Alignment.Center) {
+                Text(label, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 20.sp), color = if (value == selected) FFColors.onPill else FFColors.onSurfaceVariant, maxLines = 1)
             }
         }
         trailing?.invoke()
@@ -595,8 +595,8 @@ internal fun OlloSecondaryButton(label: String, modifier: Modifier = Modifier, e
 
 @Composable
 internal fun OlloFab(onClick: () -> Unit, description: String = "Tambah") {
-    Surface(onClick = onClick, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(16.dp), color = Color(0xFFE4E4E7), shadowElevation = 6.dp) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { FFIcon("hi_add", Color(0xFF18181B), 26.dp, description) }
+    Surface(onClick = onClick, modifier = Modifier.size(56.dp), shape = RoundedCornerShape(16.dp), color = FFColors.pill, shadowElevation = 6.dp) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { FFIcon("hi_add", FFColors.onPill, 26.dp, description) }
     }
 }
 
@@ -629,14 +629,14 @@ internal fun OlloDashedProgress(progress: Float) {
 @Composable
 internal fun OlloEmptyState(icon: String, title: String, message: String, tip: String? = null) {
     Column(Modifier.fillMaxWidth().padding(top = 72.dp, bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(96.dp).clip(CircleShape).background(Color(0xFF171717)), contentAlignment = Alignment.Center) { FFIcon(if (icon == "check_rounded") "hi_check_circle" else icon, FFColors.onSurfaceVariant, 44.dp) }
+        Box(Modifier.size(96.dp).clip(CircleShape).background(FFColors.raised), contentAlignment = Alignment.Center) { FFIcon(if (icon == "check_rounded") "hi_check_circle" else icon, FFColors.onSurfaceVariant, 44.dp) }
         Spacer(Modifier.height(22.dp))
         Text(title, style = FFType.sectionTitle.copy(fontWeight = FontWeight.SemiBold), color = FFColors.onSurface, textAlign = TextAlign.Center)
         Spacer(Modifier.height(10.dp))
         Text(message, style = FFType.bodyMain, color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
         if (tip != null) {
             Spacer(Modifier.height(24.dp))
-            Row(Modifier.padding(horizontal = 24.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, Color(0xFF26262A), RoundedCornerShape(16.dp)).background(FFColors.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(horizontal = 24.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).border(1.dp, FFColors.hairline, RoundedCornerShape(16.dp)).background(FFColors.surface).padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 FFIcon("hi_bulb", Color(0xFFF0A63A), 20.dp)
                 Spacer(Modifier.width(12.dp))
                 Text(tip, style = FFType.metaData.copy(fontSize = 10.5.sp, lineHeight = 15.sp), color = FFColors.onSurfaceVariant)

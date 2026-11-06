@@ -170,7 +170,7 @@ private fun WalletBalanceCard(data:FinanceData,currency:String,preferences:AppPr
     val flowLabel=if(hidden)"•••• 30 hari"
         else "(${if(values.flow30>=0)"+" else "−"}${formatBalance(abs(values.flow30),currency,preferences)}) 30 hari"
     val white=Color.White
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).olloBalanceGradient().testTag("wallet-balance-$currency")
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).olloBalanceGradient(FFColors.isDark).testTag("wallet-balance-$currency")
         .padding(start=16.dp,end=16.dp,top=16.dp,bottom=16.dp), horizontalAlignment=Alignment.CenterHorizontally) {
         Row(verticalAlignment=Alignment.CenterVertically) {
             Text("Total Saldo (${currency})",style=FFType.bodyMain,color=white.copy(alpha=.8f))
@@ -220,7 +220,7 @@ private fun WalletStatTile(label:String,value:Long,currency:String,preferences:A
 private fun WalletGroupEmpty(type:String,title:String) {
     val dark=FFColors.background.luminance()<.5f
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(FFColors.surface).padding(horizontal=16.dp,vertical=20.dp),verticalAlignment=Alignment.CenterVertically) {
-        Box(Modifier.size(46.dp).clip(CircleShape).background(if(dark)Color(0xFF141418) else FFColors.surfaceContainer),contentAlignment=Alignment.Center){FFIcon(walletGroupIcon(type),FFColors.onSurfaceVariant.copy(alpha=.45f),22.dp)}
+        Box(Modifier.size(46.dp).clip(CircleShape).background(if(dark)FFColors.deep else FFColors.surfaceContainer),contentAlignment=Alignment.Center){FFIcon(walletGroupIcon(type),FFColors.onSurfaceVariant.copy(alpha=.45f),22.dp)}
         Spacer(Modifier.width(18.dp))
         Column(Modifier.weight(1f)) {
             Text("Belum ada dompet ${title}",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
@@ -238,7 +238,7 @@ private fun WalletAccountCard(account:Account,data:FinanceData,preferences:AppPr
     Column(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(FFColors.surface)
         .clickable(role=Role.Button,onClick=onClick).padding(horizontal=16.dp,vertical=16.dp).testTag("wallet-${account.id}")) {
         Row(verticalAlignment=Alignment.CenterVertically) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(if(dark)Color(0xFF393B41) else FFColors.surfaceContainerHigh),contentAlignment=Alignment.Center){
+            Box(Modifier.size(40.dp).clip(CircleShape).background(if(dark)FFColors.iconCircle else FFColors.surfaceContainerHigh),contentAlignment=Alignment.Center){
                 FFIcon(if(account.icon.isBlank()||account.icon.startsWith("account_balance_wallet")) walletGroupIcon(account.type) else account.icon,FFColors.onSurface,20.dp)
             }
             Spacer(Modifier.width(14.dp))
