@@ -2,6 +2,9 @@ package com.logikawan.finflow.feature.ai
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
@@ -190,20 +193,27 @@ private fun PlanCard(kind: String, plan: PremiumPlan?, selected: Boolean, onClic
     }
 }
 
-/** Kartu "Upgrade ke Premium" di Profil (posisi sama dengan Ollo: di bawah header). */
+/** Kartu "Upgrade ke Premium" di Profil: biru tua dengan pola lingkaran dan chevron dalam lingkaran (seperti Ollo). */
 @Composable
 fun UpgradePremiumCard(controller: AiController, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF06B6D4))))
-        .clickable(onClick = onClick).padding(20.dp).testTag("profile-upgrade-premium"), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-            FFIcon("workspace_premium_outlined", Color.White, 24.dp)
+    Box(Modifier.fillMaxWidth().height(115.dp).clip(RoundedCornerShape(24.dp))
+        .drawBehind {
+            drawRect(Brush.linearGradient(listOf(Color(0xFF112155), Color(0xFF1A48C9), Color(0xFF0F91E3)), Offset(0f, size.height), Offset(size.width, 0f)))
+            val center = Offset(size.width * 1.02f, size.height * .5f)
+            listOf(.35f, .55f, .75f, .95f).forEach { r ->
+                drawCircle(Color.White.copy(alpha = .16f), radius = size.height * r * 1.2f, center = center, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
+            }
         }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(if (controller.isPremium) "FinFlow Premium" else "Upgrade ke Premium", style = FFType.sectionTitle.copy(fontSize = 18.sp), color = Color.White)
-            Text(if (controller.isPremium) "Terima kasih telah mendukung FinFlow." else "Buka semua fitur & hapus batas.", style = FFType.metaData, color = Color.White.copy(alpha = 0.85f))
+        .clickable(onClick = onClick).testTag("profile-upgrade-premium")) {
+        Column(Modifier.align(Alignment.CenterStart).padding(start = 20.dp, end = 70.dp)) {
+            Text(if (controller.isPremium) "FinFlow Premium" else "Upgrade ke Premium", style = FFType.sectionTitle.copy(fontSize = 17.sp, lineHeight = 22.sp), color = Color.White)
+            Spacer(Modifier.height(4.dp))
+            Text(if (controller.isPremium) "Terima kasih telah mendukung FinFlow." else "Buka semua fitur & hapus batas.", style = FFType.metaData.copy(fontSize = 11.sp), color = Color.White.copy(alpha = 0.85f))
         }
-        FFIcon("chevron_right_rounded", Color.White, 22.dp)
+        Box(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp).size(32.dp).clip(CircleShape).background(Color.White.copy(alpha = .14f))
+            .border(1.dp, Color.White.copy(alpha = .3f), CircleShape), contentAlignment = Alignment.Center) {
+            FFIcon("hi_chevron_right", Color.White, 18.dp)
+        }
     }
 }
 

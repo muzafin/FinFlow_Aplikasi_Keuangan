@@ -138,6 +138,47 @@ class ProfileParityDeviceTest {
         bitmap.recycle()
     }
 
+    @Test fun everyProfileMenuNavigatesAndPaletteAndSearchWork() {
+        val routes = mutableListOf<String>()
+        val data = fixture()
+        val native = FakeNative()
+        val store = PreferenceState(native, "profile-menu-qa")
+        ui.setContent {
+            CompositionLocalProvider(LocalPreferenceState provides store, LocalPreferences provides store.value.copy(theme = "dark")) {
+                FinFlowTheme {
+                    Box(Modifier.fillMaxSize().background(FFColors.background)) {
+                        ProfileScreen(native, "Muhammad", "muhammad@example.invalid", data, { routes += it }, {})
+                    }
+                }
+            }
+        }
+        ui.waitForIdle()
+        // Setiap menu Profil membuka rutenya masing-masing.
+        val expected = listOf("Manajemen Akun" to "Manajemen Akun", "Cadangan & Pemulihan" to "Cadangan & Pemulihan", "Perangkat Terhubung" to "Perangkat Terhubung",
+            "Ekspor Data" to "Ekspor Data", "Impor Data" to "Impor data", "Periode Pencatatan" to "Periode Pencatatan", "Kategori" to "Kategori",
+            "Pengaturan Dompet" to "Dompet", "Tema" to "Tema", "Tampilan Kartu" to "Tampilan Kartu", "Tampilan Menu" to "Tampilan Menu",
+            "Palet Transaksi" to "Palet Transaksi", "Urutan Statistik" to "Urutan Statistik", "Format Saldo" to "Format Saldo",
+            "Keamanan" to "Pengaturan", "Bantuan" to "Bantuan", "Laporkan Bug" to "Laporkan Bug", "Tentang" to "Tentang")
+        expected.forEach { (title, route) ->
+            ui.onNodeWithTag("profile-list").performScrollToNode(hasText(title))
+            ui.onNodeWithText(title).performClick()
+            ui.runOnIdle { assertEquals("$title -> $route", route, routes.last()) }
+        }
+        // Palet: pratinjau mini-layar mengubah preferensi.
+        ui.onNodeWithTag("profile-list").performScrollToNode(hasTestTag("palette-ruby"))
+        ui.onNodeWithTag("palette-ruby").performClick()
+        ui.runOnIdle { assertEquals("ruby", store.value.palette) }
+        ui.onNodeWithTag("palette-neutral").performClick()
+        // Pencarian menyaring daftar.
+        ui.onNodeWithTag("profile-list").performScrollToIndex(0)
+        ui.onNodeWithContentDescription("Cari pengaturan").performClick()
+        ui.onNodeWithTag("profile-list").performScrollToIndex(0)
+        ui.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Bug")
+        ui.waitForIdle()
+        ui.onNodeWithText("Laporkan Bug").assertExists()
+        ui.onNodeWithText("Manajemen Akun").assertDoesNotExist()
+    }
+
     @Test fun bugReportShowsDeviceInformationBeforeSending() {
         ui.setContent { CompositionLocalProvider(LocalPreferences provides AppPreferences(theme="light")){FinFlowTheme { Surface(color=FFColors.background){Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(16.dp)){BugReportForm(FakeNative())} } }} }
         ui.onNodeWithTag("bug-report-form").assertExists()

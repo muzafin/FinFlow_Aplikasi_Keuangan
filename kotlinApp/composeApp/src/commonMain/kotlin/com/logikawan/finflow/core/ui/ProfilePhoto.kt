@@ -27,6 +27,6 @@ fun ProfilePhoto(profile: Profile?, native: NativeServices, modifier: Modifier =
     }
     Box(modifier, contentAlignment = Alignment.Center) {
         bitmap?.let { Image(it, "Foto profil", Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
-            ?: FFIcon("person_outline", FFColors.onSurfaceVariant, 48.dp)
+            ?: FFIcon("hi_user", FFColors.onSurfaceVariant, 40.dp)
     }
 }
