@@ -337,6 +337,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         }
     }
     fun navigate(destination: String) {
+        if (destination == "Premium" && !com.clonical.kasiva.feature.ai.PREMIUM_ENABLED) return
         if(destination.startsWith("Dompet:")){
             selectedAccountId=destination.substringAfter(':');previousPage=page
             val goal=data.goals.find{it.holdingAccountId==selectedAccountId}
@@ -364,7 +365,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         }
     }
     fun chooseBackup(){native.pickCsv{content,failure->if(content!=null)try{restorePreview=BackupCodec.decode(content) to native.sha256(content)}catch(e:Exception){error=e.message}else if(failure!=null)error=failure}}
-    fun back() { page = when (page) { "Pengaturan Asisten" -> "Asisten"; "Asisten", "Premium", "Pengaturan AI Scan" -> aiParent; "Masukan & Peta Jalan" -> "Profil"; "Masukan" -> previousPage.takeIf { it == "Masukan & Peta Jalan" || it in mainPages } ?: "Profil"; "Detail dompet" -> accountParent; "Transaksi terjadwal" -> "Terjadwal"; "Detail investasi" -> "Investasi"; "Detail impian" -> goalParent; "Detail transaksi" -> transactionParent; else -> previousPage.takeIf { it in mainPages } ?: "Beranda" } }
+    fun back() { page = if (page.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX)) "Profil" else when (page) { "Pengaturan Asisten" -> "Asisten"; "Asisten", "Premium", "Pengaturan AI Scan" -> aiParent; "Masukan & Peta Jalan" -> "Profil"; "Masukan" -> previousPage.takeIf { it == "Masukan & Peta Jalan" || it in mainPages } ?: "Profil"; "Detail dompet" -> accountParent; "Transaksi terjadwal" -> "Terjadwal"; "Detail investasi" -> "Investasi"; "Detail impian" -> goalParent; "Detail transaksi" -> transactionParent; else -> previousPage.takeIf { it in mainPages || it.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX) } ?: "Beranda" } }
     val planningActions = PlanningActions(
         bill = { editor = Editor.BillForm(it) }, payBill = { editor = Editor.PayBill(it) },
         debt = { editor = Editor.DebtForm(it) }, payDebt = { editor = Editor.PayDebt(it) },
@@ -502,7 +503,15 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                     addSub={root->editor=Editor.Cat(null,root.id)},saveCategory={category->action{repo.saveCategory(category)}})
                 "Profil" -> ProfileScreen(native, displayName, if(repo.isLocal)MR.strings.app_local_mode.text() else repo.currentUser?.email.orEmpty(), data, ::navigate, {
                     if(repo.isLocal){if(!native.closeApp())notice=MR.strings.app_close_via_switcher.text()}else action { repo.logout() }
-                },localMode=repo.isLocal,premiumCard={ com.clonical.kasiva.feature.ai.UpgradePremiumCard(ai) { navigate("Premium") } })
+                },localMode=repo.isLocal,premiumCard={ if (com.clonical.kasiva.feature.ai.PREMIUM_ENABLED) com.clonical.kasiva.feature.ai.UpgradePremiumCard(ai) { navigate("Premium") } },
+                    onChangePhoto={ camera ->
+                        val uid=repo.ownerId
+                        val done:(ByteArray?,String?)->Unit = { bytes,failure ->
+                            if (failure!=null) error=failure
+                            else if (bytes!=null && uid==repo.ownerId) action { repo.saveProfilePhoto(native,bytes);notice=MR.strings.app_profile_photo_updated.text() }
+                        }
+                        if (camera) native.captureProfilePhoto(done) else native.pickProfilePhoto(done)
+                    })
                 "Transaksi terjadwal" -> ScheduledScreen(data, month, { month = it }, ::openTransaction, { editor = Editor.Tx(scheduled = true) })
                 "Statistik" -> Reports(data, month, { month = it }, { native.shareCsv("finflow-$month.csv", CsvImport.export(data, data.transactions.filter { it.date.startsWith(month) })) }, { navigate("Transaksi") }, ::openTransaction,
                     exportFiltered={transactions->native.shareCsv("finflow-statistik.csv",CsvImport.export(data,transactions))},
@@ -565,6 +574,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                     onCalendar = planningActions.manualScheduled,
                 )
                 "Tagihan", "Utang", "Keinginan", "Kartu", "Catatan", "Reimburse" -> PlanningScreen(shown, data, busy, planningActions)
+                else -> if (shown.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX)) com.clonical.kasiva.feature.settings.ProfileGroupScreen(shown, ::navigate)
             } } }
             // Preferensi "Transisi halaman": geser + pudar singkat; mati = berpindah seketika.
             if (appearance.pageTransitions) AnimatedContent(page, transitionSpec = {
@@ -621,6 +631,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     premiumGate?.let { com.clonical.kasiva.feature.ai.PremiumGateDialog(it, { navigate("Premium") }, { premiumGate = null }) }
     editor?.let { current ->
         EntityEditor(current, data, busy, dismiss = { if (!busy) editor = null },
+            openCurrencySettings = { if (!busy) { editor = null; navigate("Pengaturan") } },
             onScan = if (current is Editor.Tx && current.value == null && !current.aiDraft && !current.notificationImport) ({ editor = null; ai.requireConsent(AiFeature.Scan) { aiScan = true } }) else null,
             saveTx = { transaction -> action(true) {
                 if (current is Editor.Tx && current.aiDraft) {
@@ -716,7 +727,7 @@ private fun deletionNoun(id: String): String = when (id) {
 }
 
 /** Judul top bar untuk pengenal halaman navigasi. Pengenal `page` tetap berbahasa Indonesia; hanya judulnya diterjemahkan. */
-fun pageTitle(page: String): String = when (page) {
+fun pageTitle(page: String): String = com.clonical.kasiva.feature.settings.profileGroupTitle(page) ?: when (page) {
     "Beranda", "Statistik", "Dompet", "Profil" -> tabLabel(page)
     "Anggaran", "Tagihan", "Utang", "Keinginan", "Kartu", "Catatan", "Reimburse", "Investasi" -> menuLabel(page)
     "Terjadwal" -> menuLabel("Berulang")

@@ -35,7 +35,12 @@ import dev.icerock.moko.resources.StringResource
  * key = id stabil berbahasa Indonesia (kunci LazyColumn); route = id halaman yang ditangani App.kt.
  */
 private data class ProfileItem(val key:String,val title:StringResource,val caption:StringResource,val icon:String,val route:String,val danger:Boolean=false)
-private data class ProfileSection(val id:String,val caption:StringResource,val tiles:List<ProfileItem> = emptyList(),val rows:List<ProfileItem> = emptyList(),val palette:Boolean=false,val searchOnly:Boolean=false)
+/** [group] != null: di halaman Profil bagian ini diringkas jadi satu baris yang membuka halaman grupnya sendiri. */
+private data class ProfileGroup(val title:StringResource,val caption:StringResource,val icon:String)
+private data class ProfileSection(val id:String,val caption:StringResource,val tiles:List<ProfileItem> = emptyList(),val rows:List<ProfileItem> = emptyList(),val palette:Boolean=false,val searchOnly:Boolean=false,val group:ProfileGroup?=null)
+
+/** Id halaman grup Profil yang ditangani App.kt, mis. "Grup Profil:ai". */
+const val PROFILE_GROUP_PREFIX="Grup Profil:"
 
 private val profileSections=listOf(
     ProfileSection("account",MR.strings.set_profile_section_account,
@@ -45,6 +50,8 @@ private val profileSections=listOf(
             ProfileItem("Perangkat Terhubung",MR.strings.set_page_devices,MR.strings.pe_devices_caption,"hi_laptop","Perangkat Terhubung"),
             ProfileItem("Ekspor Data",MR.strings.set_page_export,MR.strings.set_profile_export_caption,"hi_download","Ekspor Data"),
         ),
+    ),
+    ProfileSection("data",MR.strings.pe_group_data,group=ProfileGroup(MR.strings.pe_group_data,MR.strings.pe_group_data_caption,"hi_wallet"),
         rows=listOf(
             ProfileItem("Impor Data",MR.strings.set_profile_import,MR.strings.set_profile_import_caption,"hi_upload","Impor data"),
             ProfileItem("Periode Pencatatan",MR.strings.set_page_recording_period,MR.strings.pe_recording_period_caption,"hi_calendar","Periode Pencatatan"),
@@ -58,7 +65,8 @@ private val profileSections=listOf(
             ProfileItem("Tampilan Kartu",MR.strings.set_page_card_display,MR.strings.pe_card_caption,"hi_card","Tampilan Kartu"),
             ProfileItem("Tampilan Menu",MR.strings.set_page_menu_display,MR.strings.pe_menu_caption,"hi_layout","Tampilan Menu"),
             ProfileItem("Palet Transaksi",MR.strings.set_page_tx_palette,MR.strings.pe_tx_palette_caption,"hi_paint","Palet Transaksi"),
-        ),
+        )),
+    ProfileSection("display",MR.strings.pe_group_display,group=ProfileGroup(MR.strings.pe_group_display,MR.strings.pe_group_display_caption,"hi_layout"),
         rows=listOf(
             ProfileItem("Urutan Statistik",MR.strings.set_page_stats_order,MR.strings.set_profile_stats_order_caption,"hi_sort","Urutan Statistik"),
             ProfileItem("Tampilan Beranda",MR.strings.set_page_home_display,MR.strings.pe_home_view_caption,"hi_calendar_doc","Tampilan Beranda"),
@@ -66,25 +74,27 @@ private val profileSections=listOf(
             ProfileItem("Paket Ikon",MR.strings.set_page_icon_pack,MR.strings.set_profile_icon_pack_caption,"hi_grid_view","Paket Ikon"),
             ProfileItem("Format Saldo",MR.strings.set_page_balance_format,MR.strings.pe_balance_caption,"hi_coins","Format Saldo"),
         )),
-    ProfileSection("ai",MR.strings.pe_section_ai,rows=listOf(
+    ProfileSection("ai",MR.strings.pe_section_ai,group=ProfileGroup(MR.strings.pe_section_ai,MR.strings.pe_group_ai_caption,"hi_assistant"),rows=listOf(
         ProfileItem("Asisten",MR.strings.pe_assistant,MR.strings.pe_assistant_caption,"hi_chat","Asisten"),
         ProfileItem("Pengaturan Asisten",MR.strings.app_page_assistant_settings,MR.strings.pe_assistant_settings_caption,"hi_settings","Pengaturan Asisten"),
         ProfileItem("Pengaturan AI Scan",MR.strings.app_page_ai_scan_settings,MR.strings.pe_ai_scan_caption,"hi_scan","Pengaturan AI Scan"),
         ProfileItem("Memori Pencatatan",MR.strings.set_page_recording_memory,MR.strings.pe_record_memory_caption,"hi_brain","Memori Pencatatan"),
         ProfileItem("Bahasa Input Suara",MR.strings.pe_voice_language,MR.strings.pe_voice_language_caption,"hi_voice","Bahasa Input Suara"),
     )),
-    ProfileSection("future",MR.strings.set_profile_section_future,rows=listOf(
+    ProfileSection("future",MR.strings.set_profile_section_future,group=ProfileGroup(MR.strings.set_profile_section_future,MR.strings.pe_group_future_caption,"hi_rocket"),rows=listOf(
         ProfileItem("Otomasi",MR.strings.pe_automation,MR.strings.pe_automation_caption,"hi_rocket","Otomasi"),
         ProfileItem("Masukan & Peta Jalan",MR.strings.set_profile_roadmap,MR.strings.pe_roadmap_caption,"hi_flag","Masukan & Peta Jalan"),
     )),
-    ProfileSection("general",MR.strings.pe_section_general,rows=listOf(
-        ProfileItem("Pengaturan",MR.strings.set_settings,MR.strings.pe_settings_caption,"hi_settings","Pengaturan"),
+    ProfileSection("help",MR.strings.pe_group_help,group=ProfileGroup(MR.strings.pe_group_help,MR.strings.pe_group_help_caption,"hi_help"),rows=listOf(
         ProfileItem("Bantuan",MR.strings.pe_help,MR.strings.pe_help_caption,"hi_help","Bantuan"),
         ProfileItem("Kirim Masukan",MR.strings.set_profile_send_feedback,MR.strings.pe_send_feedback_caption,"hi_mail","Masukan"),
         ProfileItem("Bagikan",MR.strings.pe_share,MR.strings.pe_share_caption,"hi_share","Bagikan"),
         ProfileItem("Laporkan Bug",MR.strings.set_page_bug_report,MR.strings.pe_bug_caption,"hi_bug","Laporkan Bug"),
         ProfileItem("Tentang",MR.strings.pe_about,MR.strings.pe_about_caption,"hi_info","Tentang"),
         ProfileItem("Catatan Pembaruan",MR.strings.set_page_changelog,MR.strings.pe_changelog_caption,"hi_clock","Catatan Pembaruan"),
+    )),
+    ProfileSection("general",MR.strings.pe_section_general,rows=listOf(
+        ProfileItem("Pengaturan",MR.strings.set_settings,MR.strings.pe_settings_caption,"hi_settings","Pengaturan"),
     )),
     ProfileSection("other",MR.strings.pe_section_other,rows=listOf(
         ProfileItem("Hapus Data",MR.strings.set_profile_delete_data,MR.strings.set_profile_delete_data_caption,"hi_delete","Hapus Data",danger=true),
@@ -111,9 +121,10 @@ private val paletteOptions=listOf(
 )
 
 @Composable
-fun ProfileScreen(native:NativeServices,name:String,email:String,data:FinanceData,onNavigate:(String)->Unit,logout:()->Unit,localMode:Boolean=false,premiumCard:@Composable ()->Unit={}) {
+fun ProfileScreen(native:NativeServices,name:String,email:String,data:FinanceData,onNavigate:(String)->Unit,logout:()->Unit,localMode:Boolean=false,premiumCard:@Composable ()->Unit={},onChangePhoto:((Boolean)->Unit)?=null) {
     var search by remember{mutableStateOf(false)}
     var query by remember{mutableStateOf("")}
+    var photoSheet by remember{mutableStateOf(false)}
     val p=LocalPreferences.current
     val store=LocalPreferenceState.current
     val progress=recordingProgress(data)
@@ -133,19 +144,31 @@ fun ProfileScreen(native:NativeServices,name:String,email:String,data:FinanceDat
             }
         }
         if(!searching){
-            item(key="header"){ProfileHeader(native,name,data,progress.level,progress.streak,progress.activeDays,onNavigate)}
+            item(key="header"){ProfileHeader(native,name,data,progress.level,progress.streak,progress.activeDays,onNavigate,
+                onAvatarClick=if(onChangePhoto!=null)({photoSheet=true})else({onNavigate("Profil akun")}))}
             item(key="premium"){premiumCard()}
         }
         var any=false
-        profileSections.forEach{section->
+        var groupsShown=false
+        // Tanpa pencarian: Akun & Data, Preferensi, lalu semua grup di bawah "Menu Lainnya", baru Umum & Lainnya.
+        val top=setOf("account","preferences")
+        val ordered=if(searching)profileSections else
+            profileSections.filter{it.group==null && it.id in top}+profileSections.filter{it.group!=null}+profileSections.filter{it.group==null && it.id !in top}
+        ordered.forEach{section->
             if(section.searchOnly && !searching)return@forEach
+            val group=section.group
+            if(group!=null && !searching){
+                if(!groupsShown){groupsShown=true;item(key="section-groups"){SectionCaption(MR.strings.pe_section_more.text())}}
+                item(key="group-${section.id}"){ProfileRow(ProfileItem("grup-${section.id}",group.title,group.caption,group.icon,PROFILE_GROUP_PREFIX+section.id),onNavigate)}
+                return@forEach
+            }
             val tiles=section.tiles.filter(matches)
             val rows=section.rows.filter(matches)
             val palette=section.palette && !searching
             if(tiles.isEmpty() && rows.isEmpty() && !palette)return@forEach
             any=true
             item(key="section-${section.id}"){SectionCaption(section.caption.text())}
-            if(palette)item(key="palette"){PaletteRow(p.palette){value->store?.update(p.copy(palette=value))}}
+            if(palette)item(key="palette"){PaletteRow(p.palette){value->store?.update(p.withPaletteBundle(value))}}
             tiles.chunked(2).forEach{row->
                 item(key="tiles-${row.first().key}"){
                     Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){row.forEach{ProfileTile(it,Modifier.weight(1f),onNavigate)};if(row.size==1)Spacer(Modifier.weight(1f))}
@@ -161,6 +184,31 @@ fun ProfileScreen(native:NativeServices,name:String,email:String,data:FinanceDat
                 Text(MR.strings.pe_by_logikawan.text(),style=FFType.metaData.copy(fontSize=11.sp,lineHeight=14.sp),color=FFColors.onSurfaceVariant.copy(alpha=.6f))
             }
         }
+    }
+    if (photoSheet && onChangePhoto != null) PhotoChangeSheet(
+        onCamera = { photoSheet = false; onChangePhoto(true) },
+        onGallery = { photoSheet = false; onChangePhoto(false) },
+        onEditProfile = { photoSheet = false; onNavigate("Profil akun") },
+        dismiss = { photoSheet = false },
+    )
+}
+
+/** Lembar pilihan foto profil seperti Ollo: kamera, galeri, atau ubah data profil. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun PhotoChangeSheet(onCamera:()->Unit,onGallery:()->Unit,onEditProfile:()->Unit,dismiss:()->Unit){
+    ModalBottomSheet(onDismissRequest=dismiss, containerColor=FFColors.canvas, dragHandle={Box(Modifier.padding(top=8.dp,bottom=12.dp).size(36.dp,4.dp).background(FFColors.outline,RoundedCornerShape(2.dp)))}) {
+        Column(Modifier.fillMaxWidth().padding(start=20.dp,end=20.dp,bottom=20.dp).navigationBarsPadding(), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Text(MR.strings.set_acct_change_photo.text(), style=FFType.sectionTitle.copy(fontSize=17.sp), modifier=Modifier.padding(bottom=6.dp))
+            PhotoSheetOption("hi_camera",MR.strings.ai_camera.text(),onCamera,"photo-option-camera")
+            PhotoSheetOption("hi_image",MR.strings.ai_gallery.text(),onGallery,"photo-option-gallery")
+            PhotoSheetOption("hi_user",MR.strings.pe_edit_profile.text(),onEditProfile,"photo-option-edit")
+            Text(MR.strings.common_cancel.text(), Modifier.fillMaxWidth().clickable{ dismiss() }.padding(vertical=14.dp).testTag("photo-sheet-cancel"), style=FFType.bodyMain, color=FFColors.onSurfaceVariant, textAlign=TextAlign.Center)
+        }
+    }
+}
+@Composable private fun PhotoSheetOption(icon:String,label:String,onClick:()->Unit,tag:String){
+    Row(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).clickable(onClick=onClick).padding(horizontal=16.dp).testTag(tag), verticalAlignment=Alignment.CenterVertically) {
+        FFIcon(icon,FFColors.onSurface,22.dp); Spacer(Modifier.width(14.dp)); Text(label,style=FFType.bodyMain)
     }
 }
 
@@ -205,11 +253,11 @@ private fun PaletteRow(selected:String,select:(String)->Unit){
 }
 
 @Composable
-private fun ProfileHeader(native:NativeServices,name:String,data:FinanceData,level:Int,streak:Int,days:Int,onNavigate:(String)->Unit) {
+private fun ProfileHeader(native:NativeServices,name:String,data:FinanceData,level:Int,streak:Int,days:Int,onNavigate:(String)->Unit,onAvatarClick:()->Unit) {
     val dark=FFColors.isDark
     Row(Modifier.fillMaxWidth().testTag("profile-header").padding(top=10.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
         val editLabel=MR.strings.pe_edit_profile.text()
-        Box(Modifier.testTag("profile-avatar").clip(CircleShape).clickable{onNavigate("Profil akun")}.semantics{contentDescription=editLabel}) {
+        Box(Modifier.testTag("profile-avatar").clip(CircleShape).clickable(onClick=onAvatarClick).semantics{contentDescription=editLabel}) {
             ProfilePhoto(data.profile,native,Modifier.size(78.dp).clip(CircleShape).background(if(dark)FFColors.chip else FFColors.surface).border(1.5.dp,if(dark)FFColors.hairline else FFColors.outlineVariant,CircleShape))
             Box(Modifier.align(Alignment.BottomEnd).offset(x=2.dp,y=2.dp).size(23.dp).clip(CircleShape).background(FFColors.pill),contentAlignment=Alignment.Center){
                 FFIcon("hi_pencil",FFColors.onPill,12.dp)
@@ -264,5 +312,21 @@ private fun itemTag(item:ProfileItem)="profile-item-"+item.key.lowercase().repla
             Text(item.caption.text(),style=FFType.metaData.copy(fontSize=13.5.sp,lineHeight=18.sp),color=FFColors.onSurfaceVariant,maxLines=2,overflow=TextOverflow.Ellipsis)
         }
         FFIcon("hi_chevron_right",FFColors.onSurfaceVariant,20.dp)
+    }
+}
+
+/** Judul halaman grup Profil (untuk bilah atas), atau null bila [page] bukan halaman grup. */
+fun profileGroupTitle(page:String):String?=
+    if(!page.startsWith(PROFILE_GROUP_PREFIX))null
+    else profileSections.firstOrNull{it.id==page.removePrefix(PROFILE_GROUP_PREFIX)}?.group?.title?.text()
+
+/** Halaman satu grup Profil: daftar baris bergaya sama dengan tab Profil. */
+@Composable
+fun ProfileGroupScreen(page:String,onNavigate:(String)->Unit){
+    val section=profileSections.firstOrNull{it.id==page.removePrefix(PROFILE_GROUP_PREFIX)}?:return
+    LazyColumn(Modifier.fillMaxSize().testTag("profile-group-${section.id}").background(FFColors.background),
+        contentPadding=PaddingValues(start=16.dp,end=16.dp,top=8.dp,bottom=32.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+        section.group?.let{item(key="caption"){Text(it.caption.text(),Modifier.padding(start=5.dp,bottom=4.dp),style=FFType.metaData,color=FFColors.onSurfaceVariant)}}
+        items(section.rows,key={it.key}){ProfileRow(it,onNavigate)}
     }
 }

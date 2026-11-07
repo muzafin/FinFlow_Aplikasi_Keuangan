@@ -73,6 +73,7 @@ class MainActivity : FragmentActivity(), NativeServices {
     }catch(e:Exception){MR.strings.core_main_apk_share_failed.text()}
     private val profilePhotos = ProfilePhotos(this)
     override fun pickProfilePhoto(result: (ByteArray?, String?) -> Unit) = profilePhotos.pick(result)
+    override fun captureProfilePhoto(result: (ByteArray?, String?) -> Unit) = profilePhotos.capture(result)
     override fun uploadProfilePhoto(userId: String, bytes: ByteArray, result: (String?, String?) -> Unit) = profilePhotos.upload(userId, bytes, result)
     override fun loadProfilePhoto(path: String, result: (ByteArray?, String?) -> Unit) = profilePhotos.load(path, result)
     private val walletIcons = WalletIcons(this)

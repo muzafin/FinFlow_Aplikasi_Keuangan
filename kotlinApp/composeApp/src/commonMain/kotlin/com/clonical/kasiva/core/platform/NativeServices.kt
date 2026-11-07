@@ -18,6 +18,7 @@ interface NativeServices {
     fun deleteLocalProfilePhoto():String? = null
     fun localFinancePersistence(): com.clonical.kasiva.core.data.LocalFinancePersistence = error(MR.strings.core_native_local_storage_unavailable.text())
     fun pickProfilePhoto(result: (ByteArray?, String?) -> Unit) { result(null, MR.strings.core_native_photo_picker_unavailable.text()) }
+    fun captureProfilePhoto(result: (ByteArray?, String?) -> Unit) { result(null, MR.strings.core_native_camera_unavailable.text()) }
     fun uploadProfilePhoto(userId: String, bytes: ByteArray, result: (String?, String?) -> Unit) { result(null, MR.strings.core_native_photo_upload_unavailable.text()) }
     fun loadProfilePhoto(path: String, result: (ByteArray?, String?) -> Unit) { result(null, MR.strings.core_native_photo_unavailable.text()) }
     /**

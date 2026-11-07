@@ -56,11 +56,13 @@ import kotlinx.datetime.toLocalDateTime
 import com.clonical.kasiva.core.i18n.text
 import com.clonical.kasiva.core.i18n.transactionTypeLabel
 import com.clonical.kasiva.i18n.*
+import kotlin.math.pow
+import kotlin.math.roundToLong
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismiss: () -> Unit,
-                      save: (Transaction) -> Unit, delete: (() -> Unit)?, isDraft: Boolean = false, startingScheduled: Boolean = false, startingAccountId: String? = null, startingType: String = "expense", onScan: (() -> Unit)? = null) {
+                      save: (Transaction) -> Unit, delete: (() -> Unit)?, isDraft: Boolean = false, startingScheduled: Boolean = false, startingAccountId: String? = null, startingType: String = "expense", onScan: (() -> Unit)? = null, openCurrencySettings: (() -> Unit)? = null) {
     val preferences = LocalPreferences.current
     val id = remember { old?.id ?: newId() }
     var type by remember { mutableStateOf(old?.type ?: startingType) }
@@ -90,7 +92,11 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
     var description by remember { mutableStateOf(old?.description.orEmpty()) }
     val account = data.accounts.find { it.id == accountId }
     val target = data.accounts.find { it.id == toId }
-    var amount by remember { mutableStateOf(old?.let { decimalAmount(it.amountMinor, it.currency) }.orEmpty()) }
+    // Mata uang ketikan (Ollo "Select Currency"); null = ikut mata uang dompet. Disimpan dalam mata uang dompet
+    // setelah dikonversi dengan kurs harian, jumlah aslinya di originalCurrency/originalAmountMinor.
+    var entryCurrency by remember { mutableStateOf(old?.originalCurrency) }
+    var pickingCurrency by remember { mutableStateOf(false) }
+    var amount by remember { mutableStateOf(old?.let { o -> o.originalAmountMinor?.let { decimalAmount(it, o.originalCurrency ?: o.currency) } ?: decimalAmount(o.amountMinor, o.currency) }.orEmpty()) }
     var received by remember { mutableStateOf(old?.receivedAmountMinor?.let { decimalAmount(it, target?.currency ?: old.currency) }.orEmpty()) }
     var date by remember { mutableStateOf(old?.date ?: today().toString()) }
     var scheduled by remember { mutableStateOf(old?.scheduled ?: startingScheduled) }
@@ -102,7 +108,25 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
     val currentBusy by rememberUpdatedState(busy)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
         confirmValueChange = { !currentBusy || it != SheetValue.Hidden })
-    val currency = account?.currency ?: old?.currency ?: "IDR"
+    val walletCurrency = account?.currency ?: old?.currency ?: "IDR"
+    val currency = if (type == "transfer") walletCurrency else entryCurrency ?: walletCurrency
+    val converting = currency != walletCurrency
+    var rate by remember { mutableStateOf<Double?>(null) }
+    var rateError by remember { mutableStateOf(false) }
+    LaunchedEffect(currency, walletCurrency) {
+        rate = null; rateError = false
+        if (converting) try { rate = com.clonical.kasiva.feature.settings.loadExchangeRates(currency).rates[walletCurrency]; rateError = rate == null }
+            catch (e: Exception) { rateError = true }
+    }
+    /** Jumlah dalam mata uang dompet (minor), atau null bila kurs belum ada. */
+    fun walletMinor(): Long? {
+        val typed = runCatching { minorAmount(amount.ifEmpty { "0" }, currency) }.getOrNull() ?: return null
+        if (!converting) return typed
+        if (old != null && old.originalCurrency == currency && old.originalAmountMinor == typed && old.currency == walletCurrency) return old.amountMinor
+        val r = rate ?: return null
+        val major = typed / 10.0.pow(currencyDigits(currency)) * r
+        return (major * 10.0.pow(currencyDigits(walletCurrency))).roundToLong()
+    }
     val typeLabel = transactionTypeLabel(when (type) { "income", "transfer" -> type; else -> "expense" })
     val typeColor = when (type) { "income" -> FFColors.income; "transfer" -> Color(0xFF1E5BBA); else -> FFColors.expense }
     fun submit() {
@@ -114,13 +138,15 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
             require(type != "transfer" || target != null && (target.currency == source.currency || received.isNotBlank())) {
                 MR.strings.tx_err_transfer_received.text()
             }
-            val tx = Transaction(id = id, type = type, amountMinor = minorAmount(amount, source.currency),
+            val converted = if (converting) requireNotNull(walletMinor()?.takeIf { it > 0 }) { MR.strings.tx_err_rate_unavailable.text(currency, walletCurrency) } else null
+            val tx = Transaction(id = id, type = type, amountMinor = converted ?: minorAmount(amount, source.currency),
                 currency = source.currency, accountId = source.id, categoryId = if (type == "transfer") "transfer" else categoryId,
                 title = title.trim().ifBlank{data.categories.find{it.id==(subcategoryId ?: categoryId)}?.name ?: typeLabel}, description = description.trim(), date = date.trim(),
                 toAccountId = if (type == "transfer") target?.id else null,
                 receivedAmountMinor = if (type == "transfer") minorAmount(received.ifBlank { amount }, target?.currency ?: source.currency) else null,
                 createdAt = old?.createdAt ?: pickedCreatedAt ?: nowMillis(), source = old?.source ?: "manual", sourceId = old?.sourceId, scheduled = scheduled,
-                subcategoryId=if(type=="transfer")null else subcategoryId,tags=tags)
+                subcategoryId=if(type=="transfer")null else subcategoryId,tags=tags,
+                originalCurrency = if (converting) currency else null, originalAmountMinor = if (converting) minorAmount(amount, currency) else null)
             FinanceRepository.validateTransaction(tx)
             error = null
             save(tx)
@@ -149,7 +175,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), containerColor = FFColors.canvas,
         dragHandle = { Box(Modifier.padding(top = 8.dp, bottom = 12.dp).size(36.dp, 4.dp).background(FFColors.outline, RoundedCornerShape(2.dp))) }) {
-        Column(Modifier.fillMaxWidth().heightIn(max = windowHeight * .82f).imePadding().navigationBarsPadding()) {
+        Column(Modifier.fillMaxWidth().heightIn(max = windowHeight * .94f).imePadding().navigationBarsPadding()) {
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("transaction-form"),
                 verticalArrangement = Arrangement.spacedBy(if(compact)6.dp else 12.dp)) {
                 if (old != null || isDraft) Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -166,6 +192,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                                 .semantics { selected = chosen }
                                 .clickable(enabled = !busy, role = Role.Tab) {
                                     type = value; categoryId = initialCategory(value); subcategoryId=null; error = null
+                                    if (value == "transfer") entryCurrency = null
                                 }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                                 Text(label, style = FFType.bodyMain.copy(fontSize = 13.5.sp),
                                     color = if (chosen) FFColors.onPill else FFColors.onSurfaceVariant)
@@ -220,7 +247,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                 }
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Row(Modifier.clip(RoundedCornerShape(16.dp)).background(FFColors.raised).clickable(enabled = !busy) { pickingAccount = true }
+                        Row(Modifier.clip(RoundedCornerShape(16.dp)).background(FFColors.raised).clickable(enabled = !busy) { if (type == "transfer") pickingAccount = true else pickingCurrency = true }
                             .padding(horizontal = 14.dp, vertical = 8.dp).testTag("transaction-currency"), verticalAlignment = Alignment.CenterVertically) {
                             Text(if (currency == "IDR") "Rp" else currency, style = FFType.bodyMain.copy(fontSize = 18.sp))
                             Spacer(Modifier.width(6.dp)); FFIcon("hi_chevron_down", FFColors.onSurface, 18.dp)
@@ -235,6 +262,13 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                         Box(Modifier.width(2.dp).height(40.dp).background(FFColors.onSurfaceVariant))
                     }
                     Text(MR.strings.tx_enter_amount.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                    if (converting) Text(
+                        when {
+                            rateError -> MR.strings.tx_err_rate_unavailable.text(currency, walletCurrency)
+                            rate == null -> MR.strings.tx_rate_loading.text()
+                            else -> MR.strings.tx_converted_to_wallet.text(transactionInputAmount(decimalAmount(walletMinor() ?: 0, walletCurrency), walletCurrency), account?.name.orEmpty())
+                        }, style = FFType.metaData, color = if (rateError) FFColors.expense else FFColors.onSurfaceVariant,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp).testTag("transaction-converted"))
                 }
                 Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -325,6 +359,11 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
             DatePicker(picker)
         }
     }
+    if (pickingCurrency) com.clonical.kasiva.feature.auth.OlloCurrencyDialog(
+        title = MR.strings.tx_select_currency.text(), closeLabel = MR.strings.common_close.text(), selected = currency,
+        onSelect = { entryCurrency = it.takeIf { code -> code != walletCurrency }; pickingCurrency = false },
+        onDismiss = { pickingCurrency = false }, defaultCode = walletCurrency,
+        onSettings = openCurrencySettings?.let { open -> { pickingCurrency = false; open() } })
     if (pickingAccount) WalletPicker(data, data.accounts.filter { (!it.archived || it.id == accountId) && it.type!="savings" }, accountId, { pickingAccount = false }) {
         accountId = it
         if (toId == accountId) toId = ""
