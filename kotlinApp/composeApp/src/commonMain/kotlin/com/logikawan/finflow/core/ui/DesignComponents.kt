@@ -18,6 +18,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 
 val designBackground: Brush @Composable get() = Brush.verticalGradient(listOf(FFColors.background, FFColors.background))
 val balanceGradient = Brush.horizontalGradient(listOf(Color(0xFF0D9488), Color(0xFF0EA5E9)))
@@ -38,7 +40,7 @@ fun SegmentedTabs(options: List<Pair<String,String>>, selected: String, select: 
 fun DesignHeader(title: String, subtitle: String? = null, back: (() -> Unit)? = null, action: (@Composable () -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         if (back != null) {
-            IconButton(onClick = back) { FFIcon("chevron_left_rounded", FFColors.onSurface, 24.dp, "Kembali") }
+            IconButton(onClick = back) { FFIcon("chevron_left_rounded", FFColors.onSurface, 24.dp, MR.strings.common_back.text()) }
             Spacer(Modifier.width(12.dp))
         }
         Column(Modifier.weight(1f)) {
@@ -67,7 +69,7 @@ fun DesignPill(label: String, selected: Boolean, onClick: () -> Unit, modifier: 
 }
 
 @Composable
-fun DesignProgressRing(progress: Float, modifier: Modifier = Modifier, caption: String = "TERPAKAI", color: Color = FFColors.primary) {
+fun DesignProgressRing(progress: Float, modifier: Modifier = Modifier, caption: String = MR.strings.app_used_caps.text(), color: Color = FFColors.primary) {
     val track = FFColors.outlineVariant
     Box(modifier.size(90.dp), contentAlignment = Alignment.Center) {
         androidx.compose.foundation.Canvas(Modifier.fillMaxSize().padding(4.dp)) {

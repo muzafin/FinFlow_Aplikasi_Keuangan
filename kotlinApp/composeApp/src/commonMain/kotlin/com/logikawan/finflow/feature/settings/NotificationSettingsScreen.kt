@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.platform.NativeServices
 import com.logikawan.finflow.core.ui.FFColors
 import com.logikawan.finflow.core.ui.FFType
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,20 +48,20 @@ fun NotificationSettings(native: NativeServices) {
                 busy = false
             }
         } catch (failure: Exception) {
-            error = failure.message ?: "Pengaturan pengingat belum dapat disimpan."
+            error = failure.message ?: MR.strings.set_notif_save_failed.text()
             busy = false
         }
     }
     Column(Modifier.fillMaxSize().background(FFColors.background).verticalScroll(rememberScrollState()).padding(20.dp)) {
-        Text("Pengingat", style = FFType.sectionTitle.copy(fontSize = 16.sp), color = FFColors.primary)
+        Text(MR.strings.set_notif_reminders.text(), style = FFType.sectionTitle.copy(fontSize = 16.sp), color = FFColors.primary)
         Spacer(Modifier.height(12.dp))
         Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(.5.dp, FFColors.outlineVariant)) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Pengingat Harian", style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
+                        Text(MR.strings.set_notif_daily.text(), style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(4.dp))
-                        Text("Ingatkan saya untuk mencatat transaksi", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                        Text(MR.strings.set_notif_daily_desc.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
                     }
                     Spacer(Modifier.width(16.dp))
                     Switch(checked = enabled, onCheckedChange = { update(it) }, enabled = !busy && !budgetBusy,
@@ -68,7 +70,7 @@ fun NotificationSettings(native: NativeServices) {
                 if (enabled) {
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Waktu Pengingat", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                        Text(MR.strings.set_notif_time.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
                         Text("${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}", style = FFType.badgeLabel, color = FFColors.primary, fontWeight = FontWeight.Bold,
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(FFColors.primaryContainer.copy(alpha = .1f)).border(1.dp, FFColors.primary, RoundedCornerShape(8.dp))
                                 .clickable(enabled = !busy && !budgetBusy) { picking = true }.padding(horizontal = 12.dp, vertical = 6.dp))
@@ -81,15 +83,15 @@ fun NotificationSettings(native: NativeServices) {
             }
         }
         HorizontalDivider(Modifier.padding(vertical = 16.dp), thickness = .5.dp, color = FFColors.outlineVariant)
-        Text("Peringatan", style = FFType.sectionTitle.copy(fontSize = 16.sp), color = FFColors.primary)
+        Text(MR.strings.set_notif_alerts.text(), style = FFType.sectionTitle.copy(fontSize = 16.sp), color = FFColors.primary)
         Spacer(Modifier.height(12.dp))
         Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(.5.dp, FFColors.outlineVariant)) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Peringatan Anggaran", style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
+                        Text(MR.strings.set_notif_budget.text(), style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(4.dp))
-                        Text("Beri tahu jika pengeluaran mendekati batas anggaran bulanan", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                        Text(MR.strings.set_notif_budget_desc.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
                     }
                     Spacer(Modifier.width(16.dp))
                     Switch(checked = budgetEnabled, onCheckedChange = { requested ->
@@ -103,7 +105,7 @@ fun NotificationSettings(native: NativeServices) {
                         colors = SwitchDefaults.colors(checkedThumbColor = FFColors.primary, checkedTrackColor = FFColors.primaryFixed))
                 }
                 Spacer(Modifier.height(12.dp))
-                Text("Peringatan pada 80% dan 100%, diperiksa saat aplikasi dibuka atau data berubah. Setiap batas diberitahukan sekali per anggaran dan bulan.", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                Text(MR.strings.set_notif_budget_hint.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
             }
         }
         error?.let {
@@ -114,10 +116,10 @@ fun NotificationSettings(native: NativeServices) {
     if (picking) {
         val time = rememberTimePickerState(initialHour = hour, initialMinute = minute, is24Hour = true)
         AlertDialog(onDismissRequest = { picking = false },
-            title = { Text("Waktu Pengingat", style = FFType.sectionTitle) },
+            title = { Text(MR.strings.set_notif_time.text(), style = FFType.sectionTitle) },
             text = { TimePicker(state = time) },
-            confirmButton = { TextButton(onClick = { picking = false; update(true, time.hour, time.minute) }) { Text("Simpan") } },
-            dismissButton = { TextButton(onClick = { picking = false }) { Text("Batal") } },
+            confirmButton = { TextButton(onClick = { picking = false; update(true, time.hour, time.minute) }) { Text(MR.strings.common_save.text()) } },
+            dismissButton = { TextButton(onClick = { picking = false }) { Text(MR.strings.common_cancel.text()) } },
         )
     }
 }

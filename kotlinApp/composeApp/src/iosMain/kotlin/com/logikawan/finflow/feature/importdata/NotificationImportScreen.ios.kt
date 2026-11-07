@@ -5,14 +5,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.model.Transaction
+import com.logikawan.finflow.i18n.*
 
 @Composable
 actual fun NotificationImportScreen(data: FinanceData, onReview: (Transaction, () -> Unit) -> Unit, onOpenCsv: () -> Unit) {
     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Impor notifikasi tersedia di Android", style = MaterialTheme.typography.headlineMedium)
-        Text("iOS tidak menyediakan akses umum untuk membaca notifikasi aplikasi bank/e-wallet lain. Gunakan CSV atau catat transaksi secara manual pada iPhone.")
-        Button(onClick = onOpenCsv) { Text("Impor CSV") }
+        Text(MR.strings.ai_notif_ios_title.text(), style = MaterialTheme.typography.headlineMedium)
+        Text(MR.strings.ai_notif_ios_body.text())
+        Button(onClick = onOpenCsv) { Text(MR.strings.ai_import_csv.text()) }
     }
 }

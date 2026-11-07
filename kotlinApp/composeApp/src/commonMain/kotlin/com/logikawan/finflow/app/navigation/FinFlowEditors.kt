@@ -21,6 +21,8 @@ import com.logikawan.finflow.feature.settings.ProfileEditor
 import com.logikawan.finflow.feature.transaction.RecurringFormEditor
 import com.logikawan.finflow.feature.transaction.TransactionEditor
 import com.logikawan.finflow.feature.planning.*
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 
 @Composable
 fun EntityEditor(
@@ -49,15 +51,15 @@ fun EntityEditor(
             editor.value?.let { value -> { delete("klaim reimburse") { repo.planner.deleteReimbursement(value.id) } } })
         is Editor.RepeatForm -> RecurringFormEditor(editor.value, data, busy, dismiss, { value -> savePlanning { repo.planner.saveRecurring(value); repo.planner.processDueRecurring() } },
             editor.value?.let { value -> { delete("arsip:jadwal berulang") { repo.planner.archiveRecurring(value.id) } } })
-        is Editor.PayBill -> PaymentEditor("Bayar Tagihan", editor.value.currency, editor.value.amountMinor, data, editor.value.accountId, busy, dismiss,
+        is Editor.PayBill -> PaymentEditor(MR.strings.app_pay_bill.text(), editor.value.currency, editor.value.amountMinor, data, editor.value.accountId, busy, dismiss,
             { request -> savePlanning { repo.planner.payBill(editor.value.id, editor.value.dueDate, request.date) } }, selectAccount = false)
-        is Editor.PayDebt -> PaymentEditor(if (editor.value.direction == "borrowed") "Bayar Hutang" else "Terima Piutang", editor.value.currency,
+        is Editor.PayDebt -> PaymentEditor(if (editor.value.direction == "borrowed") MR.strings.app_pay_debt.text() else MR.strings.app_receive_receivable.text(), editor.value.currency,
             editor.value.amountMinor - editor.value.paidMinor, data, editor.value.accountId, busy, dismiss,
             { request -> savePlanning { repo.planner.payDebt(editor.value.id, request.amountMinor, request.accountId, request.date, request.requestId) } },
             partial = true, changesBalance = editor.value.includeBalance)
-        is Editor.ReceiveClaim -> PaymentEditor("Terima Reimburse", editor.value.currency, editor.value.amountMinor, data, editor.value.accountId, busy, dismiss,
+        is Editor.ReceiveClaim -> PaymentEditor(MR.strings.app_receive_reimburse.text(), editor.value.currency, editor.value.amountMinor, data, editor.value.accountId, busy, dismiss,
             { request -> savePlanning { repo.planner.receiveReimbursement(editor.value.id, request.accountId, request.date) } })
-        is Editor.PayBundle -> PaymentEditor("Bayar Bundle", editor.value.currency,
+        is Editor.PayBundle -> PaymentEditor(MR.strings.app_pay_bundle.text(), editor.value.currency,
             editor.value.items.filter{it.id in editor.itemIds && it.paymentId==null}.fold(0L){sum,item->com.logikawan.finflow.core.util.checkedAdd(sum,item.amountMinor)},
             data,editor.value.accountId.orEmpty(),busy,dismiss,{request->savePlanning{
                 repo.planner.payBundle(editor.value.id,editor.itemIds,request.accountId,request.date,request.requestId,editor.value.revision)

@@ -1,7 +1,17 @@
 package com.logikawan.finflow.feature.settings
 
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
+
+// `label` tetap berbahasa Indonesia karena dipakai di prompt yang disalin; layar memakai `displayLabel`.
 enum class RoadmapStatus(val label: String) {
-    Planned("Direncanakan"), InProgress("Sedang Dikerjakan"), Done("Selesai")
+    Planned("Direncanakan"), InProgress("Sedang Dikerjakan"), Done("Selesai");
+
+    val displayLabel: String get() = when (this) {
+        Planned -> MR.strings.rm_status_planned.text()
+        InProgress -> MR.strings.rm_status_in_progress.text()
+        Done -> MR.strings.rm_status_done.text()
+    }
 }
 
 data class RoadmapFeature(
@@ -155,3 +165,102 @@ val productRoadmap = listOf(
 
 fun roadmapPrompt(features: List<RoadmapFeature> = productRoadmap): String =
     "Peta Jalan FinFlow • $roadmapUpdated\n\n" + features.joinToString("\n\n---\n\n") { it.prompt() }
+
+/*
+ * Teks tampilan peta jalan. Data `RoadmapFeature` (judul, bagian, deskripsi, target) tetap berbahasa Indonesia
+ * karena menjadi isi prompt yang disalin ke chat; layar menerjemahkan judul, bagian dan status.
+ */
+val RoadmapFeature.displayTitle: String get() = roadmapTitleLabel(id, title)
+val RoadmapFeature.displayArea: String get() = roadmapAreaLabel(area)
+
+fun roadmapTitleLabel(id: String, fallback: String): String = when (id) {
+    "FF-001" -> MR.strings.rm_ff001_title.text()
+    "FF-002" -> MR.strings.rm_ff002_title.text()
+    "FF-003" -> MR.strings.rm_ff003_title.text()
+    "FF-004" -> MR.strings.rm_ff004_title.text()
+    "FF-005" -> MR.strings.rm_ff005_title.text()
+    "FF-006" -> MR.strings.rm_ff006_title.text()
+    "FF-007" -> MR.strings.rm_ff007_title.text()
+    "FF-008" -> MR.strings.rm_ff008_title.text()
+    "FF-009" -> MR.strings.rm_ff009_title.text()
+    "FF-010" -> MR.strings.rm_ff010_title.text()
+    "FF-011" -> MR.strings.rm_ff011_title.text()
+    "FF-012" -> MR.strings.rm_ff012_title.text()
+    "FF-013" -> MR.strings.rm_ff013_title.text()
+    "FF-014" -> MR.strings.rm_ff014_title.text()
+    "FF-015" -> MR.strings.rm_ff015_title.text()
+    "FF-016" -> MR.strings.rm_ff016_title.text()
+    "FF-017" -> MR.strings.rm_ff017_title.text()
+    "FF-018" -> MR.strings.rm_ff018_title.text()
+    "FF-019" -> MR.strings.rm_ff019_title.text()
+    "FF-020" -> MR.strings.rm_ff020_title.text()
+    "FF-021" -> MR.strings.rm_ff021_title.text()
+    "FF-022" -> MR.strings.rm_ff022_title.text()
+    "FF-023" -> MR.strings.rm_ff023_title.text()
+    "FF-024" -> MR.strings.rm_ff024_title.text()
+    "FF-025" -> MR.strings.rm_ff025_title.text()
+    "FF-026" -> MR.strings.rm_ff026_title.text()
+    "FF-027" -> MR.strings.rm_ff027_title.text()
+    "FF-028" -> MR.strings.rm_ff028_title.text()
+    "FF-029" -> MR.strings.rm_ff029_title.text()
+    "FF-030" -> MR.strings.rm_ff030_title.text()
+    "FF-031" -> MR.strings.rm_ff031_title.text()
+    "FF-032" -> MR.strings.rm_ff032_title.text()
+    "FF-033" -> MR.strings.rm_ff033_title.text()
+    "FF-034" -> MR.strings.rm_ff034_title.text()
+    "FF-035" -> MR.strings.rm_ff035_title.text()
+    "FF-036" -> MR.strings.rm_ff036_title.text()
+    "FF-037" -> MR.strings.rm_ff037_title.text()
+    "FF-038" -> MR.strings.rm_ff038_title.text()
+    "FF-039" -> MR.strings.rm_ff039_title.text()
+    "FF-040" -> MR.strings.rm_ff040_title.text()
+    "FF-041" -> MR.strings.rm_ff041_title.text()
+    "FF-042" -> MR.strings.rm_ff042_title.text()
+    "FF-043" -> MR.strings.rm_ff043_title.text()
+    "FF-044" -> MR.strings.rm_ff044_title.text()
+    "FF-045" -> MR.strings.rm_ff045_title.text()
+    "FF-046" -> MR.strings.rm_ff046_title.text()
+    "FF-047" -> MR.strings.rm_ff047_title.text()
+    "FF-048" -> MR.strings.rm_ff048_title.text()
+    "FF-049" -> MR.strings.rm_ff049_title.text()
+    "FF-050" -> MR.strings.rm_ff050_title.text()
+    "FF-051" -> MR.strings.rm_ff051_title.text()
+    "FF-052" -> MR.strings.rm_ff052_title.text()
+    "FF-053" -> MR.strings.rm_ff053_title.text()
+    "FF-054" -> MR.strings.rm_ff054_title.text()
+    "FF-055" -> MR.strings.rm_ff055_title.text()
+    "FF-056" -> MR.strings.rm_ff056_title.text()
+    "FF-057" -> MR.strings.rm_ff057_title.text()
+    "FF-058" -> MR.strings.rm_ff058_title.text()
+    "FF-059" -> MR.strings.rm_ff059_title.text()
+    "FF-060" -> MR.strings.rm_ff060_title.text()
+    "FF-061" -> MR.strings.rm_ff061_title.text()
+    else -> fallback
+}
+
+fun roadmapAreaLabel(area: String): String = when (area) {
+    "Identitas" -> MR.strings.rm_area_identity.text()
+    "Akun" -> MR.strings.rm_area_account.text()
+    "Pencatatan" -> MR.strings.rm_area_recording.text()
+    "Dompet" -> MR.strings.rm_area_wallet.text()
+    "Statistik" -> MR.strings.rm_area_statistics.text()
+    "Perencanaan" -> MR.strings.rm_area_planning.text()
+    "Aset" -> MR.strings.rm_area_assets.text()
+    "Data" -> MR.strings.rm_area_data.text()
+    "Integrasi" -> MR.strings.rm_area_integration.text()
+    "Tampilan" -> MR.strings.rm_area_appearance.text()
+    "Preferensi" -> MR.strings.rm_area_preferences.text()
+    "Keamanan" -> MR.strings.rm_area_security.text()
+    "Profil" -> MR.strings.rm_area_profile.text()
+    "Sinkronisasi" -> MR.strings.rm_area_sync.text()
+    "Aksesibilitas" -> MR.strings.rm_area_accessibility.text()
+    "Notifikasi" -> MR.strings.rm_area_notifications.text()
+    "Kualitas" -> MR.strings.rm_area_quality.text()
+    "Media" -> MR.strings.rm_area_media.text()
+    "Kolaborasi" -> MR.strings.rm_area_collaboration.text()
+    "Lokalisasi" -> MR.strings.rm_area_localization.text()
+    "Platform" -> MR.strings.rm_area_platform.text()
+    "Rilis" -> MR.strings.rm_area_release.text()
+    "Komunitas" -> MR.strings.rm_area_community.text()
+    else -> area
+}

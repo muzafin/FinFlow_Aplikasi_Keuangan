@@ -1,5 +1,7 @@
 package com.logikawan.finflow.core.data
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.model.Account
 import com.logikawan.finflow.core.model.Budget
 import com.logikawan.finflow.core.model.Category
@@ -51,7 +53,7 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
     val authChanges get() = if(isLocal) flowOf(null) else auth.authStateChanged
     val currentUser get() = if(isLocal) null else auth.currentUser
     val ownerId get() = if(isLocal) "local" else auth.currentUser?.uid
-    private fun root() = db.collection("users").document(checkNotNull(ownerId) { "Silakan login" })
+    private fun root() = db.collection("users").document(checkNotNull(ownerId) { MR.strings.core_error_please_login.text() })
     private fun collection(name: String) = root().collection(name)
     val planner get() = PlanningRepository(db, root())
     suspend fun synchronizePreferences(state: PreferenceState) = coroutineScope {
@@ -59,7 +61,7 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         val ref = collection("settings").document("appearance")
         fun decode(snapshot: FinanceSnapshot): AppPreferences {
             val stored = snapshot.data<CloudPreferences>()
-            require(stored.version == 1 && stored.payload.length <= 16000) { "Versi preferensi cloud belum didukung" }
+            require(stored.version == 1 && stored.payload.length <= 16000) { MR.strings.core_error_cloud_prefs_unsupported.text() }
             return financeStorageJson.decodeFromString<AppPreferences>(stored.payload).also { it.validate() }
         }
         // An existing account wins on a new device; pending edits survive restarts and failed writes.
@@ -70,7 +72,7 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         }
         state.pendingChanges.filterNotNull().collect { value ->
             val payload = financeStorageJson.encodeToString(value)
-            require(payload.length <= 16000) { "Preferensi terlalu besar" }
+            require(payload.length <= 16000) { MR.strings.core_error_prefs_too_large.text() }
             ref.set(CloudPreferences(payload = payload))
             state.acknowledge(value)
             val latest = ref.get()
@@ -88,7 +90,7 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         initializeProfile()
     }
     suspend fun register(name: String, email: String, password: String) {
-        require(name.isNotBlank() && name.trim().length <= 100 && password.length >= 8) { "Nama 1–100 karakter; kata sandi minimal 8 karakter" }
+        require(name.isNotBlank() && name.trim().length <= 100 && password.length >= 8) { MR.strings.core_error_register_invalid.text() }
         auth.createUserWithEmailAndPassword(email.trim(), password)
         auth.currentUser?.updateProfile(displayName = name.trim())
         initializeProfile(name.trim())
@@ -107,12 +109,12 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
             requireNotNull(draft).keys.toList().forEach{delete(db.document(it))}
             set(root,profile.copy(photoPath="",photoUpdatedAt=0))
             defaultCategories.forEach{set(root.collection("categories").document(it.id),it)}
-            set(root.collection("accounts").document("acc_cash"),Account("acc_cash","Kas",currency=profile.baseCurrency))
+            set(root.collection("accounts").document("acc_cash"),Account("acc_cash",MR.strings.core_default_wallet_name.text(),currency=profile.baseCurrency))
         }
     }
     suspend fun resetCloudData(native:NativeServices,password:String?,googleToken:String?) {
         require(!isLocal)
-        val user=checkNotNull(currentUser){"Masuk kembali untuk menghapus data cloud"}
+        val user=checkNotNull(currentUser){MR.strings.core_error_relogin_to_reset.text()}
         val credential=if(googleToken!=null)GoogleAuthProvider.credential(googleToken,null)else EmailAuthProvider.credential(requireNotNull(user.email),requireNotNull(password))
         user.reauthenticate(credential);user.getIdToken(true)
         val key="reset.${user.uid}"
@@ -121,7 +123,7 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         native.writeSetting(key,"")
     }
     suspend fun requestAccountDeletion(password: String?, googleToken: String?) {
-        val user = checkNotNull(auth.currentUser) { "Silakan login kembali" }
+        val user = checkNotNull(auth.currentUser) { MR.strings.core_error_please_login_again.text() }
         val credential = if (googleToken != null) GoogleAuthProvider.credential(googleToken, null)
             else EmailAuthProvider.credential(requireNotNull(user.email), requireNotNull(password))
         user.reauthenticate(credential)
@@ -135,18 +137,18 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
             native.uploadProfilePhoto(ref.id, bytes) { path, failure ->
                 if (continuation.isActive) {
                     if (path != null) continuation.resume(path)
-                    else continuation.resumeWithException(IllegalStateException(failure ?: "Foto gagal diunggah"))
+                    else continuation.resumeWithException(IllegalStateException(failure ?: MR.strings.core_error_photo_upload_failed.text()))
                 }
             }
         }
-        require(ownerId == ref.id) { "Akun berubah. Silakan masuk kembali." }
+        require(ownerId == ref.id) { MR.strings.core_error_account_changed.text() }
         db.runTransaction { val profile=get(ref).data<Profile>();set(ref,profile.copy(photoPath=path,photoUpdatedAt=nowMillis())) }
     }
     suspend fun updateProfile(name: String, baseCurrency: String) {
         val displayName = name.trim()
         val code = baseCurrency.trim().uppercase()
-        require(displayName.isNotEmpty() && displayName.length <= 100) { "Nama wajib diisi, maksimal 100 karakter" }
-        require(code.matches(Regex("[A-Z]{3}"))) { "Gunakan kode mata uang 3 huruf" }
+        require(displayName.isNotEmpty() && displayName.length <= 100) { MR.strings.core_error_name_required.text() }
+        require(code.matches(Regex("[A-Z]{3}"))) { MR.strings.core_error_currency_3_letters.text() }
         val user = currentUser
         val ref = root()
         user?.updateProfile(displayName = displayName)
@@ -156,16 +158,16 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         }
     }
 
-    suspend fun initializeProfile(displayName: String? = null, baseCurrency: String = "IDR", initialWalletName:String="Kas", openingBalanceMinor:Long=0) {
-        require(baseCurrency.matches(Regex("[A-Z]{3}"))) { "Kode mata uang tidak valid" }
-        require(initialWalletName.isNotBlank() && initialWalletName.length<=100 && openingBalanceMinor in -MAX_MONEY..MAX_MONEY) { "Nama atau saldo dompet tidak valid" }
+    suspend fun initializeProfile(displayName: String? = null, baseCurrency: String = "IDR", initialWalletName:String=MR.strings.core_default_wallet_name.text(), openingBalanceMinor:Long=0) {
+        require(baseCurrency.matches(Regex("[A-Z]{3}"))) { MR.strings.core_error_currency_invalid.text() }
+        require(initialWalletName.isNotBlank() && initialWalletName.length<=100 && openingBalanceMinor in -MAX_MONEY..MAX_MONEY) { MR.strings.core_error_wallet_name_or_balance_invalid.text() }
         val user = currentUser
         val ref = root()
         // Transaksi ini aman diulang ketika pendaftaran terputus setelah akun Auth terbentuk.
         db.runTransaction {
             val snapshot = get(ref)
             if (!snapshot.exists) {
-                val name = (displayName ?: user?.displayName).orEmpty().trim().take(100).ifBlank { "Pengguna" }
+                val name = (displayName ?: user?.displayName).orEmpty().trim().take(100).ifBlank { MR.strings.core_default_user_name.text() }
                 set(ref, InitialProfile(ref.id, name, user?.email ?: "", baseCurrency, 2))
                 // Akun baru memakai schema inti agar tetap kompatibel saat rules metadata belum diterbitkan.
                 defaultCategories.forEach {
@@ -212,22 +214,22 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
     }
 
     suspend fun saveAccount(account: Account) {
-        require(account.name.isNotBlank() && account.name.length <= 100) { "Nama dompet wajib diisi, maksimal 100 karakter" }
-        require(account.currency.matches(Regex("[A-Z]{3}"))) { "Gunakan kode mata uang 3 huruf, misalnya IDR" }
-        require(account.openingBalanceMinor in -MAX_MONEY..MAX_MONEY) { "Saldo di luar batas" }
+        require(account.name.isNotBlank() && account.name.length <= 100) { MR.strings.core_error_wallet_name_required.text() }
+        require(account.currency.matches(Regex("[A-Z]{3}"))) { MR.strings.core_error_currency_3_letters_example.text() }
+        require(account.openingBalanceMinor in -MAX_MONEY..MAX_MONEY) { MR.strings.core_error_balance_out_of_range.text() }
         require(account.type in listOf("cash","bank","ewallet","credit","investment","loan","savings"))
         require(account.icon.length in 1..100 && account.color in 0xFF000000..0xFFFFFFFF)
         val ref=collection("accounts").document(account.id)
         db.runTransaction {
             val previous=get(ref)
             val parent=account.parentId?.let{require(it!=account.id);get(collection("accounts").document(it)).data<Account>()}
-            require(parent==null || !parent.archived && parent.parentId==null && parent.currency==account.currency){"Pocket harus memakai dompet induk aktif, mata uang sama, dan tidak bertingkat"}
+            require(parent==null || !parent.archived && parent.parentId==null && parent.currency==account.currency){MR.strings.core_error_pocket_parent.text()}
             if(previous.exists){
                 val old=previous.data<Account>()
-                require(old.currency==account.currency && old.createdAt==account.createdAt){"Mata uang dan tanggal pembuatan dompet tidak dapat diubah"}
-                if(old.type=="savings")require(account.type==old.type && account.goalId==old.goalId && account.openingBalanceMinor==old.openingBalanceMinor && account.parentId==null){"Dompet target hanya diubah melalui menu Target"}
+                require(old.currency==account.currency && old.createdAt==account.createdAt){MR.strings.core_error_wallet_immutable.text()}
+                if(old.type=="savings")require(account.type==old.type && account.goalId==old.goalId && account.openingBalanceMinor==old.openingBalanceMinor && account.parentId==null){MR.strings.core_error_goal_wallet_via_goals.text()}
                 else require(account.goalId==null && account.type!="savings")
-            } else require(account.type!="savings" && account.goalId==null){"Buat dompet tabungan melalui menu Target"}
+            } else require(account.type!="savings" && account.goalId==null){MR.strings.core_error_create_savings_via_goals.text()}
             set(ref,account)
         }
     }
@@ -237,42 +239,42 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         db.runTransaction {
             val previous=get(collection("categories").document(category.id))
             val parent=category.parentId?.let{require(it!=category.id);get(collection("categories").document(it)).data<Category>()}
-            require(parent==null || parent.type==category.type && parent.parentId==null){"Pilih kategori induk dengan jenis yang sama"}
-            if(previous.exists){val old=previous.data<Category>();require(old.type==category.type && old.parentId==category.parentId){"Jenis dan induk kategori yang sudah tersimpan tidak dapat diubah"}}
+            require(parent==null || parent.type==category.type && parent.parentId==null){MR.strings.core_error_category_parent_type.text()}
+            if(previous.exists){val old=previous.data<Category>();require(old.type==category.type && old.parentId==category.parentId){MR.strings.core_error_category_immutable.text()}}
             set(collection("categories").document(category.id),category)
         }
     }
 
     suspend fun saveTransaction(tx: Transaction) {
         validateTransaction(tx)
-        require(tx.source !in managedTransactionSources) { "Transaksi ini dikelola oleh fitur asalnya. Batalkan pembayaran untuk memperbaiki pencatatan." }
+        require(tx.source !in managedTransactionSources) { MR.strings.core_error_managed_transaction.text() }
         val accounts = collection("accounts")
         val ref = collection("transactions").document(tx.id)
         db.runTransaction {
             val previous = get(ref)
             val source = get(accounts.document(tx.accountId)).data<Account>()
             val target = tx.toAccountId?.let { get(accounts.document(it)).data<Account>() }
-            if(tx.type!="transfer")require(get(collection("categories").document(tx.categoryId)).data<Category>().type==tx.type){"Kategori tidak sesuai dengan jenis transaksi"}
-            tx.subcategoryId?.let { id -> val sub=get(collection("categories").document(id)).data<Category>();require(sub.parentId==tx.categoryId && sub.type==tx.type){"Subkategori tidak sesuai"} }
+            if(tx.type!="transfer")require(get(collection("categories").document(tx.categoryId)).data<Category>().type==tx.type){MR.strings.core_error_category_type_mismatch.text()}
+            tx.subcategoryId?.let { id -> val sub=get(collection("categories").document(id)).data<Category>();require(sub.parentId==tx.categoryId && sub.type==tx.type){MR.strings.core_error_subcategory_mismatch.text()} }
             if (previous.exists) {
                 val claim = get(collection("reimbursements").document(tx.id))
                 if (claim.exists) {
                     val old = previous.data<Transaction>()
                     require(tx.type == old.type && tx.amountMinor == old.amountMinor && tx.currency == old.currency && tx.accountId == old.accountId && !tx.scheduled) {
-                        "Hapus klaim reimburse sebelum mengubah nominal atau dompet pengeluaran asal"
+                        MR.strings.core_error_reimburse_blocks_edit.text()
                     }
                 }
             }
-            require(!source.archived && source.currency == tx.currency) { "Dompet tidak aktif atau mata uang berbeda" }
-            require(source.type!="savings" && target?.type!="savings"){"Gunakan menu Setor / Tarik pada target tabungan"}
-            if (target != null) require(!target.archived) { "Dompet tujuan tidak aktif" }
+            require(!source.archived && source.currency == tx.currency) { MR.strings.core_error_wallet_inactive_or_currency.text() }
+            require(source.type!="savings" && target?.type!="savings"){MR.strings.core_error_use_goal_deposit.text()}
+            if (target != null) require(!target.archived) { MR.strings.core_error_target_wallet_inactive.text() }
             set(ref, tx.copy(updatedAt = nowMillis()))
         }
     }
     suspend fun deleteTransaction(tx: Transaction) {
         if (tx.source in managedTransactionSources) planner.reverseEvent(tx.id)
         else db.runTransaction {
-            require(!get(collection("reimbursements").document(tx.id)).exists) { "Hapus klaim reimburse sebelum menghapus pengeluaran asal" }
+            require(!get(collection("reimbursements").document(tx.id)).exists) { MR.strings.core_error_reimburse_blocks_delete.text() }
             delete(collection("transactions").document(tx.id))
         }
     }
@@ -284,9 +286,9 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         return db.runTransaction {
             if (get(ref).exists) false else {
                 val account = get(base.collection("accounts").document(tx.accountId)).data<Account>()
-                require(!account.archived && account.currency == tx.currency) { "Pilih dompet aktif dengan mata uang yang sesuai" }
+                require(!account.archived && account.currency == tx.currency) { MR.strings.core_error_pick_active_wallet.text() }
                 if (tx.toAccountId != null) {
-                    require(!get(base.collection("accounts").document(tx.toAccountId)).data<Account>().archived) { "Dompet tujuan tidak aktif" }
+                    require(!get(base.collection("accounts").document(tx.toAccountId)).data<Account>().archived) { MR.strings.core_error_target_wallet_inactive.text() }
                 }
                 set(ref, tx.copy(updatedAt = nowMillis()))
                 true
@@ -295,15 +297,15 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
     }
 
     suspend fun saveBudget(budget: Budget) {
-        require(budget.limitMinor in 1..MAX_MONEY && budget.title.length<=100 && budget.period in listOf("monthly","weekly")) { "Batas dan periode anggaran tidak valid" }
+        require(budget.limitMinor in 1..MAX_MONEY && budget.title.length<=100 && budget.period in listOf("monthly","weekly")) { MR.strings.core_error_budget_invalid.text() }
         if(budget.period=="monthly") {require(budget.month.matches(Regex("\\d{4}-\\d{2}")));LocalDate.parse("${budget.month}-01")} else LocalDate.parse(budget.month)
-        require(collection("categories").document(budget.categoryId).get().data<Category>().type=="expense"){"Pilih kategori pengeluaran"}
+        require(collection("categories").document(budget.categoryId).get().data<Category>().type=="expense"){MR.strings.core_error_pick_expense_category.text()}
         collection("budgets").document(budget.id).set(budget)
     }
     suspend fun deleteBudget(id: String) { collection("budgets").document(id).delete() }
     suspend fun saveGoal(goal: Goal) {
-        require(goal.name.isNotBlank() && goal.name.length <= 100 && goal.targetMinor in 1..MAX_MONEY && goal.savedMinor in 0..MAX_MONEY) { "Target atau tabungan tidak valid; nama maksimal 100 karakter" }
-        require(goal.currency.matches(Regex("[A-Z]{3}"))) { "Kode mata uang tidak valid" }
+        require(goal.name.isNotBlank() && goal.name.length <= 100 && goal.targetMinor in 1..MAX_MONEY && goal.savedMinor in 0..MAX_MONEY) { MR.strings.core_error_goal_invalid.text() }
+        require(goal.currency.matches(Regex("[A-Z]{3}"))) { MR.strings.core_error_currency_invalid.text() }
         if(goal.targetDate.isNotBlank())LocalDate.parse(goal.targetDate)
         require(goal.bucketType in listOf("standard","emergency","locked") && goal.protection in listOf("flexible","soft","hard"))
         val ref=collection("goals").document(goal.id)
@@ -311,10 +313,10 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
             val snapshot=get(ref)
             if(snapshot.exists) {
                 val old=snapshot.data<Goal>()
-                require(old.revision==goal.revision){"Target berubah. Tutup dan buka ulang formulir."}
-                require(goal.savedMinor==old.savedMinor && goal.holdingAccountId==old.holdingAccountId && goal.legacySavedMinor==old.legacySavedMinor && goal.lastEventId==old.lastEventId){"Gunakan Setor / Tarik untuk mengubah dana target"}
-                require(goal.currency==old.currency){"Mata uang target tidak dapat diubah"}
-                require(!goal.archived || goal.holdingAccountId==null || goal.savedMinor==goal.legacySavedMinor){"Tarik dana target sebelum mengarsipkannya"}
+                require(old.revision==goal.revision){MR.strings.core_error_goal_changed.text()}
+                require(goal.savedMinor==old.savedMinor && goal.holdingAccountId==old.holdingAccountId && goal.legacySavedMinor==old.legacySavedMinor && goal.lastEventId==old.lastEventId){MR.strings.core_error_goal_use_deposit.text()}
+                require(goal.currency==old.currency){MR.strings.core_error_goal_currency_immutable.text()}
+                require(!goal.archived || goal.holdingAccountId==null || goal.savedMinor==goal.legacySavedMinor){MR.strings.core_error_goal_withdraw_before_archive.text()}
                 val holding=old.holdingAccountId?.let{get(collection("accounts").document(it)).data<Account>()}
                 if(holding!=null && (holding.name!=goal.name || holding.archived!=goal.archived))set(collection("accounts").document(holding.id),holding.copy(name=goal.name,archived=goal.archived))
                 set(ref,goal.copy(revision=old.revision+1))
@@ -331,20 +333,20 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         db.runTransaction {
             val goal=get(ref).data<Goal>()
             val holding=goal.holdingAccountId?.let{get(collection("accounts").document(it)).data<Account>()}
-            require(goal.holdingAccountId==null || goal.savedMinor==goal.legacySavedMinor){"Tarik seluruh dana dompet target sebelum mengarsipkannya"}
+            require(goal.holdingAccountId==null || goal.savedMinor==goal.legacySavedMinor){MR.strings.core_error_goal_withdraw_all_before_archive.text()}
             if(holding!=null){set(collection("accounts").document(holding.id),holding.copy(archived=true));set(ref,goal.copy(archived=true,revision=goal.revision+1))}
             else delete(ref)
         }
     }
     suspend fun saveInvestment(investment: Investment) {
-        require(investment.name.isNotBlank() && investment.name.length <= 100 && investment.platform.length <= 100 && investment.notes.length <= 4000 && investment.investedMinor in 1..MAX_MONEY && investment.currentMinor in 0..MAX_MONEY && investment.dividendsMinor in 0..MAX_MONEY) { "Nilai investasi atau panjang nama/catatan tidak valid" }
-        require(investment.currency.matches(Regex("[A-Z]{3}"))) { "Kode mata uang tidak valid" }
+        require(investment.name.isNotBlank() && investment.name.length <= 100 && investment.platform.length <= 100 && investment.notes.length <= 4000 && investment.investedMinor in 1..MAX_MONEY && investment.currentMinor in 0..MAX_MONEY && investment.dividendsMinor in 0..MAX_MONEY) { MR.strings.core_error_investment_invalid.text() }
+        require(investment.currency.matches(Regex("[A-Z]{3}"))) { MR.strings.core_error_currency_invalid.text() }
         collection("investments").document(investment.id).set(investment)
     }
     suspend fun deleteInvestment(id: String) { collection("investments").document(id).delete() }
 
     suspend fun importCsv(plan: ImportPlan, progress: (Int, Int) -> Unit): Int {
-        require(plan.errors.isEmpty() && plan.transactions.isNotEmpty()) { "Perbaiki seluruh kesalahan CSV sebelum impor" }
+        require(plan.errors.isEmpty() && plan.transactions.isNotEmpty()) { MR.strings.core_error_csv_fix_errors.text() }
         val ref = root() // UID ditangkap agar satu proses tidak berpindah ke akun lain.
         for (account in plan.accounts) {
             db.runTransaction {
@@ -374,14 +376,14 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
     companion object {
         const val MAX_MONEY = 9_000_000_000_000_000L
         fun validateTransaction(tx: Transaction) {
-            require(tx.type in listOf("income", "expense", "transfer") && tx.amountMinor in 1..MAX_MONEY) { "Jenis atau nominal transaksi tidak valid" }
+            require(tx.type in listOf("income", "expense", "transfer") && tx.amountMinor in 1..MAX_MONEY) { MR.strings.core_error_tx_type_amount_invalid.text() }
             require(tx.accountId.isNotBlank() && tx.categoryId.isNotBlank() && tx.title.length <= 300 && tx.description.length <= 4000)
-            require(tx.currency.matches(Regex("[A-Z]{3}"))) { "Kode mata uang tidak valid" }
-            require(tx.date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) { "Tanggal harus berformat YYYY-MM-DD" }
+            require(tx.currency.matches(Regex("[A-Z]{3}"))) { MR.strings.core_error_currency_invalid.text() }
+            require(tx.date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) { MR.strings.core_error_date_format.text() }
             LocalDate.parse(tx.date)
-            require(tx.tags.size<=10 && tx.tags.distinct().size==tx.tags.size && tx.tags.all{it.isNotBlank() && it.length<=30}){"Maksimal 10 tag unik, masing-masing 30 karakter"}
+            require(tx.tags.size<=10 && tx.tags.distinct().size==tx.tags.size && tx.tags.all{it.isNotBlank() && it.length<=30}){MR.strings.core_error_tags_limit.text()}
             require(tx.subcategoryId==null || tx.subcategoryId.isNotBlank() && tx.subcategoryId.length<=1000)
-            if (tx.type == "transfer") require(!tx.toAccountId.isNullOrBlank() && tx.toAccountId != tx.accountId && tx.receivedAmountMinor != null && tx.receivedAmountMinor in 1..MAX_MONEY) { "Transfer memerlukan dompet berbeda dan nominal diterima" }
+            if (tx.type == "transfer") require(!tx.toAccountId.isNullOrBlank() && tx.toAccountId != tx.accountId && tx.receivedAmountMinor != null && tx.receivedAmountMinor in 1..MAX_MONEY) { MR.strings.core_error_transfer_requires.text() }
             else require(tx.toAccountId == null && tx.receivedAmountMinor == null)
         }
     }

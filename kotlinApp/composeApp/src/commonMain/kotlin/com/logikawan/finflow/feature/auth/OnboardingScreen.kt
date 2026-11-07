@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -19,7 +20,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.ui.*
+import com.logikawan.finflow.i18n.*
+import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.launch
 
 internal val entryAccent = Color(0xFF009688)
@@ -89,13 +93,14 @@ internal fun EntryTheme(content: @Composable () -> Unit) {
     )
 }
 
-private val tourBadges = listOf("CATAT CEPAT", "STATISTIK", "PENGELOLAAN", "TABUNGAN")
-private val tourTitles = listOf("Catat dalam Sekejap", "Pahami Keuanganmu", "Kendali Penuh", "Tumbuhkan Tabungan")
-private val tourDescriptions = listOf(
-    "Catat pemasukan dan pengeluaran, pilih kategori serta dompet. Semua tercatat dalam hitungan detik.",
-    "Analisis tren pemasukan dan pengeluaran melalui laporan terperinci untuk mengambil keputusan keuangan yang lebih baik.",
-    "Kelola semua dompet dan anggaran di satu tempat. Mulai tanpa akun, simpan data di perangkat, dan hubungkan akun saat ingin menggunakan cloud.",
-    "Mulai menabung dengan lebih efektif. Ketahui ke mana uangmu pergi dan capai target yang kamu inginkan.",
+private val tourBadges: List<StringResource> = listOf(
+    MR.strings.auth_tour_badge_1, MR.strings.auth_tour_badge_2, MR.strings.auth_tour_badge_3, MR.strings.auth_tour_badge_4,
+)
+private val tourTitles: List<StringResource> = listOf(
+    MR.strings.auth_tour_title_1, MR.strings.auth_tour_title_2, MR.strings.auth_tour_title_3, MR.strings.auth_tour_title_4,
+)
+private val tourDescriptions: List<StringResource> = listOf(
+    MR.strings.auth_tour_desc_1, MR.strings.auth_tour_desc_2, MR.strings.auth_tour_desc_3, MR.strings.auth_tour_desc_4,
 )
 private val tourImages = listOf(
     "fig_3_25_illustration_image",
@@ -113,51 +118,53 @@ fun OnboardingScreen(onComplete: () -> Unit) = EntryTheme {
     val current = pager.currentPage
     Column(Modifier.fillMaxSize().background(Color.White).safeDrawingPadding().testTag("onboarding")) {
         HorizontalPager(pager, Modifier.weight(1f).testTag("onboarding-pager")) { page ->
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
-                Spacer(Modifier.height(12.dp))
-                FigmaAsset(
-                    tourImages[page],
-                    Modifier.fillMaxWidth().aspectRatio(1.15f).clip(RoundedCornerShape(32.dp)),
-                    crop = true,
-                )
-                Spacer(Modifier.height(28.dp))
-                Text(
-                    tourBadges[page],
-                    style = FFType.metaData.copy(fontSize = 13.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.Bold),
-                    color = tourAccents[page],
-                )
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    tourTitles[page],
-                    style = FFType.appTitle.copy(fontSize = 34.sp, lineHeight = 42.sp, fontWeight = FontWeight.Bold),
-                    color = Color(0xFF1B1B1F),
-                )
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    tourDescriptions[page],
-                    style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 26.sp),
-                    color = Color(0xFF797979),
-                )
-            }
-        }
-        if (current == 0) {
-            Box(Modifier.fillMaxWidth().padding(end = 32.dp), contentAlignment = Alignment.CenterEnd) {
-                TextButton(onClick = onComplete, modifier = Modifier.testTag("onboarding-skip")) {
-                    Text("Lewati", color = Color(0xFF797979), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            val accent = tourAccents[page]
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                // Ollo: kartu ilustrasi persegi ber-tint pastel, dengan bentuk dekoratif samar di belakangnya.
+                Box(Modifier.fillMaxWidth().aspectRatio(1.08f)) {
+                    Box(Modifier.align(Alignment.TopEnd).offset(x = 70.dp, y = (-40).dp).size(230.dp).clip(CircleShape).background(accent.copy(alpha = .06f)))
+                    Box(Modifier.align(Alignment.BottomStart).offset(x = (-60).dp, y = 30.dp).size(150.dp).clip(CircleShape).background(accent.copy(alpha = .07f)))
+                    Box(Modifier.align(Alignment.Center).padding(horizontal = 40.dp).fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(28.dp)).background(accent.copy(alpha = .06f))) {
+                        FigmaAsset(tourImages[page], Modifier.fillMaxSize(), crop = true)
+                    }
+                }
+                Column(Modifier.padding(horizontal = 32.dp)) {
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        tourBadges[page].text(),
+                        style = FFType.metaData.copy(fontSize = 13.sp, lineHeight = 16.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold),
+                        color = accent,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        tourTitles[page].text(),
+                        style = FFType.appTitle.copy(fontSize = 36.sp, lineHeight = 42.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp),
+                        color = Color(0xFF111114),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        tourDescriptions[page].text(),
+                        style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 26.sp),
+                        color = Color(0xFF6B6B70),
+                    )
                 }
             }
-        } else {
-            Spacer(Modifier.height(48.dp))
+        }
+        // Ollo: "Lewati" hanya di slide pertama, rata kanan di atas tombol.
+        Box(Modifier.fillMaxWidth().height(40.dp).padding(end = 48.dp), contentAlignment = Alignment.CenterEnd) {
+            if (current == 0) TextButton(onClick = onComplete, modifier = Modifier.testTag("onboarding-skip")) {
+                Text(MR.strings.auth_tour_skip.text(), color = Color(0xFF6B6B70), fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
         Row(
-            Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 28.dp),
+            Modifier.fillMaxWidth().padding(start = 32.dp, end = 28.dp, top = 4.dp, bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(4) { index ->
-                    val width by animateDpAsState(if (current == index) 24.dp else 8.dp, tween(250))
+                    val width by animateDpAsState(if (current == index) 32.dp else 8.dp, tween(250))
                     Box(
-                        Modifier.size(width, 6.dp).clip(RoundedCornerShape(8.dp))
+                        Modifier.size(width, 8.dp).clip(RoundedCornerShape(8.dp))
                             .background(if (current == index) tourAccents[current] else Color(0xFFE5E7EB)),
                     )
                 }
@@ -168,25 +175,25 @@ fun OnboardingScreen(onComplete: () -> Unit) = EntryTheme {
                     else scope.launch { pager.animateScrollToPage(current + 1) }
                 },
                 enabled = !pager.isScrollInProgress,
-                modifier = Modifier.height(56.dp).testTag("onboarding-next"),
-                shape = RoundedCornerShape(32.dp),
-                contentPadding = PaddingValues(horizontal = 26.dp),
+                modifier = Modifier.height(54.dp).testTag("onboarding-next"),
+                shape = RoundedCornerShape(28.dp),
+                contentPadding = PaddingValues(horizontal = 28.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = tourAccents[current],
                     contentColor = Color.White,
-                    disabledContainerColor = tourAccents[current].copy(alpha = .5f),
+                    disabledContainerColor = tourAccents[current],
                     disabledContentColor = Color.White,
                 ),
             ) {
-                Text(if (current == 3) "Mulai" else "Lanjut", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(if (current == 3) MR.strings.auth_tour_start.text() else MR.strings.common_next.text(), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 Spacer(Modifier.width(10.dp))
-                FFIcon("chevron_right_rounded", Color.White, 20.dp)
+                FFIcon("hi_chevron_right", Color.White, 18.dp)
             }
         }
     }
 }
 
 @Composable
-fun SplashScreen() = EntryTheme {
-    Box(Modifier.fillMaxSize().background(Color.White).testTag("splash"),contentAlignment=Alignment.Center) { FinFlowLogo(144.dp) }
+fun SplashScreen(showLogo: Boolean = true) = EntryTheme {
+    Box(Modifier.fillMaxSize().background(Color.White).testTag("splash"),contentAlignment=Alignment.Center) { if (showLogo) FinFlowLogo(144.dp) }
 }

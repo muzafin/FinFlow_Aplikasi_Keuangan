@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.feature.planning.OlloMenuButton
 import com.logikawan.finflow.feature.planning.OlloMenuItem
 import com.logikawan.finflow.feature.planning.OlloPrimaryButton
@@ -41,9 +43,9 @@ fun GoalDetail(goal:Goal,edit:()->Unit,data:FinanceData=FinanceData(),deposit:((
                     Box(Modifier.size(52.dp).clip(CircleShape).background(GoalAccent.copy(alpha=.12f)),contentAlignment=Alignment.Center){FFIcon(bucketIcon(goal.bucketType),GoalAccent,26.dp)}
                     Spacer(Modifier.weight(1f))
                     val menu=buildList{
-                        add(OlloMenuItem("edit","Edit Target","edit_rounded"))
-                        if(!goal.archived && deposit!=null)add(OlloMenuItem("deposit","Tambah Dana","arrow_downward_rounded"))
-                        if(!goal.archived && canWithdraw && withdraw!=null)add(OlloMenuItem("withdraw","Tarik Dana","arrow_upward_rounded"))
+                        add(OlloMenuItem("edit",MR.strings.acc_edit_goal.text(),"edit_rounded"))
+                        if(!goal.archived && deposit!=null)add(OlloMenuItem("deposit",MR.strings.acc_add_funds.text(),"arrow_downward_rounded"))
+                        if(!goal.archived && canWithdraw && withdraw!=null)add(OlloMenuItem("withdraw",MR.strings.acc_withdraw_funds.text(),"arrow_upward_rounded"))
                     }
                     OlloMenuButton(menu,tint=FFColors.onSurface){key->when(key){"edit"->edit();"deposit"->deposit?.invoke();"withdraw"->withdraw?.invoke()}}
                 }
@@ -52,35 +54,35 @@ fun GoalDetail(goal:Goal,edit:()->Unit,data:FinanceData=FinanceData(),deposit:((
                 Spacer(Modifier.height(10.dp))
                 FitMoneyText(goalMoney(saved,goal.currency,preferences),FFType.amountXl.copy(fontSize=34.sp,lineHeight=42.sp),FFColors.onSurface)
                 Spacer(Modifier.height(4.dp))
-                FitMoneyText("dari ${goalMoney(goal.targetMinor,goal.currency,preferences)} target",FFType.bodyMain.copy(fontSize=15.sp,lineHeight=20.sp),FFColors.onSurfaceVariant)
+                FitMoneyText(MR.strings.acc_of_target.text(goalMoney(goal.targetMinor,goal.currency,preferences)),FFType.bodyMain.copy(fontSize=15.sp,lineHeight=20.sp),FFColors.onSurfaceVariant)
                 if(goal.targetDate.isNotBlank()){
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment=Alignment.CenterVertically){
                         FFIcon("calendar_today_rounded",if(overdue)FFColors.expense else FFColors.outline,15.dp)
                         Spacer(Modifier.width(6.dp))
-                        Text("Tenggat ${shortDateLabel(goal.targetDate)}",style=FFType.metaData,color=if(overdue)FFColors.expense else FFColors.onSurfaceVariant)
+                        Text(MR.strings.acc_due_date.text(shortDateLabel(goal.targetDate)),style=FFType.metaData,color=if(overdue)FFColors.expense else FFColors.onSurfaceVariant)
                     }
                 }
                 Spacer(Modifier.height(22.dp))
                 OlloProgress(progress,10.dp)
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-                    Text("${(progress*100).toInt()}% Selesai",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+                    Text(MR.strings.acc_percent_done.text((progress*100).toInt()),style=FFType.metaData,color=FFColors.onSurfaceVariant)
                     Spacer(Modifier.weight(1f))
-                    Box(Modifier.weight(1f,fill=false)){FitMoneyText("Sisa ${goalMoney(remaining,goal.currency,preferences)}",FFType.metaData,FFColors.onSurfaceVariant,TextAlign.End)}
+                    Box(Modifier.weight(1f,fill=false)){FitMoneyText(MR.strings.acc_remaining_amount.text(goalMoney(remaining,goal.currency,preferences)),FFType.metaData,FFColors.onSurfaceVariant,TextAlign.End)}
                 }
                 if(!goal.archived){
                     Spacer(Modifier.height(20.dp))
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-                        if(canWithdraw && withdraw!=null)OlloSecondaryButton("Tarik Dana",Modifier.weight(1f)){withdraw()}
-                        OlloPrimaryButton(if(goal.holdingAccountId==null)"Tambah Dana" else "Setor Dana",Modifier.weight(1f)){deposit?.invoke() ?: edit()}
+                        if(canWithdraw && withdraw!=null)OlloSecondaryButton(MR.strings.acc_withdraw_funds.text(),Modifier.weight(1f)){withdraw()}
+                        OlloPrimaryButton(if(goal.holdingAccountId==null)MR.strings.acc_add_funds.text() else MR.strings.acc_deposit_funds.text(),Modifier.weight(1f)){deposit?.invoke() ?: edit()}
                     }
                 }
             }
         }
-        if(legacy>0)item{Text("Progres manual lama ${goalMoney(legacy,goal.currency,preferences)} tetap tersimpan; nilainya belum berupa dana yang dipindahkan dari dompet.",style=FFType.metaData,color=FFColors.onSurfaceVariant)}
-        item{Text("Riwayat Setoran & Penarikan",style=FFType.sectionTitle,color=FFColors.onSurface)}
-        if(history.isEmpty())item{Text("Belum ada setoran atau penarikan",style=FFType.bodyMain,color=FFColors.outline,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth().padding(vertical=16.dp))}
+        if(legacy>0)item{Text(MR.strings.acc_legacy_progress_detail.text(goalMoney(legacy,goal.currency,preferences)),style=FFType.metaData,color=FFColors.onSurfaceVariant)}
+        item{Text(MR.strings.acc_movement_history.text(),style=FFType.sectionTitle,color=FFColors.onSurface)}
+        if(history.isEmpty())item{Text(MR.strings.acc_no_movements.text(),style=FFType.bodyMain,color=FFColors.outline,textAlign=TextAlign.Center,modifier=Modifier.fillMaxWidth().padding(vertical=16.dp))}
         items(history,key={it.id}){event->GoalHistoryRow(event,data,preferences,reverse)}
     }
 }
@@ -97,10 +99,10 @@ private fun GoalHistoryRow(event:FinancialEvent,data:FinanceData,preferences:App
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(shortDateLabel(event.date),style=FFType.bodyMain.copy(fontSize=15.sp,lineHeight=20.sp),fontWeight=FontWeight.SemiBold,color=FFColors.onSurface)
-                Text(if(walletName.isBlank())event.title else if(deposit)"dari $walletName" else "ke $walletName",style=FFType.metaData,color=FFColors.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+                Text(if(walletName.isBlank())event.title else if(deposit)MR.strings.acc_from_wallet.text(walletName) else MR.strings.acc_to_wallet.text(walletName),style=FFType.metaData,color=FFColors.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
             }
             Box(Modifier.weight(1f)){FitMoneyText(goalMoney(event.amountMinor,event.currency,preferences),FFType.amountMd,accent,TextAlign.End)}
-            if(reverse!=null)OlloMenuButton(listOf(OlloMenuItem("reverse","Batalkan Pencatatan","delete_outline_rounded"))){key->if(key=="reverse")reverse(event)}
+            if(reverse!=null)OlloMenuButton(listOf(OlloMenuItem("reverse",MR.strings.acc_reverse_entry.text(),"delete_outline_rounded"))){key->if(key=="reverse")reverse(event)}
         }
     }
 }

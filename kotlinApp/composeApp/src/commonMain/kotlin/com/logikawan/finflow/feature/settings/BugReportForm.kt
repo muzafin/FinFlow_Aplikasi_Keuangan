@@ -25,6 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.platform.NativeServices
 import com.logikawan.finflow.core.ui.*
+import com.logikawan.finflow.core.i18n.menuLabel
+import com.logikawan.finflow.core.i18n.tabLabel
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 import kotlinx.coroutines.delay
 
 // Acuan Ollo: px/3 = dp. Ukuran teks memakai token FFType dengan variasi .copy().
@@ -56,6 +60,35 @@ private val bugFeatures = listOf(
     "Pengaturan" to "settings_outlined",
 )
 private val bugSeverities = listOf("Rendah", "Sedang", "Tinggi", "Kritis")
+
+// Nilai fitur/keparahan/label perangkat tetap berbahasa Indonesia karena dikirim ke pengembang lewat email;
+// fungsi berikut hanya untuk teks di layar.
+private fun bugFeatureLabel(id: String): String = when (id) {
+    "Beranda", "Statistik", "Dompet", "Profil" -> tabLabel(id)
+    "Transaksi" -> MR.strings.set_bug_feature_transactions.text()
+    "Pengaturan" -> MR.strings.set_settings.text()
+    else -> menuLabel(id)
+}
+
+private fun bugSeverityLabel(id: String): String = when (id) {
+    "Rendah" -> MR.strings.set_bug_severity_low.text()
+    "Sedang" -> MR.strings.set_bug_severity_medium.text()
+    "Tinggi" -> MR.strings.set_bug_severity_high.text()
+    "Kritis" -> MR.strings.set_bug_severity_critical.text()
+    else -> id
+}
+
+private fun deviceRowLabel(id: String): String = when (id) {
+    "Aplikasi" -> MR.strings.set_bug_dev_app.text()
+    "Perangkat" -> MR.strings.set_bug_dev_device.text()
+    "Layar" -> MR.strings.set_bug_dev_screen.text()
+    "Skala font" -> MR.strings.set_bug_dev_font_scale.text()
+    "Bahasa" -> MR.strings.set_bug_dev_language.text()
+    "Zona waktu" -> MR.strings.set_bug_dev_timezone.text()
+    else -> id
+}
+
+private fun deviceRowValue(value: String): String = if (value == "Tidak tersedia") MR.strings.set_bug_unavailable.text() else value
 
 @Composable private fun bugSectionStyle() = FFType.sectionTitle.copy(fontSize = 16.sp, lineHeight = 22.sp)
 @Composable private fun bugValueStyle() = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp)
@@ -110,36 +143,36 @@ fun BugReportForm(native: NativeServices) {
     fun sendReport() {
         val diagnostics = if (includeDevice) deviceRows.joinToString("\n") { "${it.first}: ${it.second}" } else "Tidak disertakan"
         val failure = native.composeSupport("FinFlow · Bug: ${title.trim()}", bugReportBody(feature, severity, title, description, steps, diagnostics))
-        message = failure ?: "Draf email dibuka. Periksa lalu kirim laporan."
+        message = failure ?: MR.strings.set_bug_draft_opened.text()
     }
     Column(Modifier.fillMaxWidth().testTag("bug-report-form")) {
-        UpdateBanner { try { uriHandler.openUri(PLAY_STORE_URL) } catch (_: Exception) { message = "Play Store tidak dapat dibuka. Cari FinFlow di Play Store." } }
+        UpdateBanner { try { uriHandler.openUri(PLAY_STORE_URL) } catch (_: Exception) { message = MR.strings.set_bug_store_failed.text() } }
         Spacer(Modifier.height(24.dp))
         DeviceInformationCard(deviceRows, includeDevice, { includeDevice = it })
         Spacer(Modifier.height(16.dp))
-        BugSectionLabel("Fitur yang bermasalah")
+        BugSectionLabel(MR.strings.set_bug_feature.text())
         Spacer(Modifier.height(12.dp))
         FeatureField(feature, { feature = it })
         Spacer(Modifier.height(16.dp))
-        BugSectionLabel("Tingkat Keparahan")
+        BugSectionLabel(MR.strings.set_bug_severity.text())
         Spacer(Modifier.height(12.dp))
         SeverityRow(severity) { severity = it }
         Spacer(Modifier.height(16.dp))
-        BugSectionLabel("Judul Bug")
+        BugSectionLabel(MR.strings.set_bug_title.text())
         Spacer(Modifier.height(12.dp))
-        BugTextField(title, { title = it.take(160) }, "Deskripsi singkat masalah", height = 53.dp, singleLine = true)
+        BugTextField(title, { title = it.take(160) }, MR.strings.set_bug_title_hint.text(), height = 53.dp, singleLine = true)
         Spacer(Modifier.height(16.dp))
-        BugSectionLabel("Deskripsi")
+        BugSectionLabel(MR.strings.set_bug_description.text())
         Spacer(Modifier.height(12.dp))
-        BugTextField(description, { description = it.take(4000) }, "Apa yang terjadi? Apa yang kamu harapkan?", height = 116.dp)
+        BugTextField(description, { description = it.take(4000) }, MR.strings.set_bug_description_hint.text(), height = 116.dp)
         Spacer(Modifier.height(16.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            BugSectionLabel("Langkah Reproduksi")
+            BugSectionLabel(MR.strings.set_bug_steps.text())
             Spacer(Modifier.width(8.dp))
             OptionalChip()
         }
         Spacer(Modifier.height(12.dp))
-        BugTextField(steps, { steps = it.take(4000) }, "1. Buka...\n2. Ketuk...\n3. Lihat error", height = 95.dp)
+        BugTextField(steps, { steps = it.take(4000) }, MR.strings.set_bug_steps_hint.text(), height = 95.dp)
         Spacer(Modifier.height(32.dp))
         message?.let {
             Snackbar(Modifier.fillMaxWidth().padding(bottom = 12.dp)) { Text(it, style = FFType.bodyMain) }
@@ -153,20 +186,20 @@ fun BugReportForm(native: NativeServices) {
 private fun UpdateBanner(onOpenStore: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(BugBannerBackground)
-            .clickable(role = Role.Button, onClickLabel = "Buka Play Store", onClick = onOpenStore)
+            .clickable(role = Role.Button, onClickLabel = MR.strings.set_bug_open_store.text(), onClick = onOpenStore)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FFIcon("system_update_outlined", BugBannerBlue, 24.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Sudah memeriksa pembaruan?", style = bugSectionStyle(), color = BugBannerBlue)
+            Text(MR.strings.set_bug_update_title.text(), style = bugSectionStyle(), color = BugBannerBlue)
             Spacer(Modifier.height(4.dp))
-            Text("Masalah ini mungkin sudah diperbaiki di versi terbaru Play Store.", style = FFType.bodyMain.copy(lineHeight = 18.sp), color = BugBannerBody)
+            Text(MR.strings.set_bug_update_body.text(), style = FFType.bodyMain.copy(lineHeight = 18.sp), color = BugBannerBody)
         }
         Spacer(Modifier.width(8.dp))
         Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-            FFIcon("open_in_new_outlined", BugBannerBlue, 20.dp, "Buka Play Store")
+            FFIcon("open_in_new_outlined", BugBannerBlue, 20.dp, MR.strings.set_bug_open_store.text())
         }
     }
 }
@@ -177,15 +210,15 @@ private fun DeviceInformationCard(rows: List<Pair<String, String>>, include: Boo
         Row(verticalAlignment = Alignment.CenterVertically) {
             FFIcon("info_outline_rounded", FFColors.onSurface, 20.dp)
             Spacer(Modifier.width(8.dp))
-            Text("Informasi Perangkat", style = bugSectionStyle(), color = FFColors.onSurface)
+            Text(MR.strings.set_bug_device_info.text(), style = bugSectionStyle(), color = FFColors.onSurface)
         }
         Spacer(Modifier.height(12.dp))
         rows.forEachIndexed { index, (label, value) ->
             if (index > 0) Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth()) {
-                Text(label, Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+                Text(deviceRowLabel(label), Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
                 Spacer(Modifier.width(12.dp))
-                Text(value, Modifier.weight(1.8f), style = FFType.bodyMain, color = FFColors.onSurfaceVariant, textAlign = TextAlign.End)
+                Text(deviceRowValue(value), Modifier.weight(1.8f), style = FFType.bodyMain, color = FFColors.onSurfaceVariant, textAlign = TextAlign.End)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -204,7 +237,7 @@ private fun DeviceInformationCard(rows: List<Pair<String, String>>, include: Boo
                 ),
             )
             Spacer(Modifier.width(12.dp))
-            Text("Sertakan informasi perangkat", style = FFType.bodyMain, color = FFColors.onSurface)
+            Text(MR.strings.set_bug_include_device.text(), style = FFType.bodyMain, color = FFColors.onSurface)
         }
     }
 }
@@ -217,7 +250,7 @@ private fun BugSectionLabel(text: String) {
 @Composable
 private fun OptionalChip() {
     Text(
-        "Opsional",
+        MR.strings.set_bug_optional.text(),
         Modifier.clip(RoundedCornerShape(100.dp)).background(FFColors.surface)
             .border(1.dp, FFColors.onSurfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(100.dp))
             .padding(horizontal = 8.dp, vertical = 2.dp),
@@ -240,7 +273,7 @@ private fun FeatureField(feature: String, onPick: (String) -> Unit) {
             FFIcon(icon, FFColors.onSurface, 20.dp)
         }
         Spacer(Modifier.width(12.dp))
-        Text(feature, Modifier.weight(1f), style = bugValueStyle(), color = FFColors.onSurface)
+        Text(bugFeatureLabel(feature), Modifier.weight(1f), style = bugValueStyle(), color = FFColors.onSurface)
         FFIcon("expand_more_rounded", FFColors.onSurfaceVariant, 20.dp)
     }
     if (expanded) ModalBottomSheet(
@@ -250,7 +283,7 @@ private fun FeatureField(feature: String, onPick: (String) -> Unit) {
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Fitur yang bermasalah", Modifier.weight(1f), style = FFType.sectionTitle)
+                Text(MR.strings.set_bug_feature.text(), Modifier.weight(1f), style = FFType.sectionTitle)
                 FFIconButton("close_rounded", { expanded = false })
             }
             LazyColumn(Modifier.heightIn(max = 460.dp), contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -266,7 +299,7 @@ private fun FeatureField(feature: String, onPick: (String) -> Unit) {
                             FFIcon(featureIcon, FFColors.onSurface, 18.dp)
                         }
                         Spacer(Modifier.width(12.dp))
-                        Text(name, Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurface)
+                        Text(bugFeatureLabel(name), Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurface)
                         if (name == feature) FFIcon("check_rounded", FFColors.primary, 20.dp)
                     }
                 }
@@ -295,7 +328,7 @@ private fun SeverityRow(selected: String, onSelect: (String) -> Unit) {
                     .clickable(role = Role.Tab) { onSelect(label) },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, style = bugChipStyle(), color = if (isSelected) Color.White else color)
+                Text(bugSeverityLabel(label), style = bugChipStyle(), color = if (isSelected) Color.White else color)
             }
         }
     }
@@ -334,6 +367,6 @@ private fun SendReportButton(enabled: Boolean, onClick: () -> Unit) {
     ) {
         FFIcon("send_outlined", content, 20.dp)
         Spacer(Modifier.width(12.dp))
-        Text("Kirim Laporan", style = bugValueStyle().copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = content)
+        Text(MR.strings.set_bug_send.text(), style = bugValueStyle().copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = content)
     }
 }

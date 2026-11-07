@@ -25,22 +25,26 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.logikawan.finflow.core.i18n.menuLabel
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.platform.NativeServices
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.feature.settings.RecordingAchievement
+import com.logikawan.finflow.feature.settings.displayTitle
 import com.logikawan.finflow.feature.settings.recordingProgress
+import com.logikawan.finflow.i18n.*
 
 private data class LevelMetric(val label:String, val value:String, val icon:String, val color:Color, val background:Color)
 private data class BadgeGroup(val title:String, val color:Color, val badges:List<RecordingAchievement>)
 
 private fun rankName(level:Int):String = when(level) {
-    1 -> "Rookie Saver"
-    2 -> "Smart Saver"
-    3 -> "Budget Master"
-    4 -> "Finance Pro"
-    5 -> "Wealth Builder"
-    else -> "Legenda Finansial"
+    1 -> MR.strings.rm_rank_rookie.text()
+    2 -> MR.strings.rm_rank_smart.text()
+    3 -> MR.strings.rm_rank_budget_master.text()
+    4 -> MR.strings.rm_rank_finance_pro.text()
+    5 -> MR.strings.rm_rank_wealth_builder.text()
+    else -> MR.strings.rm_rank_legend.text()
 }
 
 private fun achievementIcon(title:String):String = when(title) {
@@ -60,20 +64,20 @@ private fun achievementIcon(title:String):String = when(title) {
 @Composable
 fun LevelScreen(data:FinanceData, native:NativeServices, back:()->Unit, onNavigate:(String)->Unit = {}) {
     val progress=recordingProgress(data)
-    val displayName=data.profile?.name?.takeIf{it.isNotBlank()} ?: "Pengguna"
+    val displayName=data.profile?.name?.takeIf{it.isNotBlank()} ?: MR.strings.rm_user_fallback.text()
     val metrics=listOf(
-        LevelMetric("Streak",progress.streak.toString(),"local_fire_department_outlined",Color(0xFFF57C00),Color(0xFFFFF1E2)),
-        LevelMetric("Streak Terpanjang",progress.longestStreak.toString(),"trending_up_rounded",Color(0xFFF44336),Color(0xFFFDEDEC)),
-        LevelMetric("Poin",progress.xp.toString(),"emoji_events_outlined",Color(0xFFF2B300),Color(0xFFFFF6DE)),
-        LevelMetric("Hari Aktif",progress.activeDays.toString(),"event_available_outlined",Color(0xFF2196F3),Color(0xFFE8F2FD)),
-        LevelMetric("Transaksi",progress.transactions.toString(),"receipt_long",Color(0xFF14B8A6),Color(0xFFE4F7F5)),
-        LevelMetric("Lencana",progress.achievements.count{it.earned}.toString(),"military_tech_outlined",Color(0xFF4CAF50),Color(0xFFEAF5EA)),
+        LevelMetric(MR.strings.rm_metric_streak.text(),progress.streak.toString(),"local_fire_department_outlined",Color(0xFFF57C00),Color(0xFFFFF1E2)),
+        LevelMetric(MR.strings.rm_metric_longest_streak.text(),progress.longestStreak.toString(),"trending_up_rounded",Color(0xFFF44336),Color(0xFFFDEDEC)),
+        LevelMetric(MR.strings.rm_metric_points.text(),progress.xp.toString(),"emoji_events_outlined",Color(0xFFF2B300),Color(0xFFFFF6DE)),
+        LevelMetric(MR.strings.rm_metric_active_days.text(),progress.activeDays.toString(),"event_available_outlined",Color(0xFF2196F3),Color(0xFFE8F2FD)),
+        LevelMetric(MR.strings.rm_metric_transactions.text(),progress.transactions.toString(),"receipt_long",Color(0xFF14B8A6),Color(0xFFE4F7F5)),
+        LevelMetric(MR.strings.rm_metric_badges.text(),progress.achievements.count{it.earned}.toString(),"military_tech_outlined",Color(0xFF4CAF50),Color(0xFFEAF5EA)),
     )
     val streakTitles=setOf("Catatan Pertama","Mulai Konsisten","On Fire","Tak Terhentikan","Disiplin","Legendaris")
     val groups=listOf(
-        BadgeGroup("Konsistensi & Streak",Color(0xFF2196F3),progress.achievements.filter{it.title in streakTitles}),
-        BadgeGroup("Anggaran",Color(0xFF3ED9BE),progress.achievements.filter{it.title=="Anggaran Pertama"}),
-        BadgeGroup("Target Tabungan",Color(0xFF4CAF50),progress.achievements.filter{it.title=="Tabungan Pertama"}),
+        BadgeGroup(MR.strings.rm_group_streak.text(),Color(0xFF2196F3),progress.achievements.filter{it.title in streakTitles}),
+        BadgeGroup(menuLabel("Anggaran"),Color(0xFF3ED9BE),progress.achievements.filter{it.title=="Anggaran Pertama"}),
+        BadgeGroup(MR.strings.rm_group_savings.text(),Color(0xFF4CAF50),progress.achievements.filter{it.title=="Tabungan Pertama"}),
     ).filter{it.badges.isNotEmpty()}
 
     Column(Modifier.fillMaxSize().background(FFColors.background).statusBarsPadding().verticalScroll(rememberScrollState()).testTag("level-page")) {
@@ -94,7 +98,7 @@ fun LevelScreen(data:FinanceData, native:NativeServices, back:()->Unit, onNaviga
                 }
                 ProfilePhoto(data.profile,native,Modifier.size(96.dp).clip(CircleShape).background(FFColors.primaryContainer).align(Alignment.Center))
                 Surface(Modifier.align(Alignment.BottomCenter),shape=CircleShape,color=FFColors.onSurface) {
-                    Text("Level ${progress.level}",Modifier.padding(horizontal=14.dp,vertical=4.dp),
+                    Text(MR.strings.rm_level_n.text(progress.level),Modifier.padding(horizontal=14.dp,vertical=4.dp),
                         style=FFType.bodyMain.copy(fontSize=14.sp,fontWeight=FontWeight.SemiBold,lineHeight=18.sp),color=FFColors.canvas)
                 }
             }
@@ -102,7 +106,7 @@ fun LevelScreen(data:FinanceData, native:NativeServices, back:()->Unit, onNaviga
             Text(displayName,style=FFType.appTitle.copy(fontSize=24.sp,lineHeight=30.sp,fontWeight=FontWeight.Bold),textAlign=TextAlign.Center)
             Text(rankName(progress.level),style=FFType.bodyMain.copy(fontSize=16.sp,lineHeight=22.sp),color=FFColors.onSurfaceVariant,textAlign=TextAlign.Center)
             Spacer(Modifier.height(4.dp))
-            Text("${progress.levelXp} / 500 XP",style=FFType.bodyMain.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold,lineHeight=16.sp),textAlign=TextAlign.Center)
+            Text(MR.strings.rm_xp_progress.text(progress.levelXp),style=FFType.bodyMain.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold,lineHeight=16.sp),textAlign=TextAlign.Center)
             Spacer(Modifier.height(24.dp))
             Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 metrics.chunked(2).forEach{row->
@@ -116,8 +120,8 @@ fun LevelScreen(data:FinanceData, native:NativeServices, back:()->Unit, onNaviga
             FreedomTrackCard{onNavigate("Target")}
             Spacer(Modifier.height(28.dp))
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Text("Pencapaian",Modifier.weight(1f),style=FFType.appTitle)
-                Text("${progress.xp} XP",style=FFType.metaData.copy(fontWeight=FontWeight.SemiBold),color=FFColors.onSurfaceVariant)
+                Text(MR.strings.rm_achievements.text(),Modifier.weight(1f),style=FFType.appTitle)
+                Text(MR.strings.rm_xp.text(progress.xp),style=FFType.metaData.copy(fontWeight=FontWeight.SemiBold),color=FFColors.onSurfaceVariant)
             }
             groups.forEach{group->
                 Spacer(Modifier.height(18.dp))
@@ -157,13 +161,13 @@ private fun FreedomTrackCard(onSetTarget:()->Unit) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             FFIcon("flag",FFColors.onSurface,22.dp)
             Spacer(Modifier.width(10.dp))
-            Text("Lacak: Kebebasan Finansial",Modifier.weight(1f),style=FFType.bodyMain.copy(fontSize=16.sp,fontWeight=FontWeight.SemiBold))
-            Text("Atur",style=FFType.metaData.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold),color=FFColors.onSurfaceVariant)
+            Text(MR.strings.rm_freedom_title.text(),Modifier.weight(1f),style=FFType.bodyMain.copy(fontSize=16.sp,fontWeight=FontWeight.SemiBold))
+            Text(MR.strings.rm_freedom_set.text(),style=FFType.metaData.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold),color=FFColors.onSurfaceVariant)
             Spacer(Modifier.width(4.dp))
             FFIcon("chevron_right_rounded",FFColors.onSurfaceVariant,16.dp)
         }
         Spacer(Modifier.height(10.dp))
-        Text("Tetapkan nominal target agar progres kebebasan finansialmu mulai terlacak.",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+        Text(MR.strings.rm_freedom_desc.text(),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
         Spacer(Modifier.height(12.dp))
         Box(Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)).background(FFColors.outlineVariant))
     }
@@ -179,13 +183,13 @@ private fun AchievementBadge(badge:RecordingAchievement,color:Color,modifier:Mod
             }
             Surface(Modifier.align(Alignment.BottomCenter).offset(y=8.dp),shape=RoundedCornerShape(50),
                 color=if(earned)FFColors.canvas else FFColors.surfaceContainerHigh,shadowElevation=if(earned)2.dp else 0.dp) {
-                Text("${badge.xp} XP",Modifier.padding(horizontal=8.dp,vertical=2.dp),
+                Text(MR.strings.rm_xp.text(badge.xp),Modifier.padding(horizontal=8.dp,vertical=2.dp),
                     style=FFType.metaData.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold),
                     color=if(earned)color else FFColors.outline)
             }
         }
         Spacer(Modifier.height(14.dp))
-        Text(badge.title,style=FFType.metaData.copy(fontSize=11.sp,lineHeight=14.sp,fontWeight=FontWeight.SemiBold),
+        Text(badge.displayTitle,style=FFType.metaData.copy(fontSize=11.sp,lineHeight=14.sp,fontWeight=FontWeight.SemiBold),
             color=if(earned)FFColors.onSurface else FFColors.outline,textAlign=TextAlign.Center,maxLines=2,overflow=TextOverflow.Ellipsis)
     }
 }
@@ -196,17 +200,17 @@ private fun LeaderboardCard() {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             FFIcon("emoji_events_outlined",Color(0xFFF2B300),24.dp)
             Spacer(Modifier.width(8.dp))
-            Text("Peringkat Bulanan (Segera Hadir)",style=FFType.bodyMain.copy(fontSize=18.sp,fontWeight=FontWeight.SemiBold))
+            Text(MR.strings.rm_lb_title_soon.text(),style=FFType.bodyMain.copy(fontSize=18.sp,fontWeight=FontWeight.SemiBold))
         }
         Spacer(Modifier.height(10.dp))
-        Text("Papan peringkat global dan lokal per negara, diperbarui setiap bulan dari aktivitas pencatatanmu.",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+        Text(MR.strings.rm_lb_desc.text(),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
-        listOf("Juara 1 · Premium gratis 3 bulan","Juara 2 · Premium gratis 2 bulan","Juara 3 · Premium gratis 1 bulan").forEach{
+        listOf(MR.strings.rm_lb_prize_1.text(),MR.strings.rm_lb_prize_2.text(),MR.strings.rm_lb_prize_3.text()).forEach{
             Text(it,style=FFType.bodyMain,modifier=Modifier.padding(vertical=2.dp))
         }
         Spacer(Modifier.height(8.dp))
-        Text("Hadiah Premium gratis diberikan admin FinFlow setelah hasil diverifikasi. Tombol ikut serta akan aktif setelah leaderboard tersedia.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+        Text(MR.strings.rm_lb_note.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
         Spacer(Modifier.height(14.dp))
-        OutlinedButton(onClick={},enabled=false,modifier=Modifier.fillMaxWidth().testTag("level-leaderboard-disabled")){Text("Segera Hadir")}
+        OutlinedButton(onClick={},enabled=false,modifier=Modifier.fillMaxWidth().testTag("level-leaderboard-disabled")){Text(MR.strings.rm_coming_soon.text())}
     }
 }

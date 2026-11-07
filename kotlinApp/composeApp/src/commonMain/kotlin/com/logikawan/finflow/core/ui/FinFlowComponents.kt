@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.resources.*
 import org.jetbrains.compose.resources.Font
 import com.logikawan.finflow.core.model.LocalPreferences
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 
 @Composable
 fun FFIcon(name: String, tint: Color = FFColors.onSurfaceVariant, size: Dp = 24.dp, contentDescription: String? = null) {
@@ -44,7 +46,7 @@ fun FFIcon(name: String, tint: Color = FFColors.onSurfaceVariant, size: Dp = 24.
 @Composable
 fun FFIconButton(name: String, onClick: () -> Unit, modifier: Modifier = Modifier, tint: Color = FFColors.onSurfaceVariant) {
     IconButton(onClick, modifier) { FFIcon(name, tint, contentDescription = when (name) {
-        "add_rounded" -> "Tambah"; "close_rounded" -> "Tutup"; "delete_outline_rounded" -> "Hapus"; "chevron_left_rounded" -> "Sebelumnya"; "chevron_right_rounded" -> "Berikutnya"; "hi_chevron_left" -> "Kembali"; "hi_chevron_right" -> "Berikutnya"; "file_download_outlined" -> "Ekspor CSV"; else -> name.replace('_', ' ')
+        "add_rounded" -> MR.strings.common_add.text(); "close_rounded" -> MR.strings.common_close.text(); "delete_outline_rounded" -> MR.strings.common_delete.text(); "chevron_left_rounded" -> MR.strings.app_previous.text(); "chevron_right_rounded" -> MR.strings.app_next.text(); "hi_chevron_left" -> MR.strings.common_back.text(); "hi_chevron_right" -> MR.strings.app_next.text(); "file_download_outlined" -> MR.strings.app_export_csv.text(); else -> name.replace('_', ' ')
     }) }
 }
 

@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 import kotlinx.datetime.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -51,13 +53,21 @@ internal fun walletSummaryValues(data:FinanceData,currency:String,date:LocalDate
     return WalletSummaryValues(total,flow,checkedAdd(total,-debtTotal),debtTotal,savings,checkedAdd(bills,scheduled),negativeWallets)
 }
 
-private val walletGroups = listOf(
-    "cash" to "Tunai", "bank" to "Akun Bank", "ewallet" to "E-Wallet", "savings" to "Tabungan",
-    "credit" to "Kartu Kredit", "investment" to "Investasi", "loan" to "Pinjaman", "other" to "Lainnya")
+private val walletGroups = listOf("cash", "bank", "ewallet", "savings", "credit", "investment", "loan", "other")
 
 private val pinnedWalletGroups = listOf("cash", "bank", "ewallet")
 
-private fun walletTypeTitle(type:String)=walletGroups.find{it.first==type}?.second ?: "Lainnya"
+/** Label tampilan jenis dompet (id `cash`, `bank`, ... tetap pengenal). Jenis tak dikenal → "Lainnya". */
+fun walletTypeLabel(type:String):String = when(type) {
+    "cash" -> MR.strings.acc_type_cash.text()
+    "bank" -> MR.strings.acc_type_bank_account.text()
+    "ewallet" -> MR.strings.acc_type_ewallet.text()
+    "savings" -> MR.strings.acc_type_savings.text()
+    "credit" -> MR.strings.acc_type_credit.text()
+    "investment" -> MR.strings.acc_type_investment.text()
+    "loan" -> MR.strings.acc_type_loan.text()
+    else -> MR.strings.acc_type_other.text()
+}
 
 // Ikon Hugeicons seperti Ollo (lingkaran netral).
 private fun walletGroupIcon(type:String)=when(type) {
@@ -77,48 +87,49 @@ fun WalletScreen(data:FinanceData,edit:(Account)->Unit,add:()->Unit,open:((Accou
     val visible=data.accounts.filter{it.archived==archived}
     val currencies=(active.map{it.currency}+data.debts.filter{it.direction=="borrowed" && it.paidMinor<it.amountMinor}.map{it.currency})
         .distinct().ifEmpty{listOf(data.profile?.baseCurrency ?: "IDR")}.sortedWith(compareBy<String>{if(it==data.profile?.baseCurrency)0 else 1}.thenBy{it})
-    val types=walletGroups.map{it.first}.toSet()-"other"
+    val types=walletGroups.toSet()-"other"
     val roots=visible.filter{a->a.parentId==null || visible.none{it.id==a.parentId}}
     fun openAccount(account:Account)=(open?:edit)(account)
     @Composable fun WalletMenu() {
         Box {
-            IconButton({ menu = true }, Modifier.size(36.dp).testTag("wallet-menu")) { FFIcon("more_vert", FFColors.onSurface, 22.dp, contentDescription = "Menu dompet") }
+            IconButton({ menu = true }, Modifier.size(36.dp).testTag("wallet-menu")) { FFIcon("more_vert", FFColors.onSurface, 22.dp, contentDescription = MR.strings.acc_wallet_menu.text()) }
             DropdownMenu(menu, { menu = false }) {
-                DropdownMenuItem(text = { Text("Tambah Dompet") }, onClick = { menu = false; add() })
-                DropdownMenuItem(text = { Text(if (archived) "Kembali ke Dompet Aktif" else "Dompet Diarsipkan") }, onClick = { menu = false; archived = !archived })
-                DropdownMenuItem(text = { Text(if (preferences.hideBalances) "Tampilkan Saldo" else "Sembunyikan Saldo") }, enabled = preferenceState != null,
+                DropdownMenuItem(text = { Text(MR.strings.acc_add_wallet.text()) }, onClick = { menu = false; add() })
+                DropdownMenuItem(text = { Text(if (archived) MR.strings.acc_back_to_active.text() else MR.strings.acc_archived_wallets.text()) }, onClick = { menu = false; archived = !archived })
+                DropdownMenuItem(text = { Text(if (preferences.hideBalances) MR.strings.acc_show_balance.text() else MR.strings.acc_hide_balance.text()) }, enabled = preferenceState != null,
                     onClick = { menu = false; preferenceState?.update(preferences.copy(hideBalances = !preferences.hideBalances)) })
             }
         }
     }
-    val firstGroup = walletGroups.map { it.first }.firstOrNull { type -> type in pinnedWalletGroups || roots.any { if (type == "other") it.type !in types else it.type == type } }
+    val firstGroup = walletGroups.firstOrNull { type -> type in pinnedWalletGroups || roots.any { if (type == "other") it.type !in types else it.type == type } }
     LazyColumn(Modifier.fillMaxSize().testTag("wallet-list"),contentPadding=PaddingValues(start=16.dp,end=16.dp,bottom=120.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
         stickyHeader(key = "wallet-header") {
             Box(Modifier.fillMaxWidth().background(FFColors.background).padding(top = 6.dp)) {
-                IconButton({ composition = true }, Modifier.align(Alignment.CenterStart).testTag("wallet-composition")) { FFIcon("hi_grid", FFColors.onSurface, 24.dp, contentDescription = "Komposisi uang") }
-                Text("Dompet Saya", Modifier.align(Alignment.Center), style = FFType.appTitle)
-                IconButton(add, Modifier.align(Alignment.CenterEnd).testTag("wallet-add")) { FFIcon("hi_add", FFColors.onSurface, 26.dp, contentDescription = "Tambah dompet") }
+                IconButton({ composition = true }, Modifier.align(Alignment.CenterStart).testTag("wallet-composition")) { FFIcon("hi_grid", FFColors.onSurface, 24.dp, contentDescription = MR.strings.acc_money_composition_cd.text()) }
+                Text(MR.strings.acc_my_wallets.text(), Modifier.align(Alignment.Center), style = FFType.appTitle)
+                IconButton(add, Modifier.align(Alignment.CenterEnd).testTag("wallet-add")) { FFIcon("hi_add", FFColors.onSurface, 26.dp, contentDescription = MR.strings.acc_add_wallet_cd.text()) }
             }
         }
         if (archived) item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) { WalletMenu() } }
         if (archived) item {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(start = 14.dp, end = 6.dp, top = 2.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("Menampilkan dompet diarsipkan", Modifier.weight(1f), style = FFType.metaData, color = FFColors.onSurfaceVariant)
-                TextButton({ archived = false }) { Text("Kembali", style = FFType.metaData) }
+                Text(MR.strings.acc_showing_archived.text(), Modifier.weight(1f), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                TextButton({ archived = false }) { Text(MR.strings.common_back.text(), style = FFType.metaData) }
             }
         }
         if (!archived) currencies.forEach { currency -> item(key = "summary-${currency}") {
             WalletBalanceCard(data, currency, preferences, preferenceState)
         } }
         if (!archived && !data.featuresReady) item {
-            Text(data.featuresError ?: "Memuat rincian pinjaman, tabungan, dan pembayaran…", style = FFType.metaData,
+            Text(data.featuresError ?: MR.strings.acc_loading_features.text(), style = FFType.metaData,
                 color = if (data.featuresError != null) FFColors.expense else FFColors.outline)
         }
         if (!archived) {
-            walletGroups.forEach { (type, title) ->
+            walletGroups.forEach { type ->
                 val accounts = roots.filter { if (type == "other") it.type !in types else it.type == type }
                 if (type in pinnedWalletGroups || accounts.isNotEmpty()) item(key = "group-${type}") {
+                    val title = walletTypeLabel(type)
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(Modifier.fillMaxWidth().heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(title, Modifier.weight(1f).padding(start = 4.dp), style = FFType.sectionTitle)
@@ -128,7 +139,7 @@ fun WalletScreen(data:FinanceData,edit:(Account)->Unit,add:()->Unit,open:((Accou
                         else accounts.forEach { account ->
                             WalletAccountCard(account, data, preferences, onClick = { openAccount(account) })
                             visible.filter { it.parentId == account.id }.forEach { pocket ->
-                                WalletAccountCard(pocket, data, preferences, "Pocket · ${account.name}", Modifier.padding(start = 24.dp), onClick = { openAccount(pocket) })
+                                WalletAccountCard(pocket, data, preferences, MR.strings.acc_pocket_of.text(account.name), Modifier.padding(start = 24.dp), onClick = { openAccount(pocket) })
                             }
                         }
                     }
@@ -137,16 +148,16 @@ fun WalletScreen(data:FinanceData,edit:(Account)->Unit,add:()->Unit,open:((Accou
             val goals = data.goals.filter { !it.archived }
             if (goals.isNotEmpty()) item(key = "wallet-goals") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Target Tabungan", style = FFType.sectionTitle)
+                    Text(MR.strings.acc_savings_goals.text(), style = FFType.sectionTitle)
                     goals.forEach { goal -> WalletGoalCard(goal, data, preferences) { account -> openAccount(account) } }
                 }
             }
         } else {
             if (visible.isEmpty()) item {
-                DesignCard { Text("Belum ada dompet diarsipkan.", style = FFType.bodyMain, color = FFColors.onSurfaceVariant) }
+                DesignCard { Text(MR.strings.acc_no_archived_wallets.text(), style = FFType.bodyMain, color = FFColors.onSurfaceVariant) }
             } else item(key = "archived-list") {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Dompet Diarsipkan", style = FFType.sectionTitle)
+                    Text(MR.strings.acc_archived_wallets.text(), style = FFType.sectionTitle)
                     visible.forEach { account -> WalletAccountCard(account, data, preferences, onClick = { openAccount(account) }) }
                 }
             }
@@ -167,15 +178,15 @@ private fun WalletBalanceCard(data:FinanceData,currency:String,preferences:AppPr
     val percent=when { base!=0L -> values.flow30.toDouble()/abs(base)*100; values.flow30!=0L -> if(values.flow30>0)100.0 else -100.0; else -> 0.0 }
     val tenths=(abs(percent)*10).roundToInt()
     val percentLabel=(if(values.flow30<0)"-" else "+")+"${tenths/10},${tenths%10}%"
-    val flowLabel=if(hidden)"•••• 30 hari"
-        else "(${if(values.flow30>=0)"+" else "−"}${formatBalance(abs(values.flow30),currency,preferences)}) 30 hari"
+    val flowLabel=if(hidden)MR.strings.acc_flow_30_days.text("••••")
+        else MR.strings.acc_flow_30_days.text("(${if(values.flow30>=0)"+" else "−"}${formatBalance(abs(values.flow30),currency,preferences)})")
     val white=Color.White
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).olloBalanceGradient(FFColors.isDark).testTag("wallet-balance-$currency")
         .padding(start=16.dp,end=16.dp,top=16.dp,bottom=16.dp), horizontalAlignment=Alignment.CenterHorizontally) {
         Row(verticalAlignment=Alignment.CenterVertically) {
-            Text("Total Saldo (${currency})",style=FFType.bodyMain,color=white.copy(alpha=.8f))
+            Text(MR.strings.acc_total_balance_currency.text(currency),style=FFType.bodyMain,color=white.copy(alpha=.8f))
             Box(Modifier.size(32.dp).clip(CircleShape).clickable(enabled=preferenceState!=null){preferenceState?.update(preferences.copy(hideBalances=!hidden))},contentAlignment=Alignment.Center) {
-                FFIcon(if(hidden)"hi_view_off" else "hi_view",white.copy(alpha=.8f),18.dp,if(hidden)"Tampilkan saldo" else "Sembunyikan saldo")
+                FFIcon(if(hidden)"hi_view_off" else "hi_view",white.copy(alpha=.8f),18.dp,if(hidden)MR.strings.acc_show_balance_cd.text() else MR.strings.acc_hide_balance_cd.text())
             }
         }
         Spacer(Modifier.height(4.dp))
@@ -193,16 +204,16 @@ private fun WalletBalanceCard(data:FinanceData,currency:String,preferences:AppPr
         }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-            WalletStatTile("Total Kekayaan",values.netWorth,currency,preferences,Modifier.weight(1f))
-            WalletStatTile("Liabilitas",values.liabilities,currency,preferences,Modifier.weight(1f))
+            WalletStatTile(MR.strings.acc_net_worth.text(),values.netWorth,currency,preferences,Modifier.weight(1f))
+            WalletStatTile(MR.strings.acc_liabilities.text(),values.liabilities,currency,preferences,Modifier.weight(1f))
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-            WalletStatTile("Tabungan Aktif",values.savings,currency,preferences,Modifier.weight(1f))
-            WalletStatTile("Pembayaran Mendatang",values.upcoming,currency,preferences,Modifier.weight(1f))
+            WalletStatTile(MR.strings.acc_active_savings.text(),values.savings,currency,preferences,Modifier.weight(1f))
+            WalletStatTile(MR.strings.acc_upcoming_payments.text(),values.upcoming,currency,preferences,Modifier.weight(1f))
         }
-        if(values.negativeWallets>0){Spacer(Modifier.height(12.dp));Text("Saldo minus dompet: ${walletMoney(values.negativeWallets,currency,preferences)}",Modifier.fillMaxWidth(),style=FFType.metaData,color=white,textAlign=TextAlign.Start)}
-        if(values.liabilities>0 || values.negativeWallets>0){Spacer(Modifier.height(8.dp));Text("Kekayaan bersih = total saldo − sisa utang tercatat. Saldo kredit / pinjaman negatif sudah masuk ke total saldo dan tidak dikurangi lagi.",Modifier.fillMaxWidth(),style=FFType.metaData,color=white.copy(alpha=.75f),textAlign=TextAlign.Start)}
+        if(values.negativeWallets>0){Spacer(Modifier.height(12.dp));Text(MR.strings.acc_negative_wallets.text(walletMoney(values.negativeWallets,currency,preferences)),Modifier.fillMaxWidth(),style=FFType.metaData,color=white,textAlign=TextAlign.Start)}
+        if(values.liabilities>0 || values.negativeWallets>0){Spacer(Modifier.height(8.dp));Text(MR.strings.acc_net_worth_note.text(),Modifier.fillMaxWidth(),style=FFType.metaData,color=white.copy(alpha=.75f),textAlign=TextAlign.Start)}
     }
 }
 
@@ -223,8 +234,8 @@ private fun WalletGroupEmpty(type:String,title:String) {
         Box(Modifier.size(46.dp).clip(CircleShape).background(if(dark)FFColors.deep else FFColors.surfaceContainer),contentAlignment=Alignment.Center){FFIcon(walletGroupIcon(type),FFColors.onSurfaceVariant.copy(alpha=.45f),22.dp)}
         Spacer(Modifier.width(18.dp))
         Column(Modifier.weight(1f)) {
-            Text("Belum ada dompet ${title}",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
-            Text("Ketuk + di kanan atas untuk menambahkan",style=FFType.metaData,color=FFColors.onSurfaceVariant.copy(alpha=.65f))
+            Text(MR.strings.acc_group_empty.text(title),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+            Text(MR.strings.acc_group_empty_hint.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant.copy(alpha=.65f))
         }
     }
 }
@@ -232,7 +243,7 @@ private fun WalletGroupEmpty(type:String,title:String) {
 @Composable
 private fun WalletAccountCard(account:Account,data:FinanceData,preferences:AppPreferences,pocket:String?=null,modifier:Modifier=Modifier,onClick:()->Unit) {
     val color=Color(account.color)
-    val typeLine=pocket ?: "${walletTypeTitle(account.type).uppercase()} • ${account.currency}"
+    val typeLine=pocket ?: "${walletTypeLabel(account.type).uppercase()} • ${account.currency}"
     val dark=FFColors.background.luminance()<.5f
     // Ollo: lingkaran ikon netral 52dp.
     Column(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(FFColors.surface)
@@ -248,11 +259,11 @@ private fun WalletAccountCard(account:Account,data:FinanceData,preferences:AppPr
             }
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1.2f),horizontalAlignment=Alignment.End) {
-                Text("Saldo Saat Ini",style=FFType.metaData.copy(fontSize=10.sp),color=FFColors.onSurfaceVariant)
+                Text(MR.strings.acc_current_balance.text(),style=FFType.metaData.copy(fontSize=10.sp),color=FFColors.onSurfaceVariant)
                 FitMoneyText(walletMoney(data.balance(account),account.currency,preferences),FFType.amountMd.copy(fontSize=16.sp),FFColors.onSurface,TextAlign.End)
             }
         }
-        if(account.excludedFromTotal){Spacer(Modifier.height(10.dp));Text("Dikecualikan dari total dan statistik",style=FFType.metaData,color=FFColors.outline)}
+        if(account.excludedFromTotal){Spacer(Modifier.height(10.dp));Text(MR.strings.acc_excluded_badge.text(),style=FFType.metaData,color=FFColors.outline)}
     }
 }
 
@@ -269,16 +280,16 @@ private fun WalletGoalCard(goal:Goal,data:FinanceData,preferences:AppPreferences
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(goal.name,style=FFType.bodyMain,fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
-                Text("TARGET TABUNGAN • ${currency}",style=FFType.badgeLabel.copy(fontSize=10.sp,letterSpacing=.8.sp),color=FFColors.outline,maxLines=1)
+                Text(MR.strings.acc_goal_badge.text(currency),style=FFType.badgeLabel.copy(fontSize=10.sp,letterSpacing=.8.sp),color=FFColors.outline,maxLines=1)
             }
         }
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.Bottom) {
             Column {
-                Text("Saldo Saat Ini",style=FFType.badgeLabel.copy(fontSize=10.sp),color=FFColors.outline)
+                Text(MR.strings.acc_current_balance.text(),style=FFType.badgeLabel.copy(fontSize=10.sp),color=FFColors.outline)
                 FitMoneyText(formatBalance(saved,currency,preferences),FFType.amountMd)
             }
-            Text("Target ${formatBalance(target,currency,preferences)}",style=FFType.metaData,color=FFColors.outline)
+            Text(MR.strings.acc_goal_target_amount.text(formatBalance(target,currency,preferences)),style=FFType.metaData,color=FFColors.outline)
         }
         Spacer(Modifier.height(10.dp))
         LinearProgressIndicator(progress={if(target>0)(saved.toFloat()/target).coerceIn(0f,1f) else 0f},
@@ -290,16 +301,16 @@ private fun WalletGoalCard(goal:Goal,data:FinanceData,preferences:AppPreferences
 private fun MoneyCompositionDialog(currencies:List<String>,currency:String,selectCurrency:(String)->Unit,data:FinanceData,preferences:AppPreferences,dismiss:()->Unit) {
     // Kartu kredit/pinjaman adalah liabilitas, bukan komposisi uang tunai; saldo negatif lain dihitung 0.
     val included=data.includedAccounts().filter{it.currency==currency && it.type !in setOf("credit","loan")}
-    val types=walletGroups.map{it.first}.toSet()-"other"
+    val types=walletGroups.toSet()-"other"
     val total=included.fold(0L){sum,a->checkedAdd(sum,data.balance(a).coerceAtLeast(0))}
-    val rows=walletGroups.mapNotNull { (type,title) ->
-        if(title=="Kartu Kredit" || title=="Pinjaman") null
+    val rows=walletGroups.mapNotNull { type ->
+        if(type=="credit" || type=="loan") null
         else {
             val value=included.filter{if(type=="other")it.type !in types else it.type==type}.fold(0L){sum,a->checkedAdd(sum,data.balance(a).coerceAtLeast(0))}
-            if(value==0L)null else title to value
+            if(value==0L)null else walletTypeLabel(type) to value
         }
     }
-    AlertDialog(onDismissRequest=dismiss,title={Text("Komposisi Uang")},text={
+    AlertDialog(onDismissRequest=dismiss,title={Text(MR.strings.acc_money_composition.text())},text={
         Column(Modifier.testTag("wallet-composition-dialog").verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             if(currencies.size>1)Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){currencies.forEach{code->DesignPill(code,code==currency,{selectCurrency(code)})}}
             Text(formatBalance(total,currency,preferences),style=FFType.amountMd)
@@ -314,9 +325,9 @@ private fun MoneyCompositionDialog(currencies:List<String>,currency:String,selec
                     Text(formatBalance(value,currency,preferences),style=FFType.badgeLabel,color=FFColors.outline)
                 }
             }
-            if(rows.isEmpty())Text("Belum ada dompet pada mata uang ini.",style=FFType.metaData,color=FFColors.outline)
+            if(rows.isEmpty())Text(MR.strings.acc_no_wallets_in_currency.text(),style=FFType.metaData,color=FFColors.outline)
         }
-    },confirmButton={TextButton(onClick=dismiss){Text("Tutup")}})
+    },confirmButton={TextButton(onClick=dismiss){Text(MR.strings.common_close.text())}})
 }
 
 private fun walletMoney(value:Long,currency:String,preferences:AppPreferences)=if(preferences.hideBalances)"••••" else formatBalance(value,currency,preferences)

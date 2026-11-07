@@ -81,7 +81,7 @@ object FFType {
 fun FinFlowTheme(usePoppins: Boolean = true, content: @Composable () -> Unit) {
     val poppins = FontFamily(Font(Res.font.poppins_regular), Font(Res.font.poppins_medium, FontWeight.Medium), Font(Res.font.poppins_semibold, FontWeight.SemiBold), Font(Res.font.poppins_bold, FontWeight.Bold))
     val inter = FontFamily(Font(Res.font.inter), Font(Res.font.inter, FontWeight.Medium), Font(Res.font.inter, FontWeight.SemiBold), Font(Res.font.inter, FontWeight.Bold), Font(Res.font.inter, FontWeight.ExtraBold))
-    val jakarta = FontFamily(Font(Res.font.plusjakartasans_regular), Font(Res.font.plusjakartasans_medium, FontWeight.Medium), Font(Res.font.plusjakartasans_semibold, FontWeight.SemiBold), Font(Res.font.plusjakartasans_bold, FontWeight.Bold))
+    val jakarta = FontFamily(Font(Res.font.plusjakartasans_regular), Font(Res.font.plusjakartasans_medium, FontWeight.Medium), Font(Res.font.plusjakartasans_semibold, FontWeight.SemiBold), Font(Res.font.plusjakartasans_bold, FontWeight.Bold), Font(Res.font.plusjakartasans_extrabold, FontWeight.ExtraBold))
     // Ollo memakai Plus Jakarta Sans di seluruh UI; parameter lama dipertahankan agar pemanggil tidak berubah.
     val uiFont = jakarta
     val mono = uiFont

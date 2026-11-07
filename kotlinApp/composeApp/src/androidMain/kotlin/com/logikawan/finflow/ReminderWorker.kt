@@ -1,5 +1,7 @@
 package com.logikawan.finflow
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -20,13 +22,13 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val prefs = applicationContext.getSharedPreferences("finflow", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("reminder", false)) return Result.success()
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel("daily", "Pengingat pencatatan", NotificationManager.IMPORTANCE_DEFAULT))
+        manager.createNotificationChannel(NotificationChannel("daily", MR.strings.core_channel_daily.text(), NotificationManager.IMPORTANCE_DEFAULT))
         val allowed = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (allowed) {
             val intent = PendingIntent.getActivity(applicationContext, 0, Intent(applicationContext, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             manager.notify(1001, NotificationCompat.Builder(applicationContext, "daily")
-                .setSmallIcon(android.R.drawable.ic_menu_edit).setContentTitle("Waktunya mencatat keuangan")
-                .setContentText("Buka FinFlow dan catat pemasukan serta pengeluaran hari ini.")
+                .setSmallIcon(android.R.drawable.ic_menu_edit).setContentTitle(MR.strings.core_reminder_title.text())
+                .setContentText(MR.strings.core_reminder_body.text())
                 .setContentIntent(intent).setAutoCancel(true).build())
         }
         schedule(applicationContext, replace = false)

@@ -17,6 +17,8 @@ import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
 import kotlinx.datetime.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 
 @Composable
 fun ScheduledScreen(data: FinanceData, month: String, monthChange: (String) -> Unit, edit: (Transaction) -> Unit, add: () -> Unit) {
@@ -31,7 +33,7 @@ fun ScheduledScreen(data: FinanceData, month: String, monthChange: (String) -> U
                 Text(monthLabel(month), Modifier.weight(1f), style = FFType.sectionTitle, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 FFIconButton("chevron_right_rounded", { monthChange(shiftMonth(month, 1)) })
             }
-            Row(Modifier.fillMaxWidth()) { listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min").forEach { Text(it, Modifier.weight(1f), style = FFType.badgeLabel, color = FFColors.outline, textAlign = androidx.compose.ui.text.style.TextAlign.Center) } }
+            Row(Modifier.fillMaxWidth()) { (1..7).map { txShortWeekday(it) }.forEach { Text(it, Modifier.weight(1f), style = FFType.badgeLabel, color = FFColors.outline, textAlign = androidx.compose.ui.text.style.TextAlign.Center) } }
             Spacer(Modifier.height(16.dp))
             val offset = first.dayOfWeek.ordinal
             repeat((offset + days + 6) / 7) { row ->
@@ -53,14 +55,14 @@ fun ScheduledScreen(data: FinanceData, month: String, monthChange: (String) -> U
             }
         } }
         item { DesignCard {
-            Text("Ringkasan Bulan Ini", style = FFType.bodyMain, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp)); Text("${entries.size} transaksi terjadwal", style = FFType.metaData, color = FFColors.outline)
+            Text(MR.strings.tx_month_summary.text(), style = FFType.bodyMain, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp)); Text(MR.strings.tx_scheduled_count.text(entries.size), style = FFType.metaData, color = FFColors.outline)
             val expenses = entries.filter { it.type == "expense" }
             expenses.map { it.currency }.distinct().forEach { currency ->
                 Spacer(Modifier.height(8.dp))
                 Text(displayMoney(expenses.filter { it.currency == currency }.fold(0L) { sum, tx -> checkedAdd(sum, tx.amountMinor) }, currency), style = FFType.amountMd)
             }
-            if (entries.isEmpty()) { Spacer(Modifier.height(16.dp)); Text("Belum ada jadwal pada bulan ini.", style = FFType.bodyMain, color = FFColors.outline) }
+            if (entries.isEmpty()) { Spacer(Modifier.height(16.dp)); Text(MR.strings.tx_scheduled_empty.text(), style = FFType.bodyMain, color = FFColors.outline) }
         } }
         entries.filter { selectedDate == null || it.date == selectedDate }.forEach { tx -> item(key = tx.id) {
             DesignCard(onClick = { edit(tx) }) {
@@ -68,13 +70,13 @@ fun ScheduledScreen(data: FinanceData, month: String, monthChange: (String) -> U
                     FFIcon(categoryIcon(tx.categoryId), categoryColor(tx.categoryId)); Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(tx.title, style = FFType.bodyMain, fontWeight = FontWeight.Bold)
-                        Text("Jatuh tempo ${tx.date}", style = FFType.metaData, color = if (tx.date < today().toString()) FFColors.expense else FFColors.outline)
+                        Text(MR.strings.tx_due_on.text(tx.date), style = FFType.metaData, color = if (tx.date < today().toString()) FFColors.expense else FFColors.outline)
                     }
                     Text(displayMoney(tx.amountMinor, tx.currency), style = FFType.bodyMain, fontWeight = FontWeight.Bold)
                 }
             }
         } }
-        item { OutlinedButton(onClick = add, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("+  Tambah Transaksi Terjadwal") } }
+        item { OutlinedButton(onClick = add, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text(MR.strings.tx_add_scheduled.text()) } }
     }
 }
 

@@ -1,5 +1,7 @@
 package com.logikawan.finflow
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -59,16 +61,16 @@ class AndroidLocalFinancePersistence private constructor(private val context: Co
             LocalFinanceLoad(content)
         }
     } catch (_: MissingKeyException) {
-        LocalFinanceLoad(null, "Kunci data lokal tidak tersedia. Data lama dipertahankan; jangan hapus data aplikasi.")
+        LocalFinanceLoad(null, MR.strings.core_local_key_unavailable.text())
     } catch (_: AEADBadTagException) {
-        LocalFinanceLoad(null, "Data lokal rusak atau tidak cocok dengan kunci perangkat. Data lama dipertahankan.")
+        LocalFinanceLoad(null, MR.strings.core_local_corrupt_key.text())
     } catch (_: Exception) {
-        LocalFinanceLoad(null, "Data lokal tidak dapat dibuka. Buka kunci perangkat dan coba lagi; jangan hapus data aplikasi.")
+        LocalFinanceLoad(null, MR.strings.core_local_cannot_open.text())
     }
 
     @Synchronized
     override fun save(content: String): String? {
-        if(context.getSharedPreferences("finflow",Context.MODE_PRIVATE).getString("local.sync.frozen",null)=="true")return "Pencatatan lokal dijeda selama sinkronisasi. Lanjutkan sinkronisasi melalui Manajemen Akun."
+        if(context.getSharedPreferences("finflow",Context.MODE_PRIVATE).getString("local.sync.frozen",null)=="true")return MR.strings.core_local_sync_paused.text()
         var file: AtomicFile? = null
         var output: FileOutputStream? = null
         return try {
@@ -104,9 +106,9 @@ class AndroidLocalFinancePersistence private constructor(private val context: Co
             }
             null
         } catch (_: MissingKeyException) {
-            "Kunci data lokal hilang. Penyimpanan dibatalkan agar data lama tidak tertimpa."
+            MR.strings.core_local_key_missing.text()
         } catch (_: Exception) {
-            "Data lokal gagal disimpan. Pastikan penyimpanan perangkat tersedia, lalu coba lagi."
+            MR.strings.core_local_save_failed_device.text()
         } finally {
             output?.let { stream -> runCatching { file?.failWrite(stream) } }
         }

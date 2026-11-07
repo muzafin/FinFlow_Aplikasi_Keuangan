@@ -8,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.logikawan.finflow.core.data.FinanceRepository
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.platform.NativeServices
 import com.logikawan.finflow.core.platform.AppLifecycle
@@ -40,14 +42,14 @@ fun CloudSyncScreen(local:FinanceRepository,cloud:FinanceRepository,native:Nativ
         scope.launch {
             var began=checkpoint!=null
             try {
-                val uid=requireNotNull(cloud.ownerId){"Masuk ke akun cloud terlebih dahulu"}
+                val uid=requireNotNull(cloud.ownerId){MR.strings.auth_sync_sign_in_first.text()}
                 val previous=checkpoint?.let{Json.decodeFromString<LocalSyncCheckpoint>(it)}
-                require(previous==null || previous.userId==uid){"Lanjutkan memakai akun yang sama dengan sinkronisasi sebelumnya."}
+                require(previous==null || previous.userId==uid){MR.strings.auth_sync_same_account.text()}
                 native.writeSetting("local.sync.frozen","true")
                 val data=local.observe().first{it.featuresReady && it.profile!=null}
                 val backup=FinanceBackup(id=previous?.backupId ?: newId(),createdAt=previous?.createdAt ?: nowMillis(),ownerId="local",data=data,preferences=preferences)
                 val checksum=native.sha256(BackupCodec.encode(backup))
-                require(previous==null || previous.checksum==checksum){"Data lokal berubah sejak sinkronisasi terputus. Data tidak ditimpa; simpan cadangan sebelum melanjutkan."}
+                require(previous==null || previous.checksum==checksum){MR.strings.auth_sync_data_changed.text()}
                 val job=LocalSyncCheckpoint(backup.id,backup.createdAt,uid,checksum)
                 cloud.initializeProfile()
                 cloud.restoreBackup(backup,previous!=null,begin={
@@ -60,24 +62,24 @@ fun CloudSyncScreen(local:FinanceRepository,cloud:FinanceRepository,native:Nativ
                 native.writeSetting("local.sync.checkpoint","");native.writeSetting("local.sync.frozen","")
                 finish()
             } catch(e:CancellationException){throw e}
-            catch(e:Exception){error=e.message ?: "Sinkronisasi belum selesai";if(!began)native.writeSetting("local.sync.frozen","")}
+            catch(e:Exception){error=e.message ?: MR.strings.auth_sync_unfinished.text();if(!began)native.writeSetting("local.sync.frozen","")}
             finally{if(!began)native.writeSetting("local.sync.frozen","");busy=false}
         }
     }
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(20.dp)) {
-        DesignHeader("Sinkronisasi Akun",back={if(!busy)cancel()})
+        DesignHeader(MR.strings.auth_sync_title.text(),back={if(!busy)cancel()})
         DesignCard {
             FFIcon("sync_alt",size=40.dp)
             Text(cloud.currentUser?.email.orEmpty(),style=FFType.sectionTitle)
-            Text("Data lokal akan disalin ke akun ini. Setelah selesai, FinFlow menggunakan data akun yang tersinkron antar perangkat.",style=FFType.bodyMain)
-            Text("Akun tujuan harus kosong agar dompet, jurnal dan pembayaran tidak tertimpa atau digandakan. Salinan lokal tetap disimpan di perangkat.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            Text(MR.strings.auth_sync_description.text(),style=FFType.bodyMain)
+            Text(MR.strings.auth_sync_target_note.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
         }
-        if(checkpoint!=null)Text("Ada sinkronisasi yang belum selesai. Gunakan akun yang sama untuk melanjutkan. Pencatatan lokal dijeda agar salinannya tetap cocok.",style=FFType.bodyMain)
+        if(checkpoint!=null)Text(MR.strings.auth_sync_pending_note.text(),style=FFType.bodyMain)
         if(busy){LinearProgressIndicator(Modifier.fillMaxWidth());Text(progress)}
         error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
-        Button(onClick=::synchronize,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(checkpoint==null)"Sinkronkan Data Lokal" else "Lanjutkan Sinkronisasi")}
-        if(checkpoint==null)OutlinedButton(onClick=finish,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("Buka Data Akun tanpa Menggabungkan")}
-        OutlinedButton(onClick={scope.launch{busy=true;try{cloud.logout()}finally{busy=false}}},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("Gunakan Akun Lain")}
-        TextButton(onClick=cancel,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("Kembali ke Mode Lokal")}
+        Button(onClick=::synchronize,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(checkpoint==null)MR.strings.auth_sync_start.text() else MR.strings.auth_sync_resume.text())}
+        if(checkpoint==null)OutlinedButton(onClick=finish,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(MR.strings.auth_sync_open_account.text())}
+        OutlinedButton(onClick={scope.launch{busy=true;try{cloud.logout()}finally{busy=false}}},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(MR.strings.auth_sync_other_account.text())}
+        TextButton(onClick=cancel,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(MR.strings.auth_back_to_local.text())}
     }
 }

@@ -49,6 +49,9 @@ import com.logikawan.finflow.core.util.today
 import com.logikawan.finflow.core.util.calculateAmount
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.core.i18n.transactionTypeLabel
+import com.logikawan.finflow.i18n.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,16 +93,16 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
         confirmValueChange = { !currentBusy || it != SheetValue.Hidden })
     val currency = account?.currency ?: old?.currency ?: "IDR"
-    val typeLabel = when (type) { "income" -> "Pemasukan"; "transfer" -> "Transfer"; else -> "Pengeluaran" }
+    val typeLabel = transactionTypeLabel(when (type) { "income", "transfer" -> type; else -> "expense" })
     val typeColor = when (type) { "income" -> FFColors.income; "transfer" -> Color(0xFF1E5BBA); else -> FFColors.expense }
     fun submit() {
         if (busy) return
         try {
-            val source = requireNotNull(account) { "Buat dompet terlebih dahulu" }
+            val source = requireNotNull(account) { MR.strings.tx_err_create_wallet_first.text() }
             val selectedCategory = data.categories.find { it.id == categoryId && it.type == type }
-            require(type == "transfer" || selectedCategory != null) { "Pilih kategori yang sesuai" }
+            require(type == "transfer" || selectedCategory != null) { MR.strings.tx_err_pick_matching_category.text() }
             require(type != "transfer" || target != null && (target.currency == source.currency || received.isNotBlank())) {
-                "Transfer beda mata uang wajib mengisi nominal yang diterima"
+                MR.strings.tx_err_transfer_received.text()
             }
             val tx = Transaction(id = id, type = type, amountMinor = minorAmount(amount, source.currency),
                 currency = source.currency, accountId = source.id, categoryId = if (type == "transfer") "transfer" else categoryId,
@@ -111,7 +114,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
             FinanceRepository.validateTransaction(tx)
             error = null
             save(tx)
-        } catch (e: Exception) { error = e.message ?: "Transaksi belum dapat disimpan" }
+        } catch (e: Exception) { error = e.message ?: MR.strings.tx_err_cannot_save.text() }
     }
     fun press(key: String) {
         if (busy) return
@@ -140,13 +143,13 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("transaction-form"),
                 verticalArrangement = Arrangement.spacedBy(if(compact)6.dp else 12.dp)) {
                 if (old != null || isDraft) Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (isDraft) "Tinjau Transaksi" else "Edit Transaksi", style = FFType.sectionTitle, modifier = Modifier.weight(1f))
-                    delete?.let { IconButton(onClick = it, enabled = !busy) { FFIcon("delete_outline_rounded", FFColors.expense, contentDescription = "Hapus transaksi") } }
+                    Text(if (isDraft) MR.strings.tx_review_transaction.text() else MR.strings.tx_edit_transaction.text(), style = FFType.sectionTitle, modifier = Modifier.weight(1f))
+                    delete?.let { IconButton(onClick = it, enabled = !busy) { FFIcon("delete_outline_rounded", FFColors.expense, contentDescription = MR.strings.tx_delete_transaction.text()) } }
                 }
                 // Ollo: segmen jenis di kiri (wadah #101014, terpilih #E4E4E7) dan tombol kamera (AI Scan) di kanan.
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(4.dp)) {
-                        listOf("expense" to "Pengeluaran", "income" to "Pemasukan", "transfer" to "Transfer").forEach { (value, label) ->
+                        listOf("expense", "income", "transfer").map { it to transactionTypeLabel(it) }.forEach { (value, label) ->
                             val chosen = type == value
                             Box(Modifier.height(40.dp).clip(RoundedCornerShape(20.dp))
                                 .background(if (chosen) FFColors.pill else Color.Transparent)
@@ -162,7 +165,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                     Spacer(Modifier.weight(1f))
                     if (onScan != null && old == null && !isDraft) Box(Modifier.size(48.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface)
                         .clickable(enabled = !busy, role = Role.Button, onClick = onScan).testTag("transaction-scan"), contentAlignment = Alignment.Center) {
-                        FFIcon("hi_camera", FFColors.onSurface, 24.dp, contentDescription = "Pindai struk")
+                        FFIcon("hi_camera", FFColors.onSurface, 24.dp, contentDescription = MR.strings.tx_scan_receipt_description.text())
                     }
                 }
                 if (type != "transfer") {
@@ -199,10 +202,10 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                 } else {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Surface(onClick = { pickingAccount = true }, enabled = !busy, shape = RoundedCornerShape(16.dp), color = FFColors.surfaceLow, modifier = Modifier.weight(1f)) {
-                            Column(Modifier.padding(12.dp)) { Text("Dari", style = FFType.metaData, color = FFColors.outline); Text(account?.name ?: "Pilih dompet", style = FFType.bodyMain, fontWeight = FontWeight.Bold) }
+                            Column(Modifier.padding(12.dp)) { Text(MR.strings.tx_from.text(), style = FFType.metaData, color = FFColors.outline); Text(account?.name ?: MR.strings.tx_pick_wallet.text(), style = FFType.bodyMain, fontWeight = FontWeight.Bold) }
                         }
                         FFIcon("swap_horiz_rounded")
-                        Column(Modifier.weight(1f)) { WalletChoice("Ke", toId, data, data.accounts.filter { !it.archived && it.id != accountId && it.type!="savings" },!busy) { toId = it } }
+                        Column(Modifier.weight(1f)) { WalletChoice(MR.strings.tx_to.text(), toId, data, data.accounts.filter { !it.archived && it.id != accountId && it.type!="savings" },!busy) { toId = it } }
                     }
                 }
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -221,17 +224,17 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                         }
                         Box(Modifier.width(2.dp).height(40.dp).background(FFColors.onSurfaceVariant))
                     }
-                    Text("Masukkan jumlah", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                    Text(MR.strings.tx_enter_amount.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
                 }
                 Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         TextField(title, { title = it }, modifier = Modifier.weight(1f).testTag("transaction-title"), enabled = !busy,
-                            placeholder = { Text("Judul", style = FFType.bodyMain, color = FFColors.onSurfaceVariant) }, leadingIcon = { FFIcon("hi_text", FFColors.onSurfaceVariant, 22.dp) },
+                            placeholder = { Text(MR.strings.tx_title.text(), style = FFType.bodyMain, color = FFColors.onSurfaceVariant) }, leadingIcon = { FFIcon("hi_text", FFColors.onSurfaceVariant, 22.dp) },
                             textStyle = FFType.bodyMain, singleLine = true, shape = RoundedCornerShape(16.dp),
                             colors = transactionFieldColors())
                         Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).clickable(enabled = !busy) { tagInput = ""; tagDialog = true }
                             .testTag("transaction-tags"), contentAlignment = Alignment.Center) {
-                            FFIcon("hi_tag", if (tags.isEmpty()) FFColors.onSurface else FFColors.income, 24.dp, contentDescription = "Tag transaksi")
+                            FFIcon("hi_tag", if (tags.isEmpty()) FFColors.onSurface else FFColors.income, 24.dp, contentDescription = MR.strings.tx_tags_description.text())
                             if (tags.isNotEmpty()) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(16.dp).clip(CircleShape).background(FFColors.income), contentAlignment = Alignment.Center) {
                                 Text("${tags.size}", style = FFType.metaData.copy(fontSize = 9.sp, lineHeight = 10.sp), color = Color.White)
                             }
@@ -239,22 +242,22 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         TextField(description, { description = it }, modifier = Modifier.weight(1f), enabled = !busy,
-                            placeholder = { Text("Tambah catatan...", style = FFType.bodyMain, color = FFColors.onSurfaceVariant) },
+                            placeholder = { Text(MR.strings.tx_add_note.text(), style = FFType.bodyMain, color = FFColors.onSurfaceVariant) },
                             leadingIcon = { FFIcon("hi_note_doc", FFColors.onSurfaceVariant, 22.dp) }, textStyle = FFType.bodyMain, singleLine = true,
                             shape = RoundedCornerShape(16.dp), colors = transactionFieldColors())
                         Row(Modifier.width(140.dp).height(56.dp).clip(RoundedCornerShape(16.dp)).border(1.dp, FFColors.hairline, RoundedCornerShape(16.dp))
                             .clickable(enabled = !busy) { pickingAccount = true }.padding(horizontal = 14.dp).testTag("transaction-wallet"), verticalAlignment = Alignment.CenterVertically) {
-                            Text(account?.name ?: "Dompet", style = FFType.bodyMain.copy(fontSize = 13.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text(account?.name ?: MR.strings.tx_wallet.text(), style = FFType.bodyMain.copy(fontSize = 13.5.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             FFIcon("hi_chevron_down", FFColors.onSurface, 18.dp)
                         }
                     }
                     if (type == "transfer" && target != null && target.currency != currency) {
-                        OutlinedTextField(received, { received = it }, label = { Text("Diterima (${target.currency})") }, enabled = !busy, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        OutlinedTextField(received, { received = it }, label = { Text(MR.strings.tx_received.text(target.currency)) }, enabled = !busy, modifier = Modifier.fillMaxWidth(), singleLine = true)
                     }
                     if(tags.isNotEmpty())Text(tags.joinToString("  ·  "){"#$it"},Modifier.padding(start=6.dp).clickable(enabled=!busy){tagInput="";tagDialog=true},style=FFType.metaData,color=FFColors.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
                     if (scheduled || startingScheduled || old != null || date > today().toString()) Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(scheduled, { scheduled = it }, enabled = !busy)
-                        Text("Terjadwal; belum masuk saldo", style = FFType.metaData)
+                        Text(MR.strings.tx_scheduled_checkbox.text(), style = FFType.metaData)
                     }
                     error?.let { Text(it, style = FFType.bodyMain, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("transaction-error")) }
                 }
@@ -269,8 +272,8 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
             TextButton(enabled = picker.selectedDateMillis != null, onClick = {
                 picker.selectedDateMillis?.let { date = LocalDate.fromEpochDays((it / 86_400_000L).toInt()).toString() }
                 pickingDate = false
-            }) { Text("Pilih") }
-        }, dismissButton = { TextButton(onClick = { pickingDate = false }) { Text("Batal") } }) {
+            }) { Text(MR.strings.tx_pick.text()) }
+        }, dismissButton = { TextButton(onClick = { pickingDate = false }) { Text(MR.strings.common_cancel.text()) } }) {
             DatePicker(picker)
         }
     }
@@ -279,17 +282,17 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
         if (toId == accountId) toId = ""
         pickingAccount = false
     }
-    if(tagDialog)AlertDialog(onDismissRequest={tagDialog=false},title={Text("Tag Transaksi")},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
-        OutlinedTextField(tagInput,{tagInput=it.take(30)},label={Text("Tag baru")},singleLine=true)
-        TextButton(enabled=tagInput.isNotBlank() && tags.size<10,onClick={tags=(tags+tagInput.trim()).distinct();tagInput=""}){Text("Tambahkan")}
+    if(tagDialog)AlertDialog(onDismissRequest={tagDialog=false},title={Text(MR.strings.tx_tags_title.text())},text={Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
+        OutlinedTextField(tagInput,{tagInput=it.take(30)},label={Text(MR.strings.tx_new_tag.text())},singleLine=true)
+        TextButton(enabled=tagInput.isNotBlank() && tags.size<10,onClick={tags=(tags+tagInput.trim()).distinct();tagInput=""}){Text(MR.strings.tx_add_tag.text())}
         FlowRow(horizontalArrangement=Arrangement.spacedBy(6.dp)){tags.forEach{tag->InputChip(selected=true,onClick={tags=tags-tag},label={Text("$tag ×")})}}
-        Text("Ketuk tag untuk menghapus. Maksimal 10 tag.",style=FFType.metaData)
-    }},confirmButton={TextButton(onClick={tagDialog=false}){Text("Selesai")}})
-    if(calculator)AlertDialog(onDismissRequest={calculator=false},title={Text("Kalkulator")},text={Column{
-        OutlinedTextField(expression,{expression=it.take(100);calculationError=null},label={Text("Contoh: 10000+5000/2")},singleLine=true)
-        Text("Gunakan + − * / dan titik untuk desimal.",style=FFType.metaData)
+        Text(MR.strings.tx_tags_hint.text(),style=FFType.metaData)
+    }},confirmButton={TextButton(onClick={tagDialog=false}){Text(MR.strings.tx_done.text())}})
+    if(calculator)AlertDialog(onDismissRequest={calculator=false},title={Text(MR.strings.tx_calculator.text())},text={Column{
+        OutlinedTextField(expression,{expression=it.take(100);calculationError=null},label={Text(MR.strings.tx_calculator_example.text())},singleLine=true)
+        Text(MR.strings.tx_calculator_hint.text(),style=FFType.metaData)
         calculationError?.let{Text(it,color=FFColors.expense)}
-    }},confirmButton={TextButton(onClick={try{amount=decimalAmount(calculateAmount(expression,currency),currency);calculator=false}catch(e:Exception){calculationError=e.message}}){Text("Gunakan Hasil")}},dismissButton={TextButton(onClick={calculator=false}){Text("Batal")}})
+    }},confirmButton={TextButton(onClick={try{amount=decimalAmount(calculateAmount(expression,currency),currency);calculator=false}catch(e:Exception){calculationError=e.message}}){Text(MR.strings.tx_use_result.text())}},dismissButton={TextButton(onClick={calculator=false}){Text(MR.strings.common_cancel.text())}})
 }
 
 private fun transactionInputAmount(input: String, currency: String): String {
@@ -298,11 +301,9 @@ private fun transactionInputAmount(input: String, currency: String): String {
     return (if (currency == "IDR") "Rp" else "$currency ") + whole + if (parts.size > 1) ",${parts[1]}" else ""
 }
 
-private fun transactionDateLabel(date: String): String = runCatching {
-    val value = LocalDate.parse(date)
-    val months = listOf("Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des")
-    "${value.dayOfMonth} ${months[value.monthNumber - 1]} ${value.year}"
-}.getOrDefault(date)
+/** Tanggal ringkas tanpa tahun untuk tombol kalender keypad, mis. "12 Jan". */
+private fun keypadDateLabel(date: String): String = runCatching { txDayMonth(LocalDate.parse(date)) }
+    .getOrDefault(date.substringBeforeLast(' '))
 
 @Composable
 private fun transactionFieldColors() = TextFieldDefaults.colors(
@@ -325,7 +326,7 @@ private fun TransactionKeypad(busy: Boolean, date: String, createdAt: Long, type
                     val bg = when (key) { "backspace" -> FFColors.expense.copy(alpha = .10f); "confirm" -> FFColors.pill; else -> FFColors.surface }
                     Box(Modifier.weight(1f).height(54.dp).clip(RoundedCornerShape(18.dp)).background(bg)
                         .testTag("key-$key").semantics { contentDescription = when (key) {
-                            "backspace" -> "Hapus angka terakhir (tahan untuk kosongkan)"; "calculator" -> "Kalkulator"; "calendar" -> "Pilih tanggal"; "confirm" -> "Simpan $typeLabel"; else -> key
+                            "backspace" -> MR.strings.tx_key_backspace.text(); "calculator" -> MR.strings.tx_calculator.text(); "calendar" -> MR.strings.tx_pick_date.text(); "confirm" -> MR.strings.tx_save_type.text(typeLabel); else -> key
                         } }.combinedClickable(enabled = !busy, role = Role.Button,
                             onLongClick = if (key == "backspace") ({ press("clear") }) else null,
                             onClick = { if (key == "calculator") openCalculator() else press(key) }), contentAlignment = Alignment.Center) {
@@ -334,7 +335,7 @@ private fun TransactionKeypad(busy: Boolean, date: String, createdAt: Long, type
                             "calculator" -> FFIcon("hi_calculator", FFColors.onSurface, 24.dp)
                             "confirm" -> if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = FFColors.onPill, strokeWidth = 2.dp) else FFIcon("check", FFColors.onPill, 26.dp)
                             "calendar" -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(transactionDateLabel(date).substringBeforeLast(' '), style = FFType.metaData.copy(lineHeight = 14.sp), color = FFColors.onSurfaceVariant, maxLines = 1)
+                                Text(keypadDateLabel(date), style = FFType.metaData.copy(lineHeight = 14.sp), color = FFColors.onSurfaceVariant, maxLines = 1)
                                 if (time.isNotBlank()) Text(time, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 18.sp), color = FFColors.onSurface, maxLines = 1)
                             }
                             else -> Text(key, style = FFType.numpadDigit.copy(fontSize = 20.sp, fontWeight = FontWeight.Normal), color = FFColors.onSurface)

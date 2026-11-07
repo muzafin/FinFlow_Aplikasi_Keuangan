@@ -1,5 +1,7 @@
 package com.logikawan.finflow.core.data
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import dev.gitlive.firebase.firestore.CollectionReference
 import dev.gitlive.firebase.firestore.DocumentReference
 import dev.gitlive.firebase.firestore.DocumentSnapshot
@@ -72,16 +74,16 @@ private class SharedLocalFinanceStore(private val persistence: LocalFinancePersi
 
     private fun readRecords(): Map<String, JsonObject> {
         val loaded = persistence.load()
-        check(loaded.error == null) { loaded.error ?: "Data lokal gagal dibaca" }
+        check(loaded.error == null) { loaded.error ?: MR.strings.core_error_local_read_failed.text() }
         val content = loaded.content
         if (content == null) {
-            check(!persisted) { "Berkas data lokal tidak ditemukan. Data tidak ditimpa; pulihkan cadangan terlebih dahulu." }
+            check(!persisted) { MR.strings.core_error_local_file_missing.text() }
             return emptyMap()
         }
-        check(content.length <= MAX_LOCAL_BYTES && content.encodeToByteArray().size <= MAX_LOCAL_BYTES) { "Data lokal melebihi batas 20 MB" }
+        check(content.length <= MAX_LOCAL_BYTES && content.encodeToByteArray().size <= MAX_LOCAL_BYTES) { MR.strings.core_error_local_too_large.text() }
         val envelope = try { Json.decodeFromString<LocalFinanceEnvelope>(content) }
-        catch (error: Exception) { throw IllegalStateException("Berkas data lokal rusak atau tidak didukung. Berkas asli tidak diubah; pulihkan cadangan.", error) }
-        check(envelope.version == 1) { "Versi data lokal belum didukung. Berkas asli tidak diubah." }
+        catch (error: Exception) { throw IllegalStateException(MR.strings.core_error_local_corrupt.text(), error) }
+        check(envelope.version == 1) { MR.strings.core_error_local_version.text() }
         envelope.records.keys.forEach(::localDocumentPath)
         persisted = true
         return envelope.records.toMap()
@@ -100,9 +102,9 @@ private class SharedLocalFinanceStore(private val persistence: LocalFinancePersi
         val result = block(draft)
         if (draft != before.records) {
             val content = financeStorageJson.encodeToString(LocalFinanceEnvelope(1, draft))
-            check(content.length <= MAX_LOCAL_BYTES && content.encodeToByteArray().size <= MAX_LOCAL_BYTES) { "Data lokal melebihi batas 20 MB. Ekspor cadangan sebelum menambah data." }
+            check(content.length <= MAX_LOCAL_BYTES && content.encodeToByteArray().size <= MAX_LOCAL_BYTES) { MR.strings.core_error_local_too_large_export.text() }
             val failure = persistence.save(content)
-            check(failure == null) { failure ?: "Data lokal gagal disimpan" }
+            check(failure == null) { failure ?: MR.strings.core_error_local_save_failed.text() }
             persisted = true
             state.value = FinanceLocalSnapshot(before.generation + 1, draft.toMap())
         }

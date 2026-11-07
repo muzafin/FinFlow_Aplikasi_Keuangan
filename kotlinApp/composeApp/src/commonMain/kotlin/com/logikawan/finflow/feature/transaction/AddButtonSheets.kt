@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.ui.FFColors
 import com.logikawan.finflow.core.ui.FFIcon
 import com.logikawan.finflow.core.ui.FFType
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 
 private val sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
@@ -36,22 +38,22 @@ fun AddButtonIntroSheet(suggested: String = "all", onChoose: (String) -> Unit, o
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = FFColors.canvas, shape = sheetShape,
         dragHandle = { SheetGrip() }, contentWindowInsets = { WindowInsets(0, 0, 0, 0) }) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().sheetPadding().testTag("add-button-intro")) {
-            Text("Tombol + mau buka apa?", style = FFType.appTitle.copy(fontSize = 22.sp), fontWeight = FontWeight.Bold)
+            Text(MR.strings.tx_add_intro_title.text(), style = FFType.appTitle.copy(fontSize = 22.sp), fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            Text("Pilih salah satu. Bisa diganti kapan saja di Tampilan Tambah Transaksi.",
+            Text(MR.strings.tx_add_intro_subtitle.text(),
                 style = FFType.metaData, color = FFColors.onSurfaceVariant)
             Spacer(Modifier.height(20.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                AddModeCard(suggested == "all", "Semua cara mencatat",
-                    listOf("Rekam suara atau scan", "Impor notifikasi bank", "Tambah manual"),
+                AddModeCard(suggested == "all", MR.strings.tx_add_mode_all.text(),
+                    listOf(MR.strings.tx_add_mode_all_line1.text(), MR.strings.tx_add_mode_all_line2.text(), MR.strings.tx_manual_add.text()),
                     Modifier.weight(1f).testTag("add-mode-all")) { onChoose("all") }
-                AddModeCard(suggested == "quick", "Langsung tambah transaksi",
-                    listOf("Buka editor transaksi", "Isi nominal lalu simpan"),
+                AddModeCard(suggested == "quick", MR.strings.tx_add_mode_quick.text(),
+                    listOf(MR.strings.tx_add_mode_quick_line1.text(), MR.strings.tx_add_mode_quick_line2.text()),
                     Modifier.weight(1f).testTag("add-mode-quick")) { onChoose("quick") }
             }
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("add-mode-later")) {
-                Text("Nanti saja", color = FFColors.onSurfaceVariant)
+                Text(MR.strings.tx_later.text(), color = FFColors.onSurfaceVariant)
             }
         }
     }
@@ -59,7 +61,7 @@ fun AddButtonIntroSheet(suggested: String = "all", onChoose: (String) -> Unit, o
 
 @Composable
 private fun AddModeCard(selected: Boolean, title: String, lines: List<String>, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.semantics { stateDescription = if (selected) "Disarankan" else "Pilihan" }) {
+    Column(modifier.semantics { stateDescription = if (selected) MR.strings.tx_suggested.text() else MR.strings.tx_option.text() }) {
         Surface(onClick = onClick, shape = RoundedCornerShape(20.dp), color = FFColors.background,
             border = androidx.compose.foundation.BorderStroke(if (selected) 2.dp else 1.dp,
                 if (selected) FFColors.onSurface else FFColors.outlineVariant)) {
@@ -93,19 +95,19 @@ fun RecordMethodsSheet(onAddTransaction: () -> Unit, onImportNotification: () ->
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = FFColors.canvas, shape = sheetShape,
         dragHandle = { SheetGrip() }, contentWindowInsets = { WindowInsets(0, 0, 0, 0) }) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().sheetPadding().testTag("record-methods")) {
-            Text("Cara mencatat", style = FFType.appTitle.copy(fontSize = 22.sp), fontWeight = FontWeight.Bold)
+            Text(MR.strings.tx_record_methods_title.text(), style = FFType.appTitle.copy(fontSize = 22.sp), fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
-            Text("Pilih metode pencatatan. Metode yang belum tersedia ditandai.", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+            Text(MR.strings.tx_record_methods_subtitle.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
-            MethodRow("Rekam suara", "Belum tersedia", "notes_outlined", "record-voice", enabled = false, onClick = {})
+            MethodRow(MR.strings.tx_record_voice.text(), MR.strings.tx_not_available.text(), "notes_outlined", "record-voice", enabled = false, onClick = {})
             Spacer(Modifier.height(10.dp))
-            MethodRow("Scan struk", "Belum tersedia", "receipt_long_outlined", "record-scan", enabled = false, onClick = {})
+            MethodRow(MR.strings.tx_scan_receipt.text(), MR.strings.tx_not_available.text(), "receipt_long_outlined", "record-scan", enabled = false, onClick = {})
             Spacer(Modifier.height(10.dp))
-            MethodRow("Impor notifikasi", "Dari notifikasi bank atau e-wallet yang diizinkan", "notifications_outlined", "record-notification") {
+            MethodRow(MR.strings.tx_import_notification.text(), MR.strings.tx_import_notification_caption.text(), "notifications_outlined", "record-notification") {
                 onImportNotification(); onDismiss()
             }
             Spacer(Modifier.height(10.dp))
-            MethodRow("Tambah manual", "Isi transaksi dengan keypad dan kategori", "add_rounded", "record-manual") {
+            MethodRow(MR.strings.tx_manual_add.text(), MR.strings.tx_manual_add_caption.text(), "add_rounded", "record-manual") {
                 onAddTransaction(); onDismiss()
             }
         }
@@ -128,7 +130,7 @@ private fun MethodRow(title: String, caption: String, icon: String, tag: String,
                 Text(caption, style = FFType.metaData, color = FFColors.onSurfaceVariant, maxLines = 2)
             }
             if (enabled) FFIcon("chevron_right_rounded", FFColors.onSurfaceVariant, 20.dp)
-            else Text("Segera", style = FFType.badgeLabel, color = FFColors.outline)
+            else Text(MR.strings.tx_soon.text(), style = FFType.badgeLabel, color = FFColors.outline)
         }
     }
 }

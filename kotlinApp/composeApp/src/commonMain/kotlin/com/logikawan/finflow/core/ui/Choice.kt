@@ -11,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,7 +25,7 @@ fun Choice(label: String, value: String, options: List<Pair<String, String>>, ch
             OutlinedButton(onClick = { expanded = true }, enabled = options.isNotEmpty(), modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
                 shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.outlinedButtonColors(containerColor = FFColors.surface, contentColor = FFColors.onSurface), border = BorderStroke(1.dp, FFColors.outlineVariant)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(options.find { it.first == value }?.second ?: "Pilih…", Modifier.weight(1f), style = FFType.bodyMain, fontWeight = FontWeight.SemiBold, color = FFColors.onSurface)
+                    Text(options.find { it.first == value }?.second ?: MR.strings.app_choose.text(), Modifier.weight(1f), style = FFType.bodyMain, fontWeight = FontWeight.SemiBold, color = FFColors.onSurface)
                     FFIcon("expand_more_rounded", size = 20.dp)
                 }
             }
@@ -32,10 +34,10 @@ fun Choice(label: String, value: String, options: List<Pair<String, String>>, ch
     if(expanded) ModalBottomSheet(onDismissRequest={expanded=false},sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=FFColors.canvas) {
         Column(Modifier.fillMaxWidth().padding(horizontal=20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment=Alignment.CenterVertically){Text(label,Modifier.weight(1f),style=FFType.sectionTitle);FFIconButton("close",{expanded=false})}
-            if(options.size>6)Field("Cari $label",query,{query=it})
+            if(options.size>6)Field(MR.strings.app_search_label.text(label),query,{query=it})
             LazyColumn(Modifier.heightIn(max=460.dp),contentPadding=PaddingValues(bottom=24.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 val matches=options.filter{it.second.contains(query,true)}
-                if(matches.isEmpty())item{Text("Tidak ditemukan",style=FFType.bodyMain)}
+                if(matches.isEmpty())item{Text(MR.strings.app_not_found.text(),style=FFType.bodyMain)}
                 items(matches){(key,text)->
                     Surface(onClick={change(key);expanded=false},shape=RoundedCornerShape(16.dp),color=if(key==value)FFColors.primaryContainer else FFColors.surface,
                         border=BorderStroke(1.dp,if(key==value)FFColors.primary else FFColors.outlineVariant)) {

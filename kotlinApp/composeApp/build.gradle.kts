@@ -14,6 +14,7 @@ plugins {
     id("org.jetbrains.compose")
     id("com.android.application")
     id("com.google.gms.google-services")
+    id("dev.icerock.mobile.multiplatform-resources")
 }
 
 kotlin {
@@ -39,6 +40,8 @@ kotlin {
             implementation(compose.foundation)
             implementation(compose.ui)
             implementation("io.github.kyant0:backdrop:2.0.0")
+            api("dev.icerock.moko:resources:0.27.1")
+            api("dev.icerock.moko:resources-compose:0.27.1")
             implementation(compose.components.resources)
             implementation("org.jetbrains.compose.material3:material3:1.9.0")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
@@ -74,11 +77,19 @@ kotlin {
     }
 }
 
+// Teks multi-bahasa memakai moko-resources (commonMain/moko-resources/<bahasa>/strings.xml).
+multiplatformResources {
+    resourcesPackage.set("com.logikawan.finflow.i18n")
+    resourcesClassName.set("MR")
+}
+
 compose.resources {
     packageOfResClass = "com.logikawan.finflow.resources"
 }
 
 android {
+    // Unit test JVM tidak punya Context: teks dasar moko dibaca dari classpath (lihat I18n.android.kt).
+    sourceSets.getByName("test").resources.srcDir("src/commonMain/moko-resources")
     namespace = "com.logikawan.finflow"
     compileSdk = 37
     defaultConfig {

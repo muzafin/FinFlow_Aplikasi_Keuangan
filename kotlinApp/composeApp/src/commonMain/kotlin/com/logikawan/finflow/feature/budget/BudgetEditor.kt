@@ -33,6 +33,8 @@ import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
 import kotlinx.datetime.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 
 /*
  * Form anggaran bergaya Ollo: layar penuh dengan tombol tutup (X), judul tengah, dan tombol
@@ -66,15 +68,15 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
         if (busy) return
         try {
             val code = currency.trim().uppercase()
-            require(categories.any { it.id == category }) { "Pilih kategori pengeluaran" }
-            require(code.matches(Regex("[A-Z]{3}"))) { "Gunakan kode mata uang 3 huruf" }
-            require(title.trim().length <= 100) { "Nama anggaran maksimal 100 karakter" }
+            require(categories.any { it.id == category }) { MR.strings.tx_err_pick_expense_category.text() }
+            require(code.matches(Regex("[A-Z]{3}"))) { MR.strings.tx_err_currency_code.text() }
+            require(title.trim().length <= 100) { MR.strings.tx_err_budget_name_max.text() }
             if (period == "monthly") {
-                require(Regex("\\d{4}-(0[1-9]|1[0-2])").matches(month)) { "Bulan harus dalam format YYYY-MM" }
+                require(Regex("\\d{4}-(0[1-9]|1[0-2])").matches(month)) { MR.strings.tx_err_month_format.text() }
                 LocalDate.parse("$month-01")
             } else LocalDate.parse(week)
             val value = minorAmount(amount, code)
-            require(value in 1..FinanceRepository.MAX_MONEY) { "Nominal harus positif dan tidak melebihi batas" }
+            require(value in 1..FinanceRepository.MAX_MONEY) { MR.strings.tx_err_amount_range.text() }
             val budget = Budget(
                 id = id, categoryId = category, limitMinor = value, currency = code,
                 month = if (period == "weekly") week else month,
@@ -83,26 +85,26 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
             budgetPeriod(budget, preferences.recordingDay)
             error = null
             save(budget)
-        } catch (e: Exception) { error = e.message ?: "Data anggaran tidak valid" }
+        } catch (e: Exception) { error = e.message ?: MR.strings.tx_err_budget_invalid.text() }
     }
 
     Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(Modifier.fillMaxSize().background(designBackground).safeDrawingPadding().imePadding().testTag("budget-editor")) {
             Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).clip(CircleShape).clickable { if (!busy) dismiss() }.testTag("budget-close"), contentAlignment = Alignment.Center) {
-                    FFIcon("close_rounded", FFColors.onSurface, 24.dp, "Tutup")
+                    FFIcon("close_rounded", FFColors.onSurface, 24.dp, MR.strings.common_close.text())
                 }
-                Text(if (old == null) "Anggaran Baru" else "Edit Anggaran", Modifier.weight(1f), style = FFType.appTitle, textAlign = TextAlign.Center, color = FFColors.onSurface)
+                Text(if (old == null) MR.strings.tx_new_budget.text() else MR.strings.tx_edit_budget.text(), Modifier.weight(1f), style = FFType.appTitle, textAlign = TextAlign.Center, color = FFColors.onSurface)
                 Box(Modifier.size(48.dp).clip(CircleShape).clickable { submit() }.testTag("budget-save"), contentAlignment = Alignment.Center) {
                     if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else FFIcon("check_rounded", if (amount.isNotBlank()) FFColors.onSurface else FFColors.outline, 26.dp, "Simpan")
+                    else FFIcon("check_rounded", if (amount.isNotBlank()) FFColors.onSurface else FFColors.outline, 26.dp, MR.strings.common_save.text())
                 }
             }
             Column(
                 Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             ) {
                 Spacer(Modifier.height(16.dp))
-                BudgetFieldLabel("Batas nominal")
+                BudgetFieldLabel(MR.strings.tx_limit_amount.text())
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Box {
@@ -143,14 +145,14 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
                     )
                 }
                 Spacer(Modifier.height(26.dp))
-                BudgetFieldLabel("Nama anggaran")
+                BudgetFieldLabel(MR.strings.tx_budget_name.text())
                 Spacer(Modifier.height(10.dp))
-                BudgetTextField(title, { title = it.take(100) }, "cth. Anggaran Bulanan", enabled = !busy)
+                BudgetTextField(title, { title = it.take(100) }, MR.strings.tx_budget_name_placeholder.text(), enabled = !busy)
                 Spacer(Modifier.height(26.dp))
-                BudgetFieldLabel("Periode")
+                BudgetFieldLabel(MR.strings.tx_period.text())
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(4.dp)) {
-                    listOf("weekly" to "Mingguan", "monthly" to "Bulanan").forEach { (value, label) ->
+                    listOf("weekly" to MR.strings.tx_freq_weekly.text(), "monthly" to MR.strings.tx_freq_monthly.text()).forEach { (value, label) ->
                         val selected = period == value
                         Box(
                             Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(12.dp))
@@ -165,12 +167,12 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    if (period == "monthly") "Bulanan mengikuti pengaturan hari awal siklus anggaran di profil."
-                    else "Mingguan dimulai sesuai awal minggu yang diatur di profil.",
+                    if (period == "monthly") MR.strings.tx_budget_monthly_hint.text()
+                    else MR.strings.tx_budget_weekly_hint.text(),
                     style = FFType.metaData, color = FFColors.outline,
                 )
                 Spacer(Modifier.height(26.dp))
-                BudgetFieldLabel("Kategori")
+                BudgetFieldLabel(MR.strings.tx_category.text())
                 Spacer(Modifier.height(10.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                     items(categories, key = { it.id }) { cat ->
@@ -179,7 +181,7 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
                 }
                 if (period == "weekly") {
                     Spacer(Modifier.height(22.dp))
-                    BudgetFieldLabel("Tanggal dalam minggu anggaran")
+                    BudgetFieldLabel(MR.strings.tx_budget_week_date.text())
                     Spacer(Modifier.height(10.dp))
                     Row(
                         Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface)
@@ -195,7 +197,7 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
                     }
                 } else {
                     Spacer(Modifier.height(22.dp))
-                    BudgetFieldLabel("Periode berlaku")
+                    BudgetFieldLabel(MR.strings.tx_active_period.text())
                     Spacer(Modifier.height(10.dp))
                     Row(
                         Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(horizontal = 16.dp),
@@ -216,7 +218,7 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
                 if (delete != null) {
                     Spacer(Modifier.height(18.dp))
                     TextButton(enabled = !busy, onClick = delete, modifier = Modifier.fillMaxWidth()) {
-                        Text("Hapus anggaran", style = FFType.bodyMain, color = FFColors.expense)
+                        Text(MR.strings.tx_delete_budget.text(), style = FFType.bodyMain, color = FFColors.expense)
                     }
                 }
                 Spacer(Modifier.height(28.dp))
@@ -233,9 +235,9 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
                         week = financePeriod("week", LocalDate.fromEpochDays((millis / 86400000L).toInt()), weekStart = preferences.weekStart).start.toString()
                     }
                     datePicker = false
-                }) { Text("Pilih") }
+                }) { Text(MR.strings.tx_pick.text()) }
             },
-            dismissButton = { TextButton(onClick = { datePicker = false }) { Text("Batal") } },
+            dismissButton = { TextButton(onClick = { datePicker = false }) { Text(MR.strings.common_cancel.text()) } },
         ) { DatePicker(state) }
     }
 }

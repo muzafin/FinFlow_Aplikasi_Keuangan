@@ -29,7 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.ui.FFIcon
+import com.logikawan.finflow.i18n.*
 
 /* Palet netral Ollo, sengaja eksplisit agar dialog tidak mewarisi peran warna Material3. */
 private val pickerInk = Color(0xFF1D1E26)
@@ -204,7 +206,7 @@ fun OlloCurrencyDialog(
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("currency-picker-search"),
                     placeholder = {
-                        Text("Cari mata uang", style = TextStyle(fontSize = 15.sp, lineHeight = 20.sp), color = pickerMuted)
+                        Text(MR.strings.auth_currency_search.text(), style = TextStyle(fontSize = 15.sp, lineHeight = 20.sp), color = pickerMuted)
                     },
                     leadingIcon = { FFIcon("search_outlined", pickerMuted, 20.dp) },
                     trailingIcon = if (query.isNotEmpty()) {
@@ -212,7 +214,7 @@ fun OlloCurrencyDialog(
                             Box(
                                 Modifier.size(40.dp).clickable { query = "" },
                                 contentAlignment = Alignment.Center,
-                            ) { FFIcon("clear", pickerMuted, 18.dp, "Kosongkan pencarian") }
+                            ) { FFIcon("clear", pickerMuted, 18.dp, MR.strings.auth_clear_search.text()) }
                         }
                     } else null,
                     singleLine = true,
@@ -234,7 +236,7 @@ fun OlloCurrencyDialog(
                 if (codes.isEmpty()) {
                     Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                         Text(
-                            "Mata uang tidak ditemukan",
+                            MR.strings.auth_currency_not_found.text(),
                             Modifier.testTag("currency-picker-empty"),
                             style = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
                             color = pickerMuted,

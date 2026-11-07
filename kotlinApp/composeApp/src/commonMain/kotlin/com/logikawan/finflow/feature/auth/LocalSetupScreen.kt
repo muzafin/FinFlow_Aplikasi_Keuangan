@@ -14,7 +14,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.ui.*
+import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.core.util.minorAmount
 
 @Composable
@@ -26,12 +28,12 @@ fun LocalSetupScreen(busy:Boolean,back:()->Unit,complete:(String,String,Long)->U
     var all by remember{mutableStateOf(false)}
     var error by remember{mutableStateOf<String?>(null)}
     Column(Modifier.fillMaxSize().background(FFColors.background).safeDrawingPadding().imePadding().padding(24.dp)) {
-        TextButton(onClick={if(step==0)back()else step--},enabled=!busy){Text("Kembali")}
+        TextButton(onClick={if(step==0)back()else step--},enabled=!busy){Text(MR.strings.common_back.text())}
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Spacer(Modifier.height(32.dp))
-            Text(if(step==0)"Pilih Mata Uang" else "Dompet Pertamamu",style=FFType.appTitle.copy(fontSize=30.sp,lineHeight=38.sp,fontWeight=FontWeight.Bold))
+            Text(if(step==0)MR.strings.auth_currency_title.text() else MR.strings.auth_local_wallet_title.text(),style=FFType.appTitle.copy(fontSize=30.sp,lineHeight=38.sp,fontWeight=FontWeight.Bold))
             Spacer(Modifier.height(10.dp))
-            Text(if(step==0)"Pilih mata uang untuk mencatat pengeluaranmu." else "Beri nama dompet dan isi saldo saat ini.",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+            Text(if(step==0)MR.strings.auth_currency_subtitle.text() else MR.strings.auth_local_wallet_subtitle.text(),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
             if(step==0) {
                 listOf("USD" to "US Dollar","EUR" to "Euro","IDR" to "Indonesian Rupiah","MYR" to "Malaysian Ringgit","JPY" to "Japanese Yen","CNY" to "Chinese Yuan").chunked(2).forEach{row->
@@ -43,21 +45,21 @@ fun LocalSetupScreen(busy:Boolean,back:()->Unit,complete:(String,String,Long)->U
                     }}
                     Spacer(Modifier.height(12.dp))
                 }
-                OutlinedButton(onClick={all=true},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text("Lihat Semua")}
-                Spacer(Modifier.height(16.dp));Text("Pengaturan ini dapat diubah kapan saja melalui Profil.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+                OutlinedButton(onClick={all=true},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(MR.strings.auth_view_all.text())}
+                Spacer(Modifier.height(16.dp));Text(MR.strings.auth_local_currency_note.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
             } else {
-                EntryField("Nama dompet","Contoh: Kas",wallet,{wallet=it},busy)
+                EntryField(MR.strings.auth_wallet_name.text(),MR.strings.auth_wallet_name_example.text(),wallet,{wallet=it},busy,tag="Nama dompet")
                 Spacer(Modifier.height(16.dp))
-                OutlinedTextField(balance,{balance=it},label={Text("Saldo saat ini ($currency)")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
-                Spacer(Modifier.height(16.dp));Text("Data disimpan di perangkat ini. Tanpa akun dan tanpa koneksi bank. Buat cadangan dari Profil untuk menyimpannya di tempat lain.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+                OutlinedTextField(balance,{balance=it},label={Text(MR.strings.auth_current_balance.text(currency))},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth(),keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal))
+                Spacer(Modifier.height(16.dp));Text(MR.strings.auth_local_data_note.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
             }
             error?.let{Spacer(Modifier.height(12.dp));Text(it,color=MaterialTheme.colorScheme.error)}
         }
-        EntryButton(if(step==0)"Lanjut" else "Mulai Sekarang",busy){
-            if(step==0)step=1 else try{require(wallet.isNotBlank() && wallet.trim().length<=100){"Nama dompet wajib diisi, maksimal 100 karakter"};complete(currency,wallet.trim(),minorAmount(balance,currency))}catch(e:Exception){error=e.message}
+        EntryButton(if(step==0)MR.strings.common_next.text() else MR.strings.auth_start_now.text(),busy){
+            if(step==0)step=1 else try{require(wallet.isNotBlank() && wallet.trim().length<=100){MR.strings.auth_error_wallet_name.text()};complete(currency,wallet.trim(),minorAmount(balance,currency))}catch(e:Exception){error=e.message}
         }
     }
-    if(all)AlertDialog(onDismissRequest={all=false},title={Text("Mata Uang")},text={Column(Modifier.heightIn(max=360.dp).verticalScroll(rememberScrollState())){
+    if(all)AlertDialog(onDismissRequest={all=false},title={Text(MR.strings.auth_currency_dialog_title.text())},text={Column(Modifier.heightIn(max=360.dp).verticalScroll(rememberScrollState())){
         listOf("AED","AUD","BDT","BHD","BRL","CAD","CHF","CNY","CZK","DKK","EGP","EUR","GBP","HKD","HUF","IDR","ILS","INR","ISK","JPY","KRW","KWD","LKR","MAD","MXN","MYR","NOK","NZD","OMR","PHP","PKR","PLN","QAR","RON","RUB","SAR","SEK","SGD","THB","TRY","TWD","UAH","USD","VND","ZAR").forEach{code->TextButton(onClick={currency=code;all=false},modifier=Modifier.fillMaxWidth()){Text(code)}}
-    }},confirmButton={TextButton(onClick={all=false}){Text("Tutup")}})
+    }},confirmButton={TextButton(onClick={all=false}){Text(MR.strings.common_close.text())}})
 }

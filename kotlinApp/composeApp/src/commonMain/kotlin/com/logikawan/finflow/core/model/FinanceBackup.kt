@@ -1,5 +1,7 @@
 package com.logikawan.finflow.core.model
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.data.FinanceRepository
 import com.logikawan.finflow.core.util.*
 import kotlinx.datetime.LocalDate
@@ -13,20 +15,20 @@ data class FinanceBackup(val version:Int=1,val id:String=newId(),val createdAt:L
 
 object BackupCodec {
     private val json=Json{encodeDefaults=true;prettyPrint=true}
-    fun encode(backup:FinanceBackup):String {validate(backup);return json.encodeToString(backup).also{require(it.encodeToByteArray().size<=5_000_000){"Cadangan maksimal 5 MB"}}}
+    fun encode(backup:FinanceBackup):String {validate(backup);return json.encodeToString(backup).also{require(it.encodeToByteArray().size<=5_000_000){MR.strings.core_error_backup_max_size.text()}}}
     fun decode(content:String):FinanceBackup {
-        require(content.encodeToByteArray().size<=5_000_000){"Cadangan maksimal 5 MB"}
+        require(content.encodeToByteArray().size<=5_000_000){MR.strings.core_error_backup_max_size.text()}
         return json.decodeFromString<FinanceBackup>(content).also(::validate)
     }
     fun validate(backup:FinanceBackup) {
-        require(backup.version==1 && backup.id.matches(Regex("[A-Za-z0-9-]{8,100}")) && backup.ownerId.isNotBlank()){"Versi atau identitas cadangan tidak valid"}
+        require(backup.version==1 && backup.id.matches(Regex("[A-Za-z0-9-]{8,100}")) && backup.ownerId.isNotBlank()){MR.strings.core_error_backup_identity.text()}
         backup.preferences.validate()
         val d=backup.data
         val lists=listOf(d.accounts.map{it.id},d.categories.map{it.id},d.transactions.map{it.id},d.goals.map{it.id},d.budgets.map{it.id},
             d.bills.map{it.id},d.debts.map{it.id},d.recurring.map{it.id},d.reimbursements.map{it.id},d.notes.map{it.id},d.cards.map{it.id},d.wishes.map{it.id},d.investments.map{it.id},d.financialEvents.map{it.id})
-        require(lists.sumOf{it.size}<=10000 && lists.all{ids->ids.distinct().size==ids.size && ids.all{it.isNotBlank() && it.length<=300 && '/' !in it}}){"Identitas data ganda atau cadangan terlalu besar"}
+        require(lists.sumOf{it.size}<=10000 && lists.all{ids->ids.distinct().size==ids.size && ids.all{it.isNotBlank() && it.length<=300 && '/' !in it}}){MR.strings.core_error_backup_duplicate_ids.text()}
         require(d.profile!=null && d.profile.name.isNotBlank() && d.profile.name.length<=100 && d.profile.baseCurrency.matches(Regex("[A-Z]{3}")))
-        fun account(id:String,currency:String)=require(d.accounts.any{it.id==id && it.currency==currency}){"Referensi dompet tidak valid"}
+        fun account(id:String,currency:String)=require(d.accounts.any{it.id==id && it.currency==currency}){MR.strings.core_error_backup_wallet_ref.text()}
         d.accounts.forEach{a->
             require(a.name.isNotBlank() && a.name.length<=100 && a.currency.matches(Regex("[A-Z]{3}")) && a.openingBalanceMinor in -FinanceRepository.MAX_MONEY..FinanceRepository.MAX_MONEY)
             require(a.type in listOf("cash","bank","ewallet","credit","investment","loan","savings") && a.icon.length in 1..100 && a.color in 0xFF000000..0xFFFFFFFF)
@@ -68,7 +70,7 @@ object BackupCodec {
             require(g.currency.matches(Regex("[A-Z]{3}")))
             require(g.bucketType in listOf("standard","emergency","locked") && g.protection in listOf("flexible","soft","hard"));if(g.targetDate.isNotBlank())LocalDate.parse(g.targetDate)
             val movements=d.financialEvents.filter{it.referenceId==g.id && it.kind in listOf("goal_deposit","goal_withdrawal")}.fold(0L){sum,e->checkedAdd(sum,if(e.kind=="goal_deposit")e.amountMinor else -e.amountMinor)}
-            require(if(g.holdingAccountId==null)movements==0L else g.savedMinor-g.legacySavedMinor==movements && d.accounts.any{it.id==g.holdingAccountId && it.type=="savings" && it.goalId==g.id && d.balance(it)==movements}){"Saldo target dan jurnal tidak cocok"}
+            require(if(g.holdingAccountId==null)movements==0L else g.savedMinor-g.legacySavedMinor==movements && d.accounts.any{it.id==g.holdingAccountId && it.type=="savings" && it.goalId==g.id && d.balance(it)==movements}){MR.strings.core_error_backup_goal_balance.text()}
         }
         eventsForRestore(d)
     }
@@ -86,7 +88,7 @@ object BackupCodec {
                     "goal_withdrawal"->saved.getValue(e.referenceId)-e.amountMinor>=data.goals.single{it.id==e.referenceId}.legacySavedMinor
                     else->true
                 }
-            } ?: error("Urutan riwayat tidak dapat dipulihkan dengan saldo yang valid")
+            } ?: error(MR.strings.core_error_backup_history_order.text())
             if(event.kind.startsWith("goal_"))saved[event.referenceId]=checkedAdd(saved.getValue(event.referenceId),if(event.kind=="goal_deposit")event.amountMinor else -event.amountMinor)
             done+=event.id;ordered+=event;pending.remove(event)
         }

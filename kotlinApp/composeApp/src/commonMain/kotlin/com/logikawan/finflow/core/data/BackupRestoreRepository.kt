@@ -1,5 +1,7 @@
 package com.logikawan.finflow.core.data
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.util.*
 import dev.gitlive.firebase.firestore.DocumentReference
@@ -18,14 +20,14 @@ class BackupRestoreRepository(private val db:FinanceDatabase,private val root:Fi
         val d=BackupCodec.restoreData(backup)
         if(!resume) {
             for(name in listOf("transactions","budgets","goals","investments","bills","debts","wishes","cards","notes","reimbursements","recurring","financialEvents"))
-                require(root.collection(name).get().documents.isEmpty()){"Pemulihan lengkap memerlukan akun tujuan kosong. Data yang sudah ada tidak ditimpa."}
+                require(root.collection(name).get().documents.isEmpty()){MR.strings.core_restore_target_not_empty.text()}
             val accounts=root.collection("accounts").get().documents.map{it.data<Account>()}
-            require(accounts.all{it.id=="acc_cash" && it.openingBalanceMinor==0L && !it.archived}){"Akun tujuan sudah memiliki dompet"}
+            require(accounts.all{it.id=="acc_cash" && it.openingBalanceMinor==0L && !it.archived}){MR.strings.core_restore_target_has_wallet.text()}
             val categories=root.collection("categories").get().documents.map{it.data<Category>()}
-            require(categories.all{it.id in defaultCategories.map{c->c.id}}){"Akun tujuan sudah memiliki kategori tambahan"}
+            require(categories.all{it.id in defaultCategories.map{c->c.id}}){MR.strings.core_restore_target_has_categories.text()}
         } else verifyResume(d)
         begin()
-        progress("Menyiapkan dompet dan kategori")
+        progress(MR.strings.core_restore_progress_wallets.text())
         d.accounts.filter{it.type!="savings"}.sortedBy{it.parentId!=null}.forEach{insert("accounts",it.id,it.copy(archived=false))}
         d.categories.sortedBy{it.parentId!=null}.forEach{ref("categories",it.id).set(it)}
         d.goals.forEach{g->val doc=ref("goals",g.id);db.runTransaction{if(!get(doc).exists){
@@ -40,7 +42,7 @@ class BackupRestoreRepository(private val db:FinanceDatabase,private val root:Fi
         d.wishes.forEach{insert("wishes",it.id,it)};d.cards.forEach{insert("cards",it.id,it)}
         d.budgets.forEach{insert("budgets",it.id,it)};d.investments.forEach{insert("investments",it.id,it)}
         val ordinary=d.transactions.filter{it.source !in managedTransactionSources}
-        ordinary.forEachIndexed{index,t->insert("transactions",t.id,t);progress("Jurnal ${index+1} / ${ordinary.size}")}
+        ordinary.forEachIndexed{index,t->insert("transactions",t.id,t);progress(MR.strings.core_restore_progress_journal.text(index+1, ordinary.size))}
         val ordered=BackupCodec.eventsForRestore(d)
         val completed=mutableSetOf<String>()
         suspend fun replay(event:FinancialEvent) {
@@ -56,9 +58,9 @@ class BackupRestoreRepository(private val db:FinanceDatabase,private val root:Fi
             }
             replayEvent(event,d);completed+=event.id
         }
-        ordered.forEachIndexed{index,e->replay(e);progress("Riwayat pembayaran ${index+1} / ${ordered.size}")}
+        ordered.forEachIndexed{index,e->replay(e);progress(MR.strings.core_restore_progress_payments.text(index+1, ordered.size))}
         d.reimbursements.forEach{r->insert("reimbursements",r.id,r.copy(receivedAt=0,receivedAccountId=null,revision=0))}
-        progress("Memulihkan pengaturan akhir")
+        progress(MR.strings.core_restore_progress_settings.text())
         d.bills.forEach{b->val doc=ref("bills",b.id);db.runTransaction{val old=get(doc).data<Bill>();set(doc,b.copy(paidAt=old.paidAt,lastPaymentId=old.lastPaymentId,revision=old.revision+1))}}
         d.debts.forEach{v->val doc=ref("debts",v.id);db.runTransaction{val old=get(doc).data<Debt>();require(v.paidMinor==old.paidMinor);set(doc,v.copy(lastEventId=old.lastEventId,revision=old.revision+1))}}
         d.recurring.forEach{v->val doc=ref("recurring",v.id);db.runTransaction{val old=get(doc).data<RecurringTransaction>();set(doc,v.copy(lastEventId=old.lastEventId,revision=old.revision+1))}}
@@ -75,7 +77,7 @@ class BackupRestoreRepository(private val db:FinanceDatabase,private val root:Fi
         if(initialCash.exists)ref("accounts","acc_cash").set(initialCash.data<Account>().copy(archived=true))
     }
     private suspend fun verifyResume(d:FinanceData) {
-        fun intact(value:Boolean){require(value){"Data tujuan berubah sejak pemulihan terputus. Data tidak ditimpa; gunakan akun tujuan kosong untuk memulihkan cadangan."}}
+        fun intact(value:Boolean){require(value){MR.strings.core_restore_target_changed.text()}}
         suspend fun ids(name:String,allowed:Set<String>){intact(root.collection(name).get().documents.all{it.id in allowed})}
         ids("accounts",d.accounts.map{it.id}.toSet()+"acc_cash");ids("categories",d.categories.map{it.id}.toSet()+defaultCategories.map{it.id})
         ids("transactions",d.transactions.map{it.id}.toSet());ids("financialEvents",d.financialEvents.map{it.id}.toSet())
@@ -86,7 +88,7 @@ class BackupRestoreRepository(private val db:FinanceDatabase,private val root:Fi
         events.forEach{intact(it in d.financialEvents)}
         root.collection("transactions").get().documents.forEach{intact(it.data<Transaction>() in d.transactions)}
         root.collection("accounts").get().documents.forEach{snapshot->val old=snapshot.data<Account>();if(old.id=="acc_cash")intact(old.openingBalanceMinor==0L) else {val value=d.accounts.single{it.id==old.id};intact(old==value || old==value.copy(archived=false))}}
-        root.collection("categories").get().documents.forEach{val value=it.data<Category>();intact(value in d.categories || value in defaultCategories)}
+        root.collection("categories").get().documents.forEach{val value=it.data<Category>();intact(value in d.categories || defaultCategories.any{it.copy(name=value.name)==value})}
         root.collection("wishes").get().documents.forEach{intact(it.data<Wish>() in d.wishes)}
         root.collection("cards").get().documents.forEach{intact(it.data<WalletCard>() in d.cards)}
         root.collection("budgets").get().documents.forEach{intact(it.data<Budget>() in d.budgets)}

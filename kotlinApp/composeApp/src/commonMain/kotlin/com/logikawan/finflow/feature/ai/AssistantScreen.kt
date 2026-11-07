@@ -24,21 +24,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.ui.FFColors
 import com.logikawan.finflow.core.ui.FFIcon
 import com.logikawan.finflow.core.ui.FFIconButton
 import com.logikawan.finflow.core.ui.FFType
 import com.logikawan.finflow.core.util.nowMillis
+import com.logikawan.finflow.i18n.*
+import dev.icerock.moko.resources.StringResource
 
 private val suggestions = listOf(
-    "Berapa pengeluaranku bulan ini?", "Prediksi pengeluaranku sampai akhir bulan", "Dari mana pemasukanku bulan ini?",
-    "Ada tagihan yang belum kubayar?", "Kategori apa yang paling boros?", "Beri tips hemat berdasarkan dataku",
+    MR.strings.ai_suggest_spending_month, MR.strings.ai_suggest_predict_spending, MR.strings.ai_suggest_income_sources,
+    MR.strings.ai_suggest_unpaid_bills, MR.strings.ai_suggest_wasteful_category, MR.strings.ai_suggest_saving_tips,
 )
-val personalities = listOf(
-    Triple("friendly", "Ramah", "Hangat, santai, menyemangati"), Triple("concise", "Ringkas", "Langsung ke intinya"),
-    Triple("detailed", "Detail", "Menjelaskan alasan di balik angka"), Triple("motivator", "Motivator", "Seperti pelatih keuangan yang suportif"),
-    Triple("strict", "Tegas", "Tegas, blak-blakan, tanpa basa-basi"), Triple("relaxed", "Santai", "Tenang, ringan, tetap praktis"),
+/** Kepribadian Asisten: id (dikirim ke server) + judul & keterangan sebagai resource (diterjemahkan saat ditampilkan). */
+val personalities: List<Triple<String, StringResource, StringResource>> = listOf(
+    Triple("friendly", MR.strings.ai_personality_friendly, MR.strings.ai_personality_friendly_desc),
+    Triple("concise", MR.strings.ai_personality_concise, MR.strings.ai_personality_concise_desc),
+    Triple("detailed", MR.strings.ai_personality_detailed, MR.strings.ai_personality_detailed_desc),
+    Triple("motivator", MR.strings.ai_personality_motivator, MR.strings.ai_personality_motivator_desc),
+    Triple("strict", MR.strings.ai_personality_strict, MR.strings.ai_personality_strict_desc),
+    Triple("relaxed", MR.strings.ai_personality_relaxed, MR.strings.ai_personality_relaxed_desc),
 )
 
 @Composable
@@ -73,7 +80,7 @@ fun AssistantScreen(controller: AiController, data: FinanceData, language: Strin
                 turns = conversation.turns + AssistantTurn("user", question))
             conversation = asked
             input = ""
-            controller.run("Asisten sedang berpikir…") {
+            controller.run(MR.strings.ai_working_assistant.text()) {
                 val reply = controller.service.ask(asked.turns, assistantSummary(data), controller.store.assistantSettings(), language)
                 conversation = asked.copy(turns = asked.turns + AssistantTurn("assistant", reply), updatedAt = nowMillis())
                 controller.store.saveConversation(conversation)
@@ -97,18 +104,19 @@ fun AssistantScreen(controller: AiController, data: FinanceData, language: Strin
                 FFIcon("chat_bubble_outline_rounded", FFColors.onSurface, 32.dp)
             }
             Spacer(Modifier.height(20.dp))
-            Text("Diskusikan keuanganmu", style = FFType.appTitle)
+            Text(MR.strings.ai_assistant_empty_title.text(), style = FFType.appTitle)
             Spacer(Modifier.height(8.dp))
-            Text("Asisten melihat ringkasan angkamu (total bulanan, kategori teratas, anggaran, saldo) — bukan transaksi satu per satu. Jawaban AI bisa keliru; ini bukan nasihat keuangan profesional.",
+            Text(MR.strings.ai_assistant_empty_body.text(),
                 style = FFType.bodyMain, color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center)
             Spacer(Modifier.height(24.dp))
             controller.status?.usage?.get("assistant")?.let { usage ->
                 if (!controller.isPremium && usage.limit != null) {
-                    Text("${(usage.limit - usage.used).coerceAtLeast(0)} percobaan tersisa", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                    Text(MR.strings.ai_attempts_left.text((usage.limit - usage.used).coerceAtLeast(0)), style = FFType.metaData, color = FFColors.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
                 }
             }
-            suggestions.forEach { suggestion ->
+            suggestions.forEach { resource ->
+                val suggestion = resource.text()
                 Surface(onClick = { send(suggestion) }, shape = RoundedCornerShape(24.dp), color = Color.Transparent,
                     border = BorderStroke(1.dp, FFColors.outline), modifier = Modifier.padding(vertical = 6.dp).testTag("assistant-suggestion")) {
                     Text(suggestion, Modifier.padding(horizontal = 18.dp, vertical = 12.dp), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
@@ -124,32 +132,32 @@ fun AssistantScreen(controller: AiController, data: FinanceData, language: Strin
         }
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             TextField(input, { if (it.length <= 2000) input = it }, Modifier.weight(1f).testTag("assistant-input"),
-                placeholder = { Text("Tanya tentang keuanganmu…", color = FFColors.outline) }, maxLines = 4, shape = RoundedCornerShape(28.dp),
+                placeholder = { Text(MR.strings.ai_assistant_input_hint.text(), color = FFColors.outline) }, maxLines = 4, shape = RoundedCornerShape(28.dp),
                 colors = TextFieldDefaults.colors(focusedContainerColor = FFColors.surface, unfocusedContainerColor = FFColors.surface,
                     focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent))
             Spacer(Modifier.width(10.dp))
             val ready = input.isNotBlank() && controller.working == null
             Box(Modifier.size(52.dp).clip(CircleShape).background(if (ready) FFColors.onSurface else FFColors.surfaceContainerHighest)
                 .clickable(enabled = ready) { send(input) }.testTag("assistant-send"), contentAlignment = Alignment.Center) {
-                FFIcon("arrow_upward_outlined", if (ready) FFColors.canvas else FFColors.outline, 24.dp, contentDescription = "Kirim")
+                FFIcon("arrow_upward_outlined", if (ready) FFColors.canvas else FFColors.outline, 24.dp, contentDescription = MR.strings.ai_send.text())
             }
         }
     }
     if (history) ModalBottomSheet(onDismissRequest = { history = false }, containerColor = FFColors.canvas) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
-            Text("Riwayat percakapan", style = FFType.sectionTitle)
+            Text(MR.strings.ai_history_title.text(), style = FFType.sectionTitle)
             Spacer(Modifier.height(12.dp))
             val saved = remember { controller.store.history() }
-            if (saved.isEmpty()) Text("Belum ada percakapan tersimpan. Hingga 5 percakapan terakhir disimpan di perangkat ini.",
+            if (saved.isEmpty()) Text(MR.strings.ai_history_empty.text(),
                 style = FFType.bodyMain, color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp))
             saved.forEach { item ->
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { conversation = item; history = false }.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     FFIcon("chat_bubble_outline_rounded", FFColors.onSurfaceVariant, 20.dp); Spacer(Modifier.width(12.dp))
-                    Text(item.title.ifBlank { "Percakapan" }, Modifier.weight(1f), style = FFType.bodyMain, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(item.title.ifBlank { MR.strings.ai_conversation_default.text() }, Modifier.weight(1f), style = FFType.bodyMain, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            if (conversation.turns.isNotEmpty()) TextButton(onClick = { conversation = AssistantConversation(); history = false }) { Text("Percakapan baru") }
+            if (conversation.turns.isNotEmpty()) TextButton(onClick = { conversation = AssistantConversation(); history = false }) { Text(MR.strings.ai_conversation_new.text()) }
         }
     }
 }
@@ -172,22 +180,22 @@ fun AssistantSettingsScreen(controller: AiController, back: () -> Unit) {
     Column(Modifier.fillMaxSize().background(FFColors.background).navigationBarsPadding().imePadding().testTag("assistant-settings")) {
         Box(Modifier.fillMaxWidth()) {
             AiTopBar("", back)
-            Text("Pengaturan Asisten", Modifier.align(Alignment.Center).statusBarsPadding(), style = FFType.appTitle)
+            Text(MR.strings.ai_assistant_settings_title.text(), Modifier.align(Alignment.Center).statusBarsPadding(), style = FFType.appTitle)
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Kepribadian", style = FFType.sectionTitle)
-            Text("Mengatur gaya bicara asisten. Tidak mengubah data yang dapat dilihatnya.", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+            Text(MR.strings.ai_personality_title.text(), style = FFType.sectionTitle)
+            Text(MR.strings.ai_personality_caption.text(), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
             personalities.forEach { (id, title, caption) ->
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(FFColors.surface).clickable { save(settings.copy(personality = id)) }
                     .padding(horizontal = 12.dp, vertical = 14.dp).testTag("personality-$id"), verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(settings.personality == id, { save(settings.copy(personality = id)) })
                     Spacer(Modifier.width(8.dp))
-                    Column { Text(title, style = FFType.bodyMain.copy(fontSize = 16.sp), fontWeight = FontWeight.Medium); Text(caption, style = FFType.metaData, color = FFColors.onSurfaceVariant) }
+                    Column { Text(title.text(), style = FFType.bodyMain.copy(fontSize = 16.sp), fontWeight = FontWeight.Medium); Text(caption.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant) }
                 }
             }
             Spacer(Modifier.height(8.dp))
-            LimitedField("Asisten memanggilmu apa? (opsional)", "cth. Arifin, Bos", settings.nickname, 40) { save(settings.copy(nickname = it)) }
-            LimitedField("Preferensi tambahan (opsional)", "cth. Fokus bantu aku menabung untuk rumah", settings.preference, 200, minLines = 3) { save(settings.copy(preference = it)) }
+            LimitedField(MR.strings.ai_nickname_label.text(), MR.strings.ai_nickname_hint.text(), settings.nickname, 40) { save(settings.copy(nickname = it)) }
+            LimitedField(MR.strings.ai_preference_label.text(), MR.strings.ai_preference_hint.text(), settings.preference, 200, minLines = 3) { save(settings.copy(preference = it)) }
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -206,16 +214,18 @@ fun LimitedField(label: String, placeholder: String, value: String, max: Int, mi
     }
 }
 
-private val scanFieldInfo = mapOf(
-    "items" to Triple("Item & harga", "Indomie Goreng x5: Rp17.500", "format_list_bulleted_rounded"),
-    "location" to Triple("Lokasi (nama toko)", "Lokasi: Indomaret Solo", "storefront_outlined"),
-    "discount" to Triple("Diskon", "Diskon: Rp2.000", "percent"),
-    "tax" to Triple("Pajak", "Pajak: Rp4.318", "account_balance_outlined"),
-    "fees" to Triple("Biaya layanan/admin", "Biaya: Rp2.500", "receipt_long_outlined"),
-    "payment" to Triple("Metode pembayaran", "Pembayaran: QRIS", "payments_outlined"),
-    "address" to Triple("Alamat toko", "Alamat: Jl. Slamet Riyadi No. 10", "location_on_outlined"),
-    "phone" to Triple("Nomor telepon", "Telepon: 0800-1-113456", "phone_outlined"),
-)
+/** Judul, contoh catatan, dan ikon tiap detail struk (teks diterjemahkan saat dipanggil). */
+private fun scanFieldInfo(id: String): Triple<String, String, String> = when (id) {
+    "items" -> Triple(MR.strings.ai_scan_field_items.text(), "Indomie Goreng x5: Rp17.500", "format_list_bulleted_rounded")
+    "location" -> Triple(MR.strings.ai_scan_field_location.text(), MR.strings.ai_receipt_location.text("Indomaret Solo"), "storefront_outlined")
+    "discount" -> Triple(MR.strings.ai_scan_field_discount.text(), MR.strings.ai_receipt_discount.text("Rp2.000"), "percent")
+    "tax" -> Triple(MR.strings.ai_scan_field_tax.text(), MR.strings.ai_receipt_tax.text("Rp4.318"), "account_balance_outlined")
+    "fees" -> Triple(MR.strings.ai_scan_field_fees.text(), MR.strings.ai_receipt_fees.text("Rp2.500"), "receipt_long_outlined")
+    "payment" -> Triple(MR.strings.ai_scan_field_payment.text(), MR.strings.ai_receipt_payment.text("QRIS"), "payments_outlined")
+    "address" -> Triple(MR.strings.ai_scan_field_address.text(), MR.strings.ai_receipt_address.text("Jl. Slamet Riyadi No. 10"), "location_on_outlined")
+    "phone" -> Triple(MR.strings.ai_scan_field_phone.text(), MR.strings.ai_receipt_phone.text("0800-1-113456"), "phone_outlined")
+    else -> throw NoSuchElementException("Unknown scan field $id")
+}
 
 @Composable
 fun ScanSettingsScreen(controller: AiController, back: () -> Unit) {
@@ -229,13 +239,13 @@ fun ScanSettingsScreen(controller: AiController, back: () -> Unit) {
     Column(Modifier.fillMaxSize().background(FFColors.background).navigationBarsPadding().imePadding().testTag("scan-settings")) {
         Box(Modifier.fillMaxWidth()) {
             AiTopBar("", back)
-            Text("Pengaturan AI Scan", Modifier.align(Alignment.Center).statusBarsPadding(), style = FFType.appTitle)
+            Text(MR.strings.ai_scan_settings_title.text(), Modifier.align(Alignment.Center).statusBarsPadding(), style = FFType.appTitle)
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            LimitedField("Nama pemilik rekening (opsional)", "Dipakai untuk mengenali kamu pada bukti transfer", settings.ownerName, 80) { save(settings.copy(ownerName = it)) }
-            Text("Pilih detail struk yang ditulis ke catatan transaksi. Gunakan panah untuk mengubah urutan.", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+            LimitedField(MR.strings.ai_owner_name_label.text(), MR.strings.ai_owner_name_hint.text(), settings.ownerName, 80) { save(settings.copy(ownerName = it)) }
+            Text(MR.strings.ai_scan_fields_caption.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
             settings.fields.forEachIndexed { index, field ->
-                val (title, sample, icon) = scanFieldInfo.getValue(field.id)
+                val (title, sample, icon) = scanFieldInfo(field.id)
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(FFColors.surface).padding(12.dp).testTag("scan-field-${field.id}"),
                     verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(40.dp).clip(CircleShape).background(FFColors.surfaceContainerHighest), contentAlignment = Alignment.Center) { FFIcon(icon, FFColors.onSurfaceVariant, 20.dp) }
@@ -244,10 +254,10 @@ fun ScanSettingsScreen(controller: AiController, back: () -> Unit) {
                     Switch(field.enabled, { on -> save(settings.copy(fields = settings.fields.map { if (it.id == field.id) it.copy(enabled = on) else it })) })
                     Column {
                         Box(Modifier.size(28.dp, 22.dp).clickable(enabled = index > 0) { move(index, -1) }, contentAlignment = Alignment.Center) {
-                            FFIcon("keyboard_arrow_up_rounded", if (index > 0) FFColors.onSurfaceVariant else FFColors.outlineVariant, 22.dp, contentDescription = "Naikkan")
+                            FFIcon("keyboard_arrow_up_rounded", if (index > 0) FFColors.onSurfaceVariant else FFColors.outlineVariant, 22.dp, contentDescription = MR.strings.ai_move_up.text())
                         }
                         Box(Modifier.size(28.dp, 22.dp).clickable(enabled = index < settings.fields.lastIndex) { move(index, 1) }, contentAlignment = Alignment.Center) {
-                            FFIcon("keyboard_arrow_down_rounded", if (index < settings.fields.lastIndex) FFColors.onSurfaceVariant else FFColors.outlineVariant, 22.dp, contentDescription = "Turunkan")
+                            FFIcon("keyboard_arrow_down_rounded", if (index < settings.fields.lastIndex) FFColors.onSurfaceVariant else FFColors.outlineVariant, 22.dp, contentDescription = MR.strings.ai_move_down.text())
                         }
                     }
                 }

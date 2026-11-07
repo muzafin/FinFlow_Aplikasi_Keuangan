@@ -31,6 +31,9 @@ import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
 import kotlin.math.roundToInt
 import kotlinx.datetime.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.feature.transaction.txDayMonth
+import com.logikawan.finflow.i18n.*
 
 /*
  * Halaman Anggaran bergaya Ollo: kartu ringkasan bulan (sisa bisa dibelanjakan, cincin
@@ -95,8 +98,8 @@ fun BudgetScreen(data: FinanceData, month: String, monthChange: (String) -> Unit
         // Diletakkan setelah daftar agar versi tanpa App (uji) tetap dapat disentuh.
         TopBarActions {
             com.logikawan.finflow.feature.planning.OlloMenuButton(listOf(
-                com.logikawan.finflow.feature.planning.OlloMenuItem("monthly", (if (period == "monthly") "✓ " else "") + "Anggaran Bulanan", "hi_calendar"),
-                com.logikawan.finflow.feature.planning.OlloMenuItem("weekly", (if (period == "weekly") "✓ " else "") + "Anggaran Mingguan", "hi_calendar"),
+                com.logikawan.finflow.feature.planning.OlloMenuItem("monthly", (if (period == "monthly") "✓ " else "") + MR.strings.tx_budget_monthly.text(), "hi_calendar"),
+                com.logikawan.finflow.feature.planning.OlloMenuItem("weekly", (if (period == "weekly") "✓ " else "") + MR.strings.tx_budget_weekly.text(), "hi_calendar"),
             ), tint = FFColors.onSurface) { period = it }
         }
         Box(
@@ -104,7 +107,7 @@ fun BudgetScreen(data: FinanceData, month: String, monthChange: (String) -> Unit
                 .shadow(6.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(FFColors.pill)
                 .clickable(onClick = add).testTag("budget-fab"),
             contentAlignment = Alignment.Center,
-        ) { FFIcon("hi_add", FFColors.onPill, 26.dp, "Buat anggaran") }
+        ) { FFIcon("hi_add", FFColors.onPill, 26.dp, MR.strings.tx_create_budget_description.text()) }
     }
 }
 
@@ -115,31 +118,31 @@ private fun BudgetSummaryCard(month: String, period: String, range: FinancePerio
     val ratio = if (limit > 0) (spent.toDouble() / limit).toFloat() else if (spent > 0) 1f else 0f
     val remaining = if (limit == 0L) 0L else checkedAdd(limit, -spent)
     val statusColor = when { limit == 0L -> FFColors.income; spent > limit -> FFColors.expense; ratio >= .8f -> budgetWarn; else -> FFColors.income }
-    val statusLabel = when { limit == 0L -> "Normal"; spent > limit -> "Terlampaui"; ratio >= .8f -> "Waspada"; else -> "Normal" }
+    val statusLabel = when { limit == 0L -> MR.strings.tx_status_normal.text(); spent > limit -> MR.strings.tx_status_exceeded.text(); ratio >= .8f -> MR.strings.tx_status_warning.text(); else -> MR.strings.tx_status_normal.text() }
     val endDate = range.endExclusive.minus(DatePeriod(days = 1))
     val title = if (period == "weekly") {
         "${shortDateLabel(range.start.toString())} – ${shortDateLabel(endDate.toString())}"
     } else monthLabel(month)
-    val periodLabel = "(${range.start.dayOfMonth} ${monthAbbreviation(range.start)} - ${endDate.dayOfMonth} ${monthAbbreviation(endDate)})"
+    val periodLabel = MR.strings.tx_paren_range.text(txDayMonth(range.start), txDayMonth(endDate))
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(20.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onPrev).testTag("budget-prev"), contentAlignment = Alignment.Center) {
-                FFIcon("hi_chevron_left", FFColors.onSurfaceVariant, 20.dp, "Periode sebelumnya")
+                FFIcon("hi_chevron_left", FFColors.onSurfaceVariant, 20.dp, MR.strings.tx_prev_period.text())
             }
             Text(title, Modifier.weight(1f), style = FFType.bodyMain.copy(fontSize = 16.5.sp, lineHeight = 22.sp), color = FFColors.onSurface, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Box(Modifier.size(34.dp).clip(CircleShape).clickable(onClick = onNext).testTag("budget-next"), contentAlignment = Alignment.Center) {
-                FFIcon("hi_chevron_right", FFColors.onSurfaceVariant, 20.dp, "Periode berikutnya")
+                FFIcon("hi_chevron_right", FFColors.onSurfaceVariant, 20.dp, MR.strings.tx_next_period.text())
             }
         }
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Anda bisa belanja", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                Text(MR.strings.tx_you_can_spend.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
                 FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(remaining, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp, lineHeight = 24.sp))
                 Text(periodLabel, style = FFType.metaData.copy(fontSize = 10.sp, lineHeight = 13.sp), color = FFColors.onSurfaceVariant)
-                Text(if (period == "weekly") "Sisa minggu ini" else "Sisa bulan ini", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                Text(if (period == "weekly") MR.strings.tx_left_this_week.text() else MR.strings.tx_left_this_month.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
             }
             Row(
                 Modifier.clip(RoundedCornerShape(100.dp)).background(statusColor.copy(alpha = .12f)).padding(horizontal = 12.dp, vertical = 7.dp),
@@ -166,7 +169,7 @@ private fun BudgetSummaryCard(month: String, period: String, range: FinancePerio
                     FitMoneyText("${(ratio * 100).roundToInt()}%", FFType.amountLg.copy(fontSize = 29.sp, lineHeight = 34.sp), FFColors.onSurface, TextAlign.Center)
                 }
             }
-            Text("Terpakai", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+            Text(MR.strings.tx_spent.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
@@ -217,7 +220,7 @@ private fun BudgetProgressCard(budget: Budget, data: FinanceData, used: Long, pr
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Tersisa", style = FFType.metaData, color = FFColors.outline)
+            Text(MR.strings.tx_remaining.text(), style = FFType.metaData, color = FFColors.outline)
             Spacer(Modifier.width(6.dp))
             Box(Modifier.weight(1f)) {
                 FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(remaining, budget.currency, preferences),
@@ -237,13 +240,8 @@ private fun BudgetEmptyState(add: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         FFIcon("hi_image", FFColors.onSurfaceVariant.copy(alpha = .5f), 60.dp)
         Spacer(Modifier.height(18.dp))
-        Text("Belum ada anggaran", style = FFType.bodyMain.copy(fontSize = 15.5.sp), color = FFColors.onSurfaceVariant)
+        Text(MR.strings.tx_budget_empty.text(), style = FFType.bodyMain.copy(fontSize = 15.5.sp), color = FFColors.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
-        TextButton(onClick = add) { Text("Buat Anggaran", style = FFType.bodyMain, color = FFColors.onSurface) }
+        TextButton(onClick = add) { Text(MR.strings.tx_create_budget.text(), style = FFType.bodyMain, color = FFColors.onSurface) }
     }
-}
-
-private fun monthAbbreviation(date: LocalDate): String = when (date.monthNumber) {
-    1 -> "Jan"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Apr"; 5 -> "Mei"; 6 -> "Jun"
-    7 -> "Jul"; 8 -> "Agu"; 9 -> "Sep"; 10 -> "Okt"; 11 -> "Nov"; else -> "Des"
 }

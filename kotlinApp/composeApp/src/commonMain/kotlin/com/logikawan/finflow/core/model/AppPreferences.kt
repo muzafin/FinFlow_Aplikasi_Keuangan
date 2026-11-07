@@ -22,7 +22,7 @@ data class AppPreferences(
     val numberFormat: String = "id", val recordingDay: Int = 1, val weekStart: Int = 1,
     val defaultWalletId: String = "", val rememberCategory: Boolean = true,
     val lastExpenseCategory: String = "", val lastIncomeCategory: String = "",
-    val language: String = "id", val cardGradient: String = "teal", val menuTheme: String = "colorful", val addButtonMode: String = "all",
+    val language: String = "system", val cardGradient: String = "teal", val menuTheme: String = "colorful", val addButtonMode: String = "all",
 ) {
     fun validate() {
         require(theme in listOf("system","light","dark") && palette in listOf("neutral","arctic","ruby","emerald","indigo"))
@@ -35,7 +35,7 @@ data class AppPreferences(
         require(numberFormat in listOf("id","en") && recordingDay in 1..31 && weekStart in 1..7)
         require(lastExpenseCategory.length<=1000 && lastIncomeCategory.length<=1000)
         require(incomeColor in 0xFF000000..0xFFFFFFFF && expenseColor in 0xFF000000..0xFFFFFFFF && defaultWalletId.length <= 1000)
-        require(language in listOf("id","en") && addButtonMode in listOf("quick","all"))
+        require((language == "system" || com.logikawan.finflow.core.i18n.appLanguages.any { it.tag == language }) && addButtonMode in listOf("quick","all"))
         require(cardGradient in cardGradientPresets.map{it.id} && menuTheme in menuThemePresets.map{it.id})
     }
 }

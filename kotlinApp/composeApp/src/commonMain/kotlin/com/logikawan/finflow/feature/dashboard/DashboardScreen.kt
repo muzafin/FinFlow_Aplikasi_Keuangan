@@ -34,6 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.logikawan.finflow.core.i18n.menuLabel
+import com.logikawan.finflow.core.i18n.tabLabel
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.core.i18n.transactionTypeLabel
+import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
@@ -66,6 +71,20 @@ internal val dashboardShortcuts=listOf(
     Triple("Periode Pencatatan","Periode Pencatatan","calendar_today_outlined"),
 )
 private const val shortcutBadge="Catatan Pembaruan"
+
+/** Label tampilan pintasan Beranda; label di [dashboardShortcuts] tetap menjadi pengenal. */
+fun shortcutLabel(label:String):String = when(label){
+    "Notifikasi"->MR.strings.dash_shortcut_notifications.text()
+    "Catatan Pembaruan"->MR.strings.dash_shortcut_changelog.text()
+    "Tambah Transaksi"->MR.strings.dash_shortcut_add_transaction.text()
+    "Tampilan Kartu"->MR.strings.dash_shortcut_card_view.text()
+    "Palet Transaksi"->MR.strings.dash_shortcut_palette.text()
+    "Tampilan Beranda"->MR.strings.dash_shortcut_home_view.text()
+    "Format Saldo"->MR.strings.dash_shortcut_balance_format.text()
+    "Kategori"->MR.strings.dash_shortcut_category.text()
+    "Periode Pencatatan"->MR.strings.dash_shortcut_recording_period.text()
+    else->label
+}
 
 fun dashboardBalance(data:FinanceData,currency:String,liquid:Boolean):Long = data.includedAccounts()
     .filter{it.currency==currency && (!liquid || it.type in listOf("cash","bank","ewallet"))}
@@ -163,16 +182,16 @@ private fun DashboardHeader(name:String,level:Int,onProfile:()->Unit,onLevel:()-
         Surface(onClick=onLevel,color=FFColors.surfaceContainer,shape=RoundedCornerShape(50),
             modifier=Modifier.height(26.dp).widthIn(min=44.dp).testTag("dashboard-level-pill")) {
             Box(Modifier.fillMaxHeight().padding(horizontal=10.dp),contentAlignment=Alignment.Center) {
-                Text("Lvl $level",style=FFType.bodyMain.copy(fontSize=12.sp,fontWeight=FontWeight.Bold,lineHeight=16.sp),color=FFColors.onSurface,maxLines=1)
+                Text(MR.strings.dash_level.text(level),style=FFType.bodyMain.copy(fontSize=12.sp,fontWeight=FontWeight.Bold,lineHeight=16.sp),color=FFColors.onSurface,maxLines=1)
             }
         }
         Spacer(Modifier.width(8.dp))
         Box(Modifier.size(40.dp).clip(CircleShape).background(if(FFColors.isDark)FFColors.surface else Color.Transparent).clickable(role=Role.Button,onClick=onProfile).testTag("dashboard-profile"),contentAlignment=Alignment.Center){
-            FFIcon("hi_user",FFColors.onSurface,22.dp,contentDescription="Profil")
+            FFIcon("hi_user",FFColors.onSurface,22.dp,contentDescription=tabLabel("Profil"))
         }
         Box(Modifier.testTag("dashboard-shortcuts")) {
             Box(Modifier.size(40.dp).clip(CircleShape).clickable(role=Role.Button){setShortcuts(true)}.testTag("dashboard-shortcuts-button"),contentAlignment=Alignment.Center) {
-                FFIcon("more_vert",FFColors.onSurface,24.dp,contentDescription="Menu")
+                FFIcon("more_vert",FFColors.onSurface,24.dp,contentDescription=MR.strings.dash_menu.text())
                 Box(Modifier.align(Alignment.TopEnd).padding(top=7.dp,end=9.dp).size(6.dp).clip(CircleShape).background(Color(0xFFF44336)))
             }
             if(shortcuts)ShortcutPanel(onDismiss={setShortcuts(false)},onNavigate={setShortcuts(false);onNavigate(it)})
@@ -183,7 +202,7 @@ private fun DashboardHeader(name:String,level:Int,onProfile:()->Unit,onLevel:()-
 // Sapaan tidak boleh terpotong: mengecil sampai maksimal dua baris tanpa elipsis.
 @Composable
 private fun GreetingText(name:String,modifier:Modifier,onClick:()->Unit) {
-    val text="~ Hai, $name!"
+    val text=MR.strings.dash_greeting.text(name)
     val base=FFType.appTitle.copy(fontSize=20.sp,fontWeight=FontWeight.SemiBold)
     val measurer=rememberTextMeasurer()
     val density=LocalDensity.current
@@ -219,10 +238,10 @@ private fun ShortcutPanel(onDismiss:()->Unit,onNavigate:(String)->Unit) {
                     Box(Modifier.size(30.dp).clip(RoundedCornerShape(9.dp)).background(FFColors.surfaceContainerHigh),contentAlignment=Alignment.Center){
                         FFIcon(icon,FFColors.onSurface,18.dp)
                     }
-                    Text(if(label==shortcutBadge)"Pembaruan" else label,Modifier.weight(1f),style=FFType.bodyMain.copy(fontSize=18.sp,lineHeight=24.sp),
+                    Text(if(label==shortcutBadge)MR.strings.dash_shortcut_updates.text() else shortcutLabel(label),Modifier.weight(1f),style=FFType.bodyMain.copy(fontSize=18.sp,lineHeight=24.sp),
                         color=FFColors.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
                     if(label==shortcutBadge)Surface(shape=RoundedCornerShape(50),color=FFColors.onSurface){
-                        Text("New",Modifier.padding(horizontal=8.dp,vertical=2.dp),style=FFType.metaData.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold),color=FFColors.canvas)
+                        Text(MR.strings.dash_new.text(),Modifier.padding(horizontal=8.dp,vertical=2.dp),style=FFType.metaData.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold),color=FFColors.canvas)
                     }
                 }
             }
@@ -234,7 +253,8 @@ private fun ShortcutPanel(onDismiss:()->Unit,onNavigate:(String)->Unit) {
 private fun DashboardPeriodTabs(period:String,select:(String)->Unit) {
     val dark=isDarkUi()
     Row(Modifier.fillMaxWidth().height(40.dp)) {
-        listOf("Hari Ini" to "Hari","Minggu Ini" to "Minggu","Bulan Ini" to "Bulan","Tahun" to "Tahun","Kalender" to "Kalender").forEach{(value,label)->
+        listOf("Hari Ini" to MR.strings.dash_period_day.text(),"Minggu Ini" to MR.strings.dash_period_week.text(),"Bulan Ini" to MR.strings.dash_period_month.text(),
+            "Tahun" to MR.strings.dash_period_year.text(),"Kalender" to MR.strings.dash_period_calendar.text()).forEach{(value,label)->
             val active=period==value
             Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(if(active)(if(dark)FFColors.pill else FFColors.onSurface) else Color.Transparent)
                 .clickable(role=Role.Tab){select(value)},contentAlignment=Alignment.Center) {
@@ -259,23 +279,23 @@ private fun BalanceCard(currency:String,liquid:Boolean,balance:String,income:Str
         }
     }.testTag("balance-card-$currency").padding(start=16.dp,end=16.dp,top=20.dp,bottom=16.dp),horizontalAlignment=Alignment.CenterHorizontally) {
         Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-            Text("${if(liquid)"Likuid" else "Total Saldo"} ($currency)",style=FFType.bodyMain.copy(fontSize=14.sp,lineHeight=18.sp),color=Color.White.copy(alpha=.8f))
+            Text(if(liquid)MR.strings.dash_balance_liquid.text(currency) else MR.strings.dash_balance_total.text(currency),style=FFType.bodyMain.copy(fontSize=14.sp,lineHeight=18.sp),color=Color.White.copy(alpha=.8f))
             if(showCurrencySwap)Box(Modifier.clip(CircleShape).clickable(role=Role.Button,onClick=cycleCurrency).padding(4.dp).testTag("dashboard-currency-swap")){
-                FFIcon("hi_swap",Color.White.copy(alpha=.8f),18.dp,contentDescription="Ganti urutan mata uang")
+                FFIcon("hi_swap",Color.White.copy(alpha=.8f),18.dp,contentDescription=MR.strings.dash_cd_swap_currency.text())
             }
             Box(Modifier.clip(CircleShape).clickable(role=Role.Button,onClick=toggleLiquid).padding(4.dp).testTag("dashboard-liquidity-toggle")){
-                FFIcon("hi_sort",Color.White.copy(alpha=.8f),20.dp,contentDescription="Tampilkan saldo likuid")
+                FFIcon("hi_sort",Color.White.copy(alpha=.8f),20.dp,contentDescription=MR.strings.dash_cd_show_liquid.text())
             }
             Box(Modifier.clip(CircleShape).clickable(role=Role.Button,onClick=togglePrivacy).padding(4.dp).testTag("dashboard-privacy")){
-                FFIcon(if(privacy)"hi_view_off" else "hi_view",Color.White.copy(alpha=.8f),20.dp,contentDescription="Sembunyikan atau tampilkan saldo")
+                FFIcon(if(privacy)"hi_view_off" else "hi_view",Color.White.copy(alpha=.8f),20.dp,contentDescription=MR.strings.dash_cd_toggle_privacy.text())
             }
         }
         Spacer(Modifier.height(8.dp))
         FitMoneyText(balance,FFType.amountXl,Color.White,TextAlign.Center)
         Spacer(Modifier.height(14.dp))
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(13.dp)) {
-            BalanceSummary("Pemasukan",income,"hi_arrow_down",Modifier.weight(1f),onIncome)
-            BalanceSummary("Pengeluaran",expense,"hi_arrow_up",Modifier.weight(1f),onExpense)
+            BalanceSummary(transactionTypeLabel("income"),income,"hi_arrow_down",Modifier.weight(1f),onIncome)
+            BalanceSummary(transactionTypeLabel("expense"),expense,"hi_arrow_up",Modifier.weight(1f),onExpense)
         }
     }
 }
@@ -314,16 +334,16 @@ private fun MenuSection(menus:List<String>,page:Int,onMore:()->Unit,onNavigate:(
     val dark=isDarkUi()
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("Menu",Modifier.weight(1f),style=FFType.sectionTitle)
+            Text(MR.strings.dash_menu.text(),Modifier.weight(1f),style=FFType.sectionTitle)
             var menuPopup by remember{mutableStateOf(false)}
             Box(Modifier.testTag("dashboard-menu-more")) {
-                Box(Modifier.size(40.dp).clip(CircleShape).clickable(role=Role.Button){menuPopup=true}.semantics{contentDescription="More"},contentAlignment=Alignment.Center){
+                Box(Modifier.size(40.dp).clip(CircleShape).clickable(role=Role.Button){menuPopup=true}.semantics{contentDescription=MR.strings.dash_more.text()},contentAlignment=Alignment.Center){
                     FFIcon("more_vert",FFColors.onSurface,24.dp)
                 }
                 // Ollo: ⋮ membuka Tampilan Menu & Susunan Menu (halaman menu digeser, bukan diganti lewat ⋮).
                 DropdownMenu(menuPopup,{menuPopup=false},containerColor=FFColors.surface) {
-                    DropdownMenuItem(text={Text("Tampilan Menu",style=FFType.bodyMain)},leadingIcon={FFIcon("hi_paint",FFColors.onSurfaceVariant,20.dp)},onClick={menuPopup=false;onNavigate("Tampilan Menu")})
-                    DropdownMenuItem(text={Text("Susunan Menu",style=FFType.bodyMain)},leadingIcon={FFIcon("hi_sort",FFColors.onSurfaceVariant,20.dp)},onClick={menuPopup=false;onNavigate("Susunan Menu")})
+                    DropdownMenuItem(text={Text(MR.strings.dash_menu_appearance.text(),style=FFType.bodyMain)},leadingIcon={FFIcon("hi_paint",FFColors.onSurfaceVariant,20.dp)},onClick={menuPopup=false;onNavigate("Tampilan Menu")})
+                    DropdownMenuItem(text={Text(MR.strings.dash_menu_order.text(),style=FFType.bodyMain)},leadingIcon={FFIcon("hi_sort",FFColors.onSurfaceVariant,20.dp)},onClick={menuPopup=false;onNavigate("Susunan Menu")})
                 }
             }
         }
@@ -337,7 +357,7 @@ private fun MenuSection(menus:List<String>,page:Int,onMore:()->Unit,onNavigate:(
                         verticalAlignment=Alignment.CenterVertically) {
                         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(background),contentAlignment=Alignment.Center){FFIcon(menuIcons.getOrElse(index){menuIcons[0]},foreground,20.dp)}
                         Spacer(Modifier.width(12.dp))
-                        Text(menuTitles.getOrElse(index){destination},Modifier.weight(1f),style=FFType.bodyMain,maxLines=1,overflow=TextOverflow.Ellipsis)
+                        Text(menuLabel(menuTitles.getOrElse(index){destination}),Modifier.weight(1f),style=FFType.bodyMain,maxLines=1,overflow=TextOverflow.Ellipsis)
                         FFIcon("chevron_right_rounded",FFColors.onSurfaceVariant,16.dp)
                     }
                 }
@@ -346,7 +366,7 @@ private fun MenuSection(menus:List<String>,page:Int,onMore:()->Unit,onNavigate:(
                 menus.chunked(4).forEach{row->
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                         row.forEach{destination->val (background,foreground)=menuColors(destination,menuTheme,dark);val index=financeMenus.indexOf(destination).coerceAtLeast(0)
-                            MenuTile(menuTitles.getOrElse(index){destination},menuIcons.getOrElse(index){menuIcons[0]},background,foreground,Modifier.weight(1f)){onNavigate(destination)}}
+                            MenuTile(menuLabel(menuTitles.getOrElse(index){destination}),menuIcons.getOrElse(index){menuIcons[0]},background,foreground,Modifier.weight(1f)){onNavigate(destination)}}
                         repeat(4-row.size){Spacer(Modifier.weight(1f))}
                     }
                 }
@@ -357,7 +377,7 @@ private fun MenuSection(menus:List<String>,page:Int,onMore:()->Unit,onNavigate:(
                     menus.forEach{destination->
                         val (background,foreground)=menuColors(destination,menuTheme,dark)
                         val index=financeMenus.indexOf(destination).coerceAtLeast(0)
-                        MenuTile(menuTitles.getOrElse(index){destination},menuIcons.getOrElse(index){menuIcons[0]},background,foreground,Modifier.width(tile)){onNavigate(destination)}
+                        MenuTile(menuLabel(menuTitles.getOrElse(index){destination}),menuIcons.getOrElse(index){menuIcons[0]},background,foreground,Modifier.width(tile)){onNavigate(destination)}
                     }
                 }
             }
@@ -379,12 +399,12 @@ private fun MenuTile(title:String,icon:String,background:Color,foreground:Color,
 @Composable
 private fun MonthlyBudgetCard(data:FinanceData,month:String,preferences:AppPreferences,amount:(Long,String)->String,navigate:(String)->Unit) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(FFColors.surface).clickable(role=Role.Button){navigate("Anggaran")}.padding(horizontal=12.dp,vertical=14.dp)) {
-        Text("Anggaran Bulanan",style=FFType.sectionTitle)
+        Text(MR.strings.dash_monthly_budget.text(),style=FFType.sectionTitle)
         val budgets=data.budgets.filter{it.period=="monthly" && it.month==month}
         if(budgets.isEmpty())Row(Modifier.fillMaxWidth().padding(top=16.dp),horizontalArrangement=Arrangement.Center,verticalAlignment=Alignment.CenterVertically){
             FFIcon("hi_add_circle",FFColors.onSurfaceVariant,18.dp)
             Spacer(Modifier.width(10.dp))
-            Text("Belum ada anggaran. Ketuk untuk membuat!",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            Text(MR.strings.dash_budget_empty.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
         }
         else budgets.map{it.currency}.distinct().forEach{currency->
             val entries=budgets.filter{it.currency==currency}
@@ -392,7 +412,7 @@ private fun MonthlyBudgetCard(data:FinanceData,month:String,preferences:AppPrefe
             val limit=entries.fold(0L){sum,b->checkedAdd(sum,b.limitMinor)}
             val spent=data.reportTransactions().filter{it.type=="expense" && it.currency==currency && it.categoryId in ids && it.date in recordingPeriod(month,preferences.recordingDay)}.fold(0L){sum,t->checkedAdd(sum,t.amountMinor)}
             Spacer(Modifier.height(12.dp))
-            Text("${entries.size} anggaran · ${monthLabel(month)}",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            Text(MR.strings.dash_budget_count.text(entries.size,monthLabel(month)),style=FFType.metaData,color=FFColors.onSurfaceVariant)
             Spacer(Modifier.height(4.dp))
             FitMoneyText("${amount(spent,currency)} / ${amount(limit,currency)}",FFType.amountMd)
             LinearProgressIndicator(progress={if(limit>0)spent.toFloat()/limit else 0f},modifier=Modifier.fillMaxWidth().padding(top=8.dp),color=if(spent>limit)FFColors.expense else FFColors.income)
@@ -404,15 +424,15 @@ private fun MonthlyBudgetCard(data:FinanceData,month:String,preferences:AppPrefe
 private fun WalletsSection(accounts:List<Account>,data:FinanceData,amount:(Long,String)->String,navigate:(String)->Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("Dompet Saya",Modifier.weight(1f),style=FFType.sectionTitle)
+            Text(MR.strings.dash_my_wallets.text(),Modifier.weight(1f),style=FFType.sectionTitle)
             Box(Modifier.testTag("dashboard-wallets-more")) {
-                Box(Modifier.size(40.dp).clip(CircleShape).clickable(role=Role.Button){navigate("Dompet")}.semantics{contentDescription="More"},contentAlignment=Alignment.Center){
+                Box(Modifier.size(40.dp).clip(CircleShape).clickable(role=Role.Button){navigate("Dompet")}.semantics{contentDescription=MR.strings.dash_more.text()},contentAlignment=Alignment.Center){
                     FFIcon("more_vert",FFColors.onSurface,24.dp)
                 }
             }
         }
         Spacer(Modifier.height(12.dp))
-        if(accounts.isEmpty())OutlinedButton(onClick={navigate("Dompet")}){Text("Tambah Dompet")}
+        if(accounts.isEmpty())OutlinedButton(onClick={navigate("Dompet")}){Text(MR.strings.dash_add_wallet.text())}
         else Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
             accounts.chunked(2).forEach{row->
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -446,15 +466,15 @@ private fun DashboardWalletTile(account:Account,formatted:String,modifier:Modifi
 private fun RecentTransactionsSection(transactions:List<Transaction>,sizeLimit:Int,calendarMode:Boolean,data:FinanceData,amount:(Long,String)->String,edit:(Transaction)->Unit,navigate:(String)->Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("Transaksi Terbaru",Modifier.weight(1f),style=FFType.sectionTitle)
-            if(!calendarMode)Text("Lihat Semua",Modifier.clip(RoundedCornerShape(50)).clickable(role=Role.Button){navigate("Transaksi")}.padding(horizontal=4.dp,vertical=4.dp),
+            Text(MR.strings.dash_recent_transactions.text(),Modifier.weight(1f),style=FFType.sectionTitle)
+            if(!calendarMode)Text(MR.strings.dash_see_all.text(),Modifier.clip(RoundedCornerShape(50)).clickable(role=Role.Button){navigate("Transaksi")}.padding(horizontal=4.dp,vertical=4.dp),
                 style=FFType.metaData,color=FFColors.onSurface)
         }
         if(transactions.isEmpty())Column(Modifier.fillMaxWidth().padding(vertical=28.dp),horizontalAlignment=Alignment.CenterHorizontally){
             FFIcon("receipt_long",FFColors.outline,52.dp)
             Spacer(Modifier.height(16.dp))
-            Text("Belum ada transaksi",style=FFType.sectionTitle)
-            Text("Mulai catat pengeluaran dan pemasukanmu.",style=FFType.metaData,color=FFColors.onSurfaceVariant,textAlign=TextAlign.Center)
+            Text(MR.strings.dash_no_transactions.text(),style=FFType.sectionTitle)
+            Text(MR.strings.dash_no_transactions_hint.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant,textAlign=TextAlign.Center)
         }
         else transactions.take(sizeLimit).groupBy{it.date}.forEach{(date,items)->
             Row(Modifier.fillMaxWidth().padding(top=16.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -500,21 +520,19 @@ internal fun DashboardTransactionRow(tx:Transaction,data:FinanceData,formatted:S
 }
 
 private fun transactionKindLabel(tx:Transaction,data:FinanceData):String = when(tx.source){
-    "goal_deposit","goal_withdrawal" -> "Transaksi Tabungan"
-    "bill" -> "Pembayaran Tagihan"
-    "debt_initial" -> "Utang / Piutang"
-    "debt_payment" -> "Pembayaran Utang"
-    "bundle" -> "Belanja Bundle"
-    "reimbursement" -> "Reimburse"
-    "recurring" -> "Transaksi Berulang"
-    else -> if(tx.type=="transfer") "Transfer" else data.categories.find{it.id==tx.categoryId}?.name ?: if(tx.type=="income") "Pemasukan" else "Pengeluaran"
+    "goal_deposit","goal_withdrawal" -> MR.strings.dash_tx_saving.text()
+    "bill" -> MR.strings.dash_tx_bill_payment.text()
+    "debt_initial" -> MR.strings.dash_tx_debt.text()
+    "debt_payment" -> MR.strings.dash_tx_debt_payment.text()
+    "bundle" -> MR.strings.dash_tx_bundle.text()
+    "reimbursement" -> menuLabel("Reimburse")
+    "recurring" -> MR.strings.dash_tx_recurring.text()
+    else -> if(tx.type=="transfer") transactionTypeLabel("transfer") else data.categories.find{it.id==tx.categoryId}?.name ?: transactionTypeLabel(if(tx.type=="income") "income" else "expense")
 }
 
-private val dashboardDayNames=listOf("Senin","Selasa","Rabu","Kamis","Jumat","Sabtu","Minggu")
-private val dashboardMonthNames=listOf("Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember")
 internal fun fullDateLabel(date:String):String = runCatching{
     val parsed=LocalDate.parse(date)
-    "${dashboardDayNames[parsed.dayOfWeek.isoDayNumber-1]}, ${parsed.dayOfMonth} ${dashboardMonthNames[parsed.monthNumber-1]} ${parsed.year}"
+    MR.strings.dash_full_date.text(dayName(parsed.dayOfWeek.isoDayNumber),parsed.dayOfMonth,monthName(parsed.monthNumber),parsed.year)
 }.getOrDefault(date)
 private fun timeLabel(epochMillis:Long):String = runCatching{
     val time=Instant.fromEpochMilliseconds(epochMillis).toLocalDateTime(TimeZone.currentSystemDefault())

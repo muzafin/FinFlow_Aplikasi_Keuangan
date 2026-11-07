@@ -15,7 +15,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.platform.NativeServices
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.ui.*
+import com.logikawan.finflow.i18n.*
 
 @Composable
 fun RecordingProgressSummary(data: FinanceData, native: NativeServices) {
@@ -29,18 +31,20 @@ fun RecordingProgressSummary(data: FinanceData, native: NativeServices) {
                 drawArc(foreground,-90f,progress.levelXp/500f*360,false,style=Stroke(4.dp.toPx()))
             }
             ProfilePhoto(data.profile,native,Modifier.size(112.dp).clip(CircleShape))
-            Surface(Modifier.align(Alignment.BottomCenter),shape=CircleShape,color=foreground){Text("Level ${progress.level}",Modifier.padding(horizontal=16.dp,vertical=6.dp),color=FFColors.canvas,style=FFType.bodyMain)}
+            Surface(Modifier.align(Alignment.BottomCenter),shape=CircleShape,color=foreground){Text(MR.strings.rm_level_n.text(progress.level),Modifier.padding(horizontal=16.dp,vertical=6.dp),color=FFColors.canvas,style=FFType.bodyMain)}
         }
         Text(data.profile?.name.orEmpty(), style = FFType.appTitle, textAlign = TextAlign.Center)
-        Text(if (progress.level == 1) "Rookie Saver" else "Pencatat Konsisten", style = FFType.bodyMain)
-        Text("${progress.levelXp} / 500 XP", style = FFType.metaData)
-        listOf("Streak" to progress.streak, "Streak Terpanjang" to progress.longestStreak,
-            "Poin" to progress.xp, "Hari Aktif" to progress.activeDays,
-            "Transaksi" to progress.transactions, "Lencana" to progress.achievements.count { it.earned }).chunked(2).forEach { row ->
+        Text(if (progress.level == 1) MR.strings.rm_rank_rookie.text() else MR.strings.rm_rank_consistent.text(), style = FFType.bodyMain)
+        Text(MR.strings.rm_xp_progress.text(progress.levelXp), style = FFType.metaData)
+        listOf(Triple(MR.strings.rm_metric_streak.text(), progress.streak, "local_fire_department"),
+            Triple(MR.strings.rm_metric_longest_streak.text(), progress.longestStreak, "trending_up"),
+            Triple(MR.strings.rm_metric_points.text(), progress.xp, "emoji_events_outlined"),
+            Triple(MR.strings.rm_metric_active_days.text(), progress.activeDays, "event_available"),
+            Triple(MR.strings.rm_metric_transactions.text(), progress.transactions, "receipt_long"),
+            Triple(MR.strings.rm_metric_badges.text(), progress.achievements.count { it.earned }, "military_tech")).chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEach { (title, value) -> DesignCard(Modifier.weight(1f)) {
+                row.forEach { (title, value, icon) -> DesignCard(Modifier.weight(1f)) {
                     Column(Modifier.fillMaxWidth().heightIn(min=140.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                        val icon=when(title){"Streak"->"local_fire_department";"Streak Terpanjang"->"trending_up";"Poin"->"emoji_events_outlined";"Hari Aktif"->"event_available";"Transaksi"->"receipt_long";else->"military_tech"}
                         Surface(shape=CircleShape,color=FFColors.primaryContainer){Box(Modifier.size(44.dp),contentAlignment=Alignment.Center){FFIcon(icon,FFColors.primary,26.dp)}}
                         Text(value.toString(), style = FFType.amountLg)
                         Text(title, style = FFType.bodyMain,textAlign=TextAlign.Center)
@@ -49,23 +53,23 @@ fun RecordingProgressSummary(data: FinanceData, native: NativeServices) {
             }
         }
         DesignCard {
-            Text("Leaderboard Bulanan", style = FFType.sectionTitle)
-            Text("Segera hadir · Global dan per negara", style = FFType.bodyMain)
-            Text("Peringkat dihitung dari aktivitas pencatatan setiap bulan. Hadiah diberikan admin FinFlow setelah verifikasi.", style = FFType.metaData)
-            Text("🥇 Peringkat 1 · Premium gratis 3 bulan\n🥈 Peringkat 2 · Premium gratis 2 bulan\n🥉 Peringkat 3 · Premium gratis 1 bulan", style = FFType.bodyMain)
+            Text(MR.strings.rm_rp_lb_title.text(), style = FFType.sectionTitle)
+            Text(MR.strings.rm_rp_lb_soon.text(), style = FFType.bodyMain)
+            Text(MR.strings.rm_rp_lb_desc.text(), style = FFType.metaData)
+            Text(MR.strings.rm_rp_prizes.text(), style = FFType.bodyMain)
         }
-        Text("Pencapaian", Modifier.fillMaxWidth(), style = FFType.sectionTitle)
+        Text(MR.strings.rm_achievements.text(), Modifier.fillMaxWidth(), style = FFType.sectionTitle)
         progress.achievements.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { badge -> DesignCard(Modifier.weight(1f)) {
                     FFIcon(if (badge.earned) "emoji_events_outlined" else "lock_outline", if (badge.earned) FFColors.primary else FFColors.outline)
-                    Text("${badge.xp} XP", style = FFType.metaData)
-                    Text(badge.title, style = FFType.bodyMain)
-                    Text(badge.description, style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                    Text(MR.strings.rm_xp.text(badge.xp), style = FFType.metaData)
+                    Text(badge.displayTitle, style = FFType.bodyMain)
+                    Text(badge.displayDescription, style = FFType.metaData, color = FFColors.onSurfaceVariant)
                 } }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
-        Text("5 XP per transaksi aktual, ditambah bonus pencapaian. Progres lokal mengikuti jurnal yang masih tersimpan.", style = FFType.metaData, color = FFColors.onSurfaceVariant)
+        Text(MR.strings.rm_rp_footer.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
     }
 }

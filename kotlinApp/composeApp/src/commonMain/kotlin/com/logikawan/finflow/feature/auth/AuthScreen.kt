@@ -33,6 +33,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.data.FinanceRepository
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.core.platform.AppLifecycle
 import com.logikawan.finflow.core.platform.NativeServices
 import com.logikawan.finflow.core.ui.FFColors
@@ -74,17 +76,17 @@ fun AuthScreen(repo: FinanceRepository, native: NativeServices, scope: Coroutine
         scope.launch {
             try { action() }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: "Tidak dapat masuk. Periksa koneksi dan data akun." }
+            catch (e: Exception) { error = e.message ?: MR.strings.auth_error_sign_in_failed.text() }
             finally { busy = false }
         }
     }
     fun emailSubmit() {
         error = when {
-            !login && name.trim().length < 2 -> "Nama minimal 2 karakter"
-            email.isBlank() -> "Email tidak boleh kosong"
-            !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(email.trim()) -> "Format email tidak valid"
-            password.isEmpty() -> "Password tidak boleh kosong"
-            !login && password.length < 8 -> "Password minimal 8 karakter"
+            !login && name.trim().length < 2 -> MR.strings.auth_error_name_min.text()
+            email.isBlank() -> MR.strings.auth_error_email_empty.text()
+            !Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$").matches(email.trim()) -> MR.strings.auth_error_email_invalid.text()
+            password.isEmpty() -> MR.strings.auth_error_password_empty.text()
+            !login && password.length < 8 -> MR.strings.auth_error_password_min.text()
             else -> null
         }
         if (error == null) submit { if (login) repo.login(email.trim(), password) else repo.register(name.trim(), email.trim(), password) }
@@ -99,22 +101,22 @@ fun AuthScreen(repo: FinanceRepository, native: NativeServices, scope: Coroutine
                 native.googleSignIn { token, failure ->
                     busy = false
                     if (token != null) submit { repo.googleLogin(token) }
-                    else error = failure ?: "Login dibatalkan"
+                    else error = failure ?: MR.strings.auth_sign_in_cancelled.text()
                 }
             }
         }, reset = {
-            if (email.isBlank()) error = "Masukkan email terlebih dahulu"
-            else submit { repo.resetPassword(email.trim()); notice = "Jika email terdaftar, tautan pemulihan dikirim. Periksa kotak masuk." }
+            if (email.isBlank()) error = MR.strings.auth_error_email_first.text()
+            else submit { repo.resetPassword(email.trim()); notice = MR.strings.auth_reset_sent.text() }
         },continueLocal={
-            if(name.trim().isBlank() || name.trim().length>100)error="Nama wajib diisi, maksimal 100 karakter"
+            if(name.trim().isBlank() || name.trim().length>100)error=MR.strings.auth_error_name_required.text()
             else {error=null;screen="local-setup"}
         },restore={native.pickCsv{content,failure->
             if(content!=null)try{backup=com.logikawan.finflow.core.model.BackupCodec.decode(content)}catch(e:Exception){error=e.message}
             else if(failure!=null)error=failure
         }})
-    if(cancel!=null && screen=="welcome")Box(Modifier.fillMaxSize().safeDrawingPadding(),contentAlignment=Alignment.TopStart){TextButton(onClick=cancel,enabled=!busy){Text("Kembali ke Mode Lokal")}}
-    if(screen=="local-setup" && error!=null)AlertDialog(onDismissRequest={error=null},title={Text("Belum Dapat Melanjutkan")},text={Text(error.orEmpty())},confirmButton={TextButton(onClick={error=null}){Text("Tutup")}})
-    backup?.let{value->AlertDialog(onDismissRequest={backup=null},title={Text("Pulihkan Cadangan?")},text={Text("${value.data.profile?.name.orEmpty()} · ${value.data.transactions.size} transaksi. Pemulihan hanya dapat dilakukan ke penyimpanan lokal yang masih kosong. Data yang sudah ada tidak ditimpa.")},
-        confirmButton={TextButton(enabled=!busy,onClick={submit{restoreLocal(value);backup=null}}){Text("Lanjutkan")}},dismissButton={TextButton(enabled=!busy,onClick={backup=null}){Text("Batal")}})}
-    notice?.let { message -> AlertDialog(onDismissRequest = { notice = null }, title = { Text("Pemulihan password") }, text = { Text(message) }, confirmButton = { TextButton(onClick = { notice = null }) { Text("Mengerti") } }) }
+    if(cancel!=null && screen=="welcome")Box(Modifier.fillMaxSize().safeDrawingPadding(),contentAlignment=Alignment.TopStart){TextButton(onClick=cancel,enabled=!busy){Text(MR.strings.auth_back_to_local.text())}}
+    if(screen=="local-setup" && error!=null)AlertDialog(onDismissRequest={error=null},title={Text(MR.strings.auth_cannot_continue.text())},text={Text(error.orEmpty())},confirmButton={TextButton(onClick={error=null}){Text(MR.strings.common_close.text())}})
+    backup?.let{value->AlertDialog(onDismissRequest={backup=null},title={Text(MR.strings.auth_restore_title.text())},text={Text(MR.strings.auth_restore_summary_note.text(value.data.profile?.name.orEmpty(),value.data.transactions.size))},
+        confirmButton={TextButton(enabled=!busy,onClick={submit{restoreLocal(value);backup=null}}){Text(MR.strings.auth_restore_confirm.text())}},dismissButton={TextButton(enabled=!busy,onClick={backup=null}){Text(MR.strings.common_cancel.text())}})}
+    notice?.let { message -> AlertDialog(onDismissRequest = { notice = null }, title = { Text(MR.strings.auth_password_recovery_title.text()) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { notice = null }) { Text(MR.strings.auth_got_it.text()) } }) }
 }

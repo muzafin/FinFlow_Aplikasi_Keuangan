@@ -1,5 +1,7 @@
 package com.logikawan.finflow.notificationimport
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -27,7 +29,7 @@ class TransactionNotificationListener : NotificationListenerService() {
             "$owner|${sbn.key}|${sbn.postTime}|${parsed.type}|${parsed.currency}|${parsed.amountMinor}".toByteArray(Charsets.UTF_8)
         ).joinToString("") { (it.toInt() and 255).toString(16).padStart(2, '0') }
         val appName = runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(sbn.packageName, 0)).toString() }
-            .getOrDefault("Aplikasi pilihan")
+            .getOrElse { MR.strings.core_notification_app_fallback.text() }
         // Isi asli, nomor rekening, OTP dan judul notifikasi tidak disimpan atau dikirim ke Firebase.
         store.add(owner, source, NotificationCandidate(fingerprint, appName.take(100), source.accountId,
             parsed.type, parsed.amountMinor, parsed.currency, sbn.postTime))

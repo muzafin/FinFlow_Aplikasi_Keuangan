@@ -1,5 +1,7 @@
 package com.logikawan.finflow
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.app.App
 import com.logikawan.finflow.core.platform.AppLifecycle
 import com.logikawan.finflow.core.platform.NativeServices
@@ -56,17 +58,17 @@ class MainActivity : FragmentActivity(), NativeServices {
     override fun appVersion():String = packageManager.getPackageInfo(packageName,0).versionName ?: "1.0.0"
     override fun deleteLocalProfilePhoto():String? {
         val file=File(noBackupFilesDir,"finflow-local/avatar.jpg")
-        return if(!file.exists() || file.delete())null else "Data keuangan dihapus, tetapi foto lokal belum dapat dibersihkan."
+        return if(!file.exists() || file.delete())null else MR.strings.core_main_local_photo_not_cleaned.text()
     }
     override fun composeSupport(subject:String,body:String):String? = try {
         val uri=android.net.Uri.parse("mailto:muzafinarifin.dev@gmail.com?subject="+android.net.Uri.encode(subject)+"&body="+android.net.Uri.encode(body))
         startActivity(Intent(Intent.ACTION_SENDTO,uri));null
-    }catch(e:Exception){"Tidak ada aplikasi email yang dapat dibuka. Pasang atau aktifkan aplikasi email terlebih dahulu."}
+    }catch(e:Exception){MR.strings.core_main_no_email_app.text()}
     override fun shareApp():String? = try {
         val file=exportFile("FinFlow.apk")
         File(applicationInfo.sourceDir).copyTo(file,overwrite=true)
         shareExport(file,"application/vnd.android.package-archive");null
-    }catch(e:Exception){"APK belum dapat dibagikan. Periksa ruang penyimpanan dan coba lagi."}
+    }catch(e:Exception){MR.strings.core_main_apk_share_failed.text()}
     private val profilePhotos = ProfilePhotos(this)
     override fun pickProfilePhoto(result: (ByteArray?, String?) -> Unit) = profilePhotos.pick(result)
     override fun uploadProfilePhoto(userId: String, bytes: ByteArray, result: (String?, String?) -> Unit) = profilePhotos.upload(userId, bytes, result)
@@ -102,33 +104,33 @@ class MainActivity : FragmentActivity(), NativeServices {
             try {
                 val text = withContext(Dispatchers.IO) {
                     contentResolver.openInputStream(uri).use { stream ->
-                        requireNotNull(stream) { "File tidak dapat dibaca" }
+                        requireNotNull(stream) { MR.strings.core_file_unreadable.text() }
                         val output = ByteArrayOutputStream()
                         val buffer = ByteArray(8192)
                         while (true) {
                             val count = stream.read(buffer)
                             if (count < 0) break
-                            require(output.size() + count <= CsvImport.MAX_FILE_BYTES) { "CSV maksimal 5 MB" }
+                            require(output.size() + count <= CsvImport.MAX_FILE_BYTES) { MR.strings.core_csv_max_5mb.text() }
                             output.write(buffer, 0, count)
                         }
                         Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(output.toByteArray())).toString()
                     }
                 }
                 callback(text, null)
-            } catch (e: Exception) { callback(null, e.message ?: "File gagal dibaca. Gunakan CSV UTF-8.") }
+            } catch (e: Exception) { callback(null, e.message ?: MR.strings.core_file_read_failed_csv.text()) }
         }
     }
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val callback = reminderResult
         reminderResult = null
         if (granted) { saveReminder(true, requestedHour, requestedMinute); callback?.invoke(null) }
-        else callback?.invoke("Izin notifikasi ditolak; pengingat belum diaktifkan")
+        else callback?.invoke(MR.strings.core_reminder_permission_denied.text())
     }
     private val budgetNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val callback = budgetPermissionResult
         budgetPermissionResult = null
         if (granted) { callback?.let { setBudgetAlerts(true, it) } }
-        else callback?.invoke("Izin notifikasi ditolak; peringatan anggaran belum diaktifkan")
+        else callback?.invoke(MR.strings.core_budget_permission_denied.text())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -152,7 +154,22 @@ class MainActivity : FragmentActivity(), NativeServices {
         })
         val previewFirstRun = intent.getBooleanExtra("finflow_preview_first_run", false)
         setContent { App(this, appLifecycle, previewFirstRun = previewFirstRun) }
+        // Android 12+: tahan splash sistem (logo yang sama) selama aplikasi bersiap, agar tidak ada
+        // splash kedua dengan logo berukuran lain (logo "besar lalu mengecil").
+        if (Build.VERSION.SDK_INT >= 31) {
+            val start = android.os.SystemClock.uptimeMillis()
+            val content = findViewById<android.view.View>(android.R.id.content)
+            content.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    if (android.os.SystemClock.uptimeMillis() - start < SPLASH_HOLD_MS) return false
+                    content.viewTreeObserver.removeOnPreDrawListener(this)
+                    return true
+                }
+            })
+        }
     }
+    override fun hasSystemSplash(): Boolean = Build.VERSION.SDK_INT >= 31
+    override fun deviceCurrency(): String = runCatching { java.util.Currency.getInstance(resources.configuration.locales[0]).currencyCode }.getOrNull() ?: "USD"
     override fun onStop() { super.onStop(); appLifecycle.background() }
     override fun onboardingComplete() = prefs.getBoolean("onboarding.complete", false)
     override fun setOnboardingComplete() { prefs.edit().putBoolean("onboarding.complete", true).apply() }
@@ -160,7 +177,7 @@ class MainActivity : FragmentActivity(), NativeServices {
     override fun sha256(text: String): String = java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString(""){"%02x".format(it.toInt() and 255)}
     override fun writeSetting(key: String, value: String) {
         val edit=prefs.edit().putString(key,value)
-        if(key=="data.mode" || key.startsWith("local.sync.") || key.startsWith("restore.") || key.startsWith("reset."))check(edit.commit()){"Status penyimpanan gagal disimpan"}else edit.apply()
+        if(key=="data.mode" || key.startsWith("local.sync.") || key.startsWith("restore.") || key.startsWith("reset."))check(edit.commit()){MR.strings.core_main_state_save_failed.text()}else edit.apply()
     }
     override fun setNotificationImportUser(userId: String?) {
         NotificationImportStore(this).setOwner(userId)
@@ -173,7 +190,7 @@ class MainActivity : FragmentActivity(), NativeServices {
     override fun shareCsv(name: String, content: String) = shareTextFile(name, content, "text/csv")
     override fun shareTextFile(name: String, content: String, mimeType: String) {
         require(mimeType.matches(Regex("[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+"))) { "Jenis file tidak valid" }
-        require(content.toByteArray(Charsets.UTF_8).size <= CsvImport.MAX_FILE_BYTES) { "File ekspor maksimal 5 MB" }
+        require(content.toByteArray(Charsets.UTF_8).size <= CsvImport.MAX_FILE_BYTES) { MR.strings.core_export_max_5mb.text() }
         val file = exportFile(name)
         file.writeText(content, Charsets.UTF_8)
         shareExport(file, mimeType)
@@ -199,7 +216,7 @@ class MainActivity : FragmentActivity(), NativeServices {
         ).joinToString("\n")
     }
     override fun sharePdf(name: String, title: String, lines: List<String>) {
-        require(lines.size <= 25_000 && lines.sumOf { it.length.toLong() } <= 5L * 1024 * 1024) { "PDF terlalu besar. Persempit periode ekspor." }
+        require(lines.size <= 25_000 && lines.sumOf { it.length.toLong() } <= 5L * 1024 * 1024) { MR.strings.core_pdf_too_large.text() }
         val file = exportFile(name)
         val document = PdfDocument()
         val width = 595
@@ -216,18 +233,18 @@ class MainActivity : FragmentActivity(), NativeServices {
         var baseline = 0f
         fun finishPage() { page?.let { document.finishPage(it) }; page = null }
         fun beginPage() {
-            require(pageNumber < 500) { "PDF terlalu besar. Persempit periode ekspor." }
+            require(pageNumber < 500) { MR.strings.core_pdf_too_large.text() }
             finishPage()
             pageNumber++
             page = document.startPage(PdfDocument.PageInfo.Builder(width, height, pageNumber).create())
             val canvas = page!!.canvas
             canvas.save(); canvas.translate(margin, margin); titleLayout.draw(canvas); canvas.restore()
-            canvas.drawText("FinFlow · Halaman $pageNumber", margin, height - margin, footer)
+            canvas.drawText(MR.strings.core_pdf_footer.text(pageNumber), margin, height - margin, footer)
             baseline = margin + titleLayout.height + 20f - body.fontMetrics.ascent
         }
         try {
             beginPage()
-            val content = lines.ifEmpty { listOf("Tidak ada catatan pada periode ini.") }
+            val content = lines.ifEmpty { listOf(MR.strings.core_pdf_empty.text()) }
             content.forEach { row ->
                 row.replace('\t', ' ').split('\n').forEach { paragraph ->
                     val layout = StaticLayout.Builder.obtain(paragraph, 0, paragraph.length, body, textWidth).setIncludePad(false).build()
@@ -245,7 +262,7 @@ class MainActivity : FragmentActivity(), NativeServices {
     }
     private fun exportFile(name: String): File {
         val directory = File(cacheDir, "exports")
-        check(directory.isDirectory || directory.mkdirs()) { "Folder ekspor tidak dapat dibuat" }
+        check(directory.isDirectory || directory.mkdirs()) { MR.strings.core_export_folder_failed.text() }
         val clean = name.replace(Regex("[^a-zA-Z0-9._-]"), "_").takeLast(120)
         return File(directory, clean.takeUnless { it.isBlank() || it == "." || it == ".." } ?: "finflow-export")
     }
@@ -255,12 +272,12 @@ class MainActivity : FragmentActivity(), NativeServices {
             type = mimeType; putExtra(Intent.EXTRA_STREAM, uri)
             clipData = ClipData.newUri(contentResolver, file.name, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }, if (mimeType == "text/csv") "Simpan atau bagikan CSV" else "Simpan atau bagikan file"))
+        }, if (mimeType == "text/csv") MR.strings.core_share_csv.text() else MR.strings.core_share_file.text()))
     }
     override fun googleSignIn(result: (String?, String?) -> Unit) {
         val clientIdResource = resources.getIdentifier("default_web_client_id", "string", packageName)
         if (clientIdResource == 0) {
-            result(null, "Aktifkan Google pada Firebase Authentication, lalu unduh ulang google-services.json.")
+            result(null, MR.strings.core_google_not_configured.text())
             return
         }
         lifecycleScope.launch {
@@ -268,10 +285,10 @@ class MainActivity : FragmentActivity(), NativeServices {
                 val option = GetSignInWithGoogleOption.Builder(getString(clientIdResource)).build()
                 val credential = CredentialManager.create(this@MainActivity).getCredential(this@MainActivity,
                     GetCredentialRequest.Builder().addCredentialOption(option).build()).credential
-                require(credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) { "Jenis kredensial Google tidak dikenali" }
+                require(credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) { MR.strings.core_google_credential_unknown.text() }
                 result(GoogleIdTokenCredential.createFrom(credential.data).idToken, null)
-            } catch (_: GetCredentialCancellationException) { result(null, "Login Google dibatalkan") }
-            catch (e: Exception) { result(null, e.message ?: "Login Google gagal") }
+            } catch (_: GetCredentialCancellationException) { result(null, MR.strings.core_google_cancelled.text()) }
+            catch (e: Exception) { result(null, e.message ?: MR.strings.core_google_failed.text()) }
         }
     }
     override fun unlock(result: (Boolean) -> Unit) {
@@ -288,14 +305,14 @@ class MainActivity : FragmentActivity(), NativeServices {
                 else result(false)
             }
         })
-        val info = BiometricPrompt.PromptInfo.Builder().setTitle("Buka FinFlow").setAllowedAuthenticators(allowed)
-        if (Build.VERSION.SDK_INT < 30) info.setNegativeButtonText("Gunakan kunci perangkat")
+        val info = BiometricPrompt.PromptInfo.Builder().setTitle(MR.strings.core_unlock_title.text()).setAllowedAuthenticators(allowed)
+        if (Build.VERSION.SDK_INT < 30) info.setNegativeButtonText(MR.strings.core_unlock_use_device_lock.text())
         prompt.authenticate(info.build())
     }
     @Suppress("DEPRECATION")
     private fun unlockWithDeviceCredential(result: (Boolean) -> Unit) {
         val keyguard = getSystemService(KeyguardManager::class.java)
-        val intent = keyguard.createConfirmDeviceCredentialIntent("Buka FinFlow", "Konfirmasi kunci perangkat")
+        val intent = keyguard.createConfirmDeviceCredentialIntent(MR.strings.core_unlock_title.text(), MR.strings.core_unlock_confirm_device_lock.text())
         if (intent == null) result(false) else { credentialResult = result; deviceCredential.launch(intent) }
     }
     override fun lockEnabled() = prefs.getBoolean("lock", false)
@@ -318,16 +335,16 @@ class MainActivity : FragmentActivity(), NativeServices {
     override fun setBudgetAlerts(enabled: Boolean, result: (String?) -> Unit) {
         if (!enabled) { prefs.edit().putBoolean("budget.enabled", false).apply(); result(null); return }
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            if (budgetPermissionResult != null) { result("Permintaan izin notifikasi masih berlangsung"); return }
+            if (budgetPermissionResult != null) { result(MR.strings.core_permission_request_pending.text()); return }
             budgetPermissionResult = result
             budgetNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-            result("Notifikasi FinFlow dinonaktifkan pada pengaturan perangkat")
+            result(MR.strings.core_notifications_disabled.text())
         } else {
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(NotificationChannel("budget", "Peringatan anggaran", NotificationManager.IMPORTANCE_DEFAULT))
+            manager.createNotificationChannel(NotificationChannel("budget", MR.strings.core_channel_budget.text(), NotificationManager.IMPORTANCE_DEFAULT))
             if (manager.getNotificationChannel("budget").importance == NotificationManager.IMPORTANCE_NONE) {
-                result("Kanal peringatan anggaran dinonaktifkan pada pengaturan perangkat")
+                result(MR.strings.core_channel_budget_disabled.text())
             } else { prefs.edit().putBoolean("budget.enabled", true).apply(); result(null) }
         }
     }
@@ -336,7 +353,7 @@ class MainActivity : FragmentActivity(), NativeServices {
         if (!budgetAlertsEnabled() || prefs.getBoolean(key, false) || !NotificationManagerCompat.from(this).areNotificationsEnabled()) return
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel("budget", "Peringatan anggaran", NotificationManager.IMPORTANCE_DEFAULT))
+        manager.createNotificationChannel(NotificationChannel("budget", MR.strings.core_channel_budget.text(), NotificationManager.IMPORTANCE_DEFAULT))
         if (manager.getNotificationChannel("budget").importance == NotificationManager.IMPORTANCE_NONE) return
         val intent = PendingIntent.getActivity(this, 1002, Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -350,3 +367,5 @@ class MainActivity : FragmentActivity(), NativeServices {
         }
     }
 }
+
+private const val SPLASH_HOLD_MS = 800L

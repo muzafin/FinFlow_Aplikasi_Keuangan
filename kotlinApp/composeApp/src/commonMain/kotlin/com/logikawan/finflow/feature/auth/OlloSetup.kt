@@ -54,6 +54,8 @@ import com.logikawan.finflow.core.ui.FFType
 import com.logikawan.finflow.core.ui.FigmaAsset
 import com.logikawan.finflow.core.util.formatBalance
 import com.logikawan.finflow.core.util.minorAmount
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -76,17 +78,17 @@ data class SetupResult(
 /** Satu pilihan bahasa pada langkah kedua. */
 data class SetupLanguage(val tag: String, val label: String, val enabled: Boolean)
 
-/** Hanya bahasa yang antarmukanya benar-benar tersedia yang diaktifkan. */
+/** Seluruh bahasa antarmuka yang tersedia, dengan nama aslinya. */
 val setupLanguages = listOf(
-    SetupLanguage("en", "English", true),
     SetupLanguage("id", "Bahasa Indonesia", true),
-    SetupLanguage("ms", "Bahasa Melayu", false),
-    SetupLanguage("de", "Deutsch", false),
-    SetupLanguage("fr", "Français", false),
-    SetupLanguage("ja", "日本語", false),
-    SetupLanguage("es", "Español", false),
-    SetupLanguage("hi", "हिन्दी", false),
-    SetupLanguage("zh", "中文", false),
+    SetupLanguage("en", "English", true),
+    SetupLanguage("ms", "Bahasa Melayu", true),
+    SetupLanguage("de", "Deutsch", true),
+    SetupLanguage("fr", "Français", true),
+    SetupLanguage("ja", "日本語", true),
+    SetupLanguage("es", "Español", true),
+    SetupLanguage("hi", "हिन्दी", true),
+    SetupLanguage("zh", "中文（简体）", true),
 )
 
 internal data class SetupCurrency(val code: String, val label: String, val symbol: String)
@@ -141,8 +143,9 @@ fun OlloSetupFlow(
     val scope = rememberCoroutineScope()
     val scroll = rememberScrollState()
     var step by rememberSaveable { mutableIntStateOf(0) }
-    var language by rememberSaveable { mutableStateOf("id") }
-    var currency by rememberSaveable { mutableStateOf("IDR") }
+    // Bahasa & mata uang mengikuti pengaturan HP; dapat diubah nanti di Pengaturan.
+    val language = remember { native.deviceLanguage().takeIf { tag -> setupLanguages.any { it.tag == tag && it.enabled } } ?: "en" }
+    var currency by rememberSaveable { mutableStateOf(native.deviceCurrency()) }
     var name by rememberSaveable { mutableStateOf("") }
     var nameError by remember { mutableStateOf<String?>(null) }
     var balance by rememberSaveable { mutableStateOf("") }
@@ -157,7 +160,7 @@ fun OlloSetupFlow(
     var completed by remember { mutableStateOf(false) }
     var restoreBusy by remember { mutableStateOf(false) }
     var showCurrencyDialog by remember { mutableStateOf(false) }
-    val strings = setupStrings(language)
+    val strings = setupStrings()
     val photoPreview = remember(photo) { photo?.let { bytes -> runCatching { bytes.decodeToImageBitmap() }.getOrNull() } }
     val disabled = busy || submitting
 
@@ -168,7 +171,7 @@ fun OlloSetupFlow(
             when {
                 backup != null && !restoreBusy -> { backup = null; true }
                 showCurrencyDialog -> { showCurrencyDialog = false; true }
-                step > 0 -> { if (!disabled) { step -= 1; error = null }; true }
+                step > 0 -> { if (!disabled) { step = setupOrder.getOrElse(setupOrder.indexOf(step) - 1) { 0 }; error = null }; true }
                 else -> false
             }
         }
@@ -224,7 +227,7 @@ fun OlloSetupFlow(
             walletName = "Cash",
             openingBalanceMinor = opening,
             photoBytes = photo,
-            preferences = preferences.copy(language = language),
+            preferences = preferences.copy(language = "system"),
         )
         submitting = true
         scope.launch {
@@ -250,13 +253,14 @@ fun OlloSetupFlow(
             nameError = strings.nameRequired
             return
         }
-        if (step < 5) step += 1 else finish()
+        val position = setupOrder.indexOf(step)
+        if (position < setupOrder.lastIndex) step = setupOrder[position + 1] else finish()
     }
 
     Column(Modifier.fillMaxSize().background(Color.White).safeDrawingPadding().imePadding().testTag("setup-flow")) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(6) { index ->
-                Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(if (index <= step) setupInk else setupLine))
+            repeat(setupOrder.size) { index ->
+                Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(if (index <= setupOrder.indexOf(step)) setupInk else setupLine))
             }
         }
         Column(Modifier.weight(1f).verticalScroll(scroll).padding(horizontal = 24.dp).testTag("setup-scroll")) {
@@ -284,8 +288,6 @@ fun OlloSetupFlow(
                     onEmailSignIn = onEmailSignIn,
                     enabled = !disabled && !restoreBusy,
                 )
-                1 -> LanguageStep(strings, language) { language = it }
-                2 -> CurrencyStep(strings, currency, { currency = it }, { showCurrencyDialog = true })
                 3 -> NotificationStep(strings, reminderOn, { changeReminder(it) }, reminderError)
                 4 -> StyleStep(strings, preferences, currency) { preferences = it }
                 else -> WalletStep(strings, balance) { if (it.length <= 24) balance = it }
@@ -313,7 +315,7 @@ fun OlloSetupFlow(
             onDismissRequest = { if (!restoreBusy) backup = null },
             title = { Text(strings.restoreDialogTitle, fontWeight = FontWeight.Bold) },
             text = {
-                Text(value.data.profile?.name.orEmpty() + " · " + value.data.transactions.size.toString() + " " + strings.transactionsLabel + "\n\n" + strings.restoreDialogNote)
+                Text(MR.strings.auth_setup_restore_summary.text(value.data.profile?.name.orEmpty(), value.data.transactions.size) + "\n\n" + strings.restoreDialogNote)
             },
             confirmButton = {
                 TextButton(enabled = !restoreBusy, onClick = {
@@ -346,6 +348,9 @@ fun OlloSetupFlow(
         onDismiss = { showCurrencyDialog = false },
     )
 }
+
+/** Urutan langkah: welcome, notifikasi, gaya, dompet (bahasa & mata uang mengikuti HP). */
+private val setupOrder = listOf(0, 3, 4, 5)
 
 private fun setupStepTitle(step: Int, strings: SetupStrings): String = when (step) {
     0 -> strings.welcomeTitle
@@ -402,7 +407,7 @@ private fun WelcomeStep(
     Column(Modifier.fillMaxWidth().testTag("setup-step-welcome"), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(120.dp)) {
             Box(Modifier.size(120.dp).clip(CircleShape).background(Color(0xFFF3F3F5)), contentAlignment = Alignment.Center) {
-                if (photo != null) Image(photo, "Foto profil", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                if (photo != null) Image(photo, MR.strings.auth_setup_photo_cd.text(), Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 else FFIcon("person_outline", Color(0xFF91929A), 54.dp)
             }
             Box(
@@ -764,7 +769,7 @@ private fun BalancePreview(strings: SetupStrings, preferences: AppPreferences, c
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(gradient.map { Color(it) }))) {
         Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                strings.totalBalance + " (" + currency + ")",
+                MR.strings.auth_setup_total_balance.text(currency),
                 style = setupSmallStyle.copy(fontSize = 13.sp),
                 color = Color.White.copy(alpha = .85f),
             )

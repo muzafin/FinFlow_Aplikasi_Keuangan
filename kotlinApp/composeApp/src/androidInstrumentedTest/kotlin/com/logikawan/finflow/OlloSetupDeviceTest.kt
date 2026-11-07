@@ -47,7 +47,7 @@ class OlloSetupDeviceTest {
         ui.onNodeWithTag("setup-name").performScrollTo()
         ui.waitForIdle()
         ui.onNodeWithTag("setup-name-error", useUnmergedTree = true).assertIsDisplayed()
-        ui.onNodeWithTag("setup-name-error", useUnmergedTree = true).assertTextEquals(setupStrings("id").nameRequired)
+        ui.onNodeWithTag("setup-name-error", useUnmergedTree = true).assertTextEquals(setupStrings().nameRequired)
         screenshot("setup-welcome-error")
 
         ui.onNodeWithTag("setup-name").performTextInput("Pengguna Uji")
@@ -56,35 +56,12 @@ class OlloSetupDeviceTest {
         ui.onNodeWithTag("setup-next").performClick()
         ui.waitForIdle()
 
-        ui.onNodeWithTag("setup-step-language").assertIsDisplayed()
-        screenshot("setup-2-language")
-        ui.onNodeWithTag("lang-en").performClick()
-        ui.waitForIdle()
-        ui.onNodeWithText("Choose Language").assertIsDisplayed()
-        ui.onNodeWithTag("lang-id").performClick()
-        ui.waitForIdle()
-        ui.onNodeWithText("Pilih Bahasa").assertIsDisplayed()
+        // Bahasa & mata uang tidak lagi ditanyakan: mengikuti HP (SetupFakeNative: id / IDR).
+        ui.onNodeWithTag("setup-step-language").assertDoesNotExist()
+        ui.onNodeWithTag("setup-step-currency").assertDoesNotExist()
         ui.runOnIdle { assertTrue("Tombol back harus kembali ke langkah sebelumnya", lifecycle.back()) }
         ui.waitForIdle()
         ui.onNodeWithTag("setup-step-welcome").assertIsDisplayed()
-        ui.onNodeWithTag("setup-next").performClick()
-        ui.waitForIdle()
-        ui.onNodeWithTag("setup-next").performClick()
-        ui.waitForIdle()
-
-        ui.onNodeWithTag("setup-step-currency").assertIsDisplayed()
-        screenshot("setup-3-currency")
-        // Integrasi dialog "Lihat Semua" ala Ollo.
-        ui.onNodeWithTag("setup-view-all").performScrollTo().performClick()
-        ui.waitForIdle()
-        screenshot("setup-currency-picker")
-        ui.runOnIdle { assertTrue("Back harus menutup dialog mata uang", lifecycle.back()) }
-        ui.waitForIdle()
-        ui.onNodeWithTag("setup-step-currency").assertIsDisplayed()
-        ui.onNodeWithTag("currency-USD").performClick()
-        ui.waitForIdle()
-        ui.onNodeWithTag("currency-IDR").performClick()
-        ui.waitForIdle()
         ui.onNodeWithTag("setup-next").performClick()
         ui.waitForIdle()
 
@@ -123,7 +100,7 @@ class OlloSetupDeviceTest {
             assertEquals("Cash", result.walletName)
             assertEquals(0L, result.openingBalanceMinor)
             assertNull(result.photoBytes)
-            assertEquals("id", result.preferences.language)
+            assertEquals("system", result.preferences.language)
             assertEquals("dark", result.preferences.theme)
             assertEquals("emerald", result.preferences.cardGradient)
             assertEquals("ocean", result.preferences.menuTheme)
@@ -132,7 +109,6 @@ class OlloSetupDeviceTest {
         }
         File(screenshotDirectory(), "setup-1-welcome.png").let { assertTrue("Screenshot langkah pertama harus tersimpan", it.isFile) }
         File(screenshotDirectory(), "setup-welcome-error.png").let { assertTrue("Screenshot error nama lengkap harus tersimpan", it.isFile) }
-        File(screenshotDirectory(), "setup-currency-picker.png").let { assertTrue("Screenshot dialog mata uang harus tersimpan", it.isFile) }
     }
 
     private fun screenshot(name: String) {
@@ -153,6 +129,8 @@ class OlloSetupDeviceTest {
 private class SetupFakeNative : NativeServices {
     private val settings = mutableMapOf<String, String>()
     private var reminder = false
+    override fun deviceLanguage(): String = "id"
+    override fun deviceCurrency(): String = "IDR"
     override fun readSetting(key: String): String? = settings[key]
     override fun writeSetting(key: String, value: String) { settings[key] = value }
     override fun onboardingComplete() = false

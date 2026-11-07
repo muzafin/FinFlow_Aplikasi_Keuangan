@@ -7,6 +7,7 @@ import dev.gitlive.firebase.firestore.FirebaseFirestore
 import com.logikawan.finflow.core.data.FinanceTransaction as FirestoreTransaction
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.*
+import com.logikawan.finflow.i18n.*
 import kotlinx.datetime.LocalDate
 
 class PlanningRepository(private val db: FinanceDatabase, private val root: FinanceDocument) {
@@ -26,16 +27,16 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             f.copy(wishes = p.wishes, cards = p.cards, notes = p.notes, recurring = r.sortedBy { it.nextDate }, featuresReady = true)
         }.catch { e ->
             if (e is CancellationException) throw e
-            emit(FinanceData(featuresReady = false, featuresError = e.message ?: "Data fitur belum dapat dimuat"))
+            emit(FinanceData(featuresReady = false, featuresError = e.message ?: planText(MR.strings.plan_err_features_load)))
         }
     }
 
     private fun validAccount(account: Account, currency: String, active: Boolean = true) {
-        require((!active || !account.archived) && account.currency == currency && account.type!="savings") { "Pilih dompet biasa dengan mata uang yang sesuai; dana target dikelola melalui Setor / Tarik" }
+        require((!active || !account.archived) && account.currency == currency && account.type!="savings") { planText(MR.strings.plan_err_wallet_choice) }
     }
     private fun paymentDate(date: String) {
         LocalDate.parse(date)
-        require(date <= today().toString()) { "Tanggal pembayaran tidak boleh di masa depan" }
+        require(date <= today().toString()) { planText(MR.strings.plan_err_payment_date_future) }
     }
     private fun eventId(prefix: String, id: String, suffix: String = "") = "$prefix-$id$suffix"
 
@@ -62,11 +63,11 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             validAccount(account, value.currency); require(category.type == "expense")
             val previous = if (snapshot.exists) snapshot.data<Bill>() else null
             if (previous != null) {
-                require(previous.revision == value.revision) { "Tagihan berubah. Tutup dan buka ulang form." }
+                require(previous.revision == value.revision) { planText(MR.strings.plan_err_bill_changed) }
                 require(value.paidAt == previous.paidAt && value.lastPaymentId == previous.lastPaymentId)
             } else require(value.paidAt == 0L && value.lastPaymentId == null)
             if (previous != null && previous.paidAt > 0) require(value.amountMinor == previous.amountMinor && value.currency == previous.currency &&
-                value.accountId == previous.accountId && value.categoryId == previous.categoryId && value.dueDate == previous.dueDate && value.frequency == previous.frequency) { "Batalkan pembayaran sebelum mengubah tagihan yang sudah lunas" }
+                value.accountId == previous.accountId && value.categoryId == previous.categoryId && value.dueDate == previous.dueDate && value.frequency == previous.frequency) { planText(MR.strings.plan_err_bill_paid_edit) }
             set(ref, value.copy(anchorDay = if (previous != null && previous.dueDate == value.dueDate) previous.anchorDay else LocalDate.parse(value.dueDate).dayOfMonth,
                 revision = (previous?.revision ?: -1) + 1, createdAt = previous?.createdAt ?: value.createdAt))
         }
@@ -86,7 +87,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             val exists = get(collection("financialEvents").document(paymentId)).exists
             val account = get(collection("accounts").document(current.accountId)).data<Account>()
             if (exists) false else {
-                require(!current.archived && current.paidAt == 0L && current.dueDate == dueDate) { "Tagihan sudah dibayar atau jadwal berubah" }
+                require(!current.archived && current.paidAt == 0L && current.dueDate == dueDate) { planText(MR.strings.plan_err_bill_paid_or_changed) }
                 validAccount(account, current.currency)
                 val event = FinancialEvent(paymentId, "bill", id, current.title, current.amountMinor, current.currency,
                     current.accountId, date, dueDate, previousEventId = current.lastPaymentId)
@@ -108,17 +109,17 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             validAccount(account, value.currency, value.includeBalance)
             if (snapshot.exists) {
                 val old = snapshot.data<Debt>()
-                require(value.revision == old.revision) { "Data hutang berubah. Tutup dan buka ulang form." }
+                require(value.revision == old.revision) { planText(MR.strings.plan_err_debt_changed) }
                 require(value.amountMinor == old.amountMinor && value.currency == old.currency && value.accountId == old.accountId &&
                     value.direction == old.direction && value.includeBalance == old.includeBalance && value.issueDate == old.issueDate) {
-                    "Nominal, jenis dan dompet hutang yang sudah dicatat tidak dapat diganti. Batalkan pencatatan sebelum membuat ulang."
+                    planText(MR.strings.plan_err_debt_locked)
                 }
                 set(ref, value.copy(paidMinor = old.paidMinor, lastEventId = old.lastEventId, revision = old.revision + 1, createdAt = old.createdAt))
             } else {
                 require(value.paidMinor == 0L && value.lastEventId == null)
                 if (value.includeBalance) {
                     val initial = FinancialEvent(eventId("debt-initial", value.id), "debt_initial", value.id,
-                        if (value.direction == "borrowed") "Pinjaman dari ${value.person}" else "Pinjaman ke ${value.person}",
+                        if (value.direction == "borrowed") planText(MR.strings.plan_event_borrowed_from,value.person) else planText(MR.strings.plan_event_lent_to,value.person),
                         value.amountMinor, value.currency, value.accountId, value.issueDate)
                     stageEvent(initial, if (value.direction == "borrowed") "income" else "expense",
                         if (value.direction == "borrowed") "other_income" else "other_expense", value.note)
@@ -137,11 +138,11 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             val exists = get(collection("financialEvents").document(paymentId)).exists
             val account = get(collection("accounts").document(accountId)).data<Account>()
             if (exists) false else {
-                require(!current.archived && amount in 1..checkedAdd(current.amountMinor, -current.paidMinor)) { "Nominal cicilan melebihi sisa hutang" }
-                require(date >= current.issueDate) { "Tanggal cicilan tidak boleh sebelum tanggal pinjam" }
+                require(!current.archived && amount in 1..checkedAdd(current.amountMinor, -current.paidMinor)) { planText(MR.strings.plan_err_installment_exceeds) }
+                require(date >= current.issueDate) { planText(MR.strings.plan_err_installment_before_issue) }
                 validAccount(account, current.currency, current.includeBalance)
                 val event = FinancialEvent(paymentId, "debt_payment", id,
-                    if (current.direction == "borrowed") "Bayar hutang ke ${current.person}" else "Piutang dari ${current.person}",
+                    if (current.direction == "borrowed") planText(MR.strings.plan_event_pay_debt,current.person) else planText(MR.strings.plan_event_receivable_from,current.person),
                     amount, current.currency, accountId, date, transactionId = if (current.includeBalance) paymentId else null)
                 stageEvent(event, if (current.direction == "borrowed") "expense" else "income",
                     if (current.direction == "borrowed") "other_expense" else "other_income", current.note)
@@ -178,9 +179,9 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             if(value.kind=="bundle")validAccount(get(collection("accounts").document(value.accountId!!)).data(),value.currency)
             val old=if(snapshot.exists)snapshot.data<FinanceNote>() else null
             if(old!=null) {
-                require(value.revision==old.revision){"Bundle berubah. Tutup dan buka ulang formulir."}
+                require(value.revision==old.revision){planText(MR.strings.plan_err_bundle_changed_form)}
                 val paid=old.items.filter{it.paymentId!=null}
-                require(paid.all{it in value.items}){"Item yang sudah dibayar tidak dapat diubah; batalkan pembayarannya terlebih dahulu"}
+                require(paid.all{it in value.items}){planText(MR.strings.plan_err_bundle_paid_items)}
                 require(paid.isEmpty() || value.currency==old.currency && value.recordAs==old.recordAs && value.kind==old.kind)
                 require(value.items.filter{it.paymentId!=null}.all{item->old.items.any{it.id==item.id && it.paymentId==item.paymentId}})
             } else require(value.items.none{it.paymentId!=null})
@@ -213,17 +214,17 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
                     val categoryRef=collection("categories").document("notes")
                     val category=get(categoryRef)
                     if(exists)return@runTransaction false
-                    require(current.revision==expectedRevision+groupIndex){"Bundle berubah. Tutup konfirmasi dan periksa kembali nominalnya."}
-                    require(current.kind=="bundle" && !current.archived && current.recordAs==note.recordAs){"Bundle berubah atau diarsipkan"}
-                    val selected=group.map{itemId->current.items.singleOrNull{it.id==itemId} ?: error("Item tidak ditemukan")}
-                    require(selected.none{it.paymentId!=null}){"Item sudah dibayar. Muat ulang bundle."}
+                    require(current.revision==expectedRevision+groupIndex){planText(MR.strings.plan_err_bundle_changed_confirm)}
+                    require(current.kind=="bundle" && !current.archived && current.recordAs==note.recordAs){planText(MR.strings.plan_err_bundle_changed_archived)}
+                    val selected=group.map{itemId->current.items.singleOrNull{it.id==itemId} ?: error(planText(MR.strings.plan_err_item_not_found))}
+                    require(selected.none{it.paymentId!=null}){planText(MR.strings.plan_err_item_already_paid)}
                     validAccount(account,current.currency)
                     val total=selected.fold(0L){sum,item->checkedAdd(sum,item.amountMinor)}
                     require(total in 1..FinanceRepository.MAX_MONEY)
                     if(category.exists)require(category.data<Category>().type=="expense")
-                    val event=FinancialEvent(paymentId,"bundle",id,if(current.recordAs=="single")"Bundle: ${current.title}" else selected.single().name,
+                    val event=FinancialEvent(paymentId,"bundle",id,if(current.recordAs=="single")planText(MR.strings.plan_event_bundle,current.title) else selected.single().name,
                         total,current.currency,accountId,date,previousEventId=current.lastPaymentId,itemIds=group)
-                    if(!category.exists)set(categoryRef,Category("notes","Bundle belanja","expense",icon="checklist"))
+                    if(!category.exists)set(categoryRef,Category("notes",planText(MR.strings.plan_kind_bundle),"expense",icon="checklist"))
                     stageEvent(event,"expense","notes",current.body)
                     set(ref,current.copy(accountId=accountId,items=current.items.map{if(it.id in group)it.copy(checked=true,paymentId=paymentId) else it},
                         lastPaymentId=paymentId,revision=current.revision+1,updatedAt=nowMillis()))
@@ -231,7 +232,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
                 }
                 if(inserted)recorded++
             } catch(e:CancellationException){throw e}
-            catch(e:Exception){if(recorded>0)throw IllegalStateException("$recorded pencatatan berhasil. Ulangi item tersisa; pencatatan yang sudah berhasil tidak digandakan.",e) else throw e}
+            catch(e:Exception){if(recorded>0)throw IllegalStateException(planText(MR.strings.plan_err_partial_recorded,recorded),e) else throw e}
         }
         return recorded
     }
@@ -249,7 +250,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
         if(!withdraw) {
             val source=collection("accounts").document(accountId).get().data<Account>()
             val txs=collection("transactions").get().documents.map{it.data<Transaction>()}
-            require(FinanceData(transactions=txs).balance(source)>=amount){"Saldo dompet sumber tidak cukup"}
+            require(FinanceData(transactions=txs).balance(source)>=amount){planText(MR.strings.plan_err_source_balance)}
         }
         return db.runTransaction {
             val current=get(ref).data<Goal>()
@@ -257,17 +258,17 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             val wallet=get(collection("accounts").document(accountId)).data<Account>()
             val holding=get(holdingRef)
             if(exists)return@runTransaction false
-            require(!current.archived && current.holdingAccountId==goal.holdingAccountId){"Target berubah. Buka kembali target."}
-            require(wallet.type!="savings" && wallet.id!=holdingId){"Pilih dompet biasa"}
+            require(!current.archived && current.holdingAccountId==goal.holdingAccountId){planText(MR.strings.plan_err_goal_changed)}
+            require(wallet.type!="savings" && wallet.id!=holdingId){planText(MR.strings.plan_err_pick_regular_wallet)}
             validAccount(wallet,current.currency)
             val legacy=if(current.holdingAccountId==null)current.savedMinor else current.legacySavedMinor
-            if(withdraw)require(current.holdingAccountId!=null && amount<=current.savedMinor-legacy){"Penarikan melebihi dana yang disetor dari dompet. Progres manual lama tidak memindahkan uang."}
+            if(withdraw)require(current.holdingAccountId!=null && amount<=current.savedMinor-legacy){planText(MR.strings.plan_err_withdraw_exceeds)}
             if(holding.exists){val account=holding.data<Account>();require(account.type=="savings" && account.goalId==id && account.currency==current.currency && !account.archived)}
             else require(!withdraw)
             val next=checkedAdd(current.savedMinor,if(withdraw)-amount else amount)
             require(next in 0..FinanceRepository.MAX_MONEY)
             val event=FinancialEvent(paymentId,if(withdraw)"goal_withdrawal" else "goal_deposit",id,
-                if(withdraw)"Tarik dari ${current.name}" else "Setor ke ${current.name}",amount,current.currency,if(withdraw)holdingId else accountId,date)
+                if(withdraw)planText(MR.strings.plan_event_goal_withdraw,current.name) else planText(MR.strings.plan_event_goal_deposit,current.name),amount,current.currency,if(withdraw)holdingId else accountId,date)
             if(!holding.exists)set(holdingRef,Account(id=holdingId,name=current.name,type="savings",currency=current.currency,icon="savings",goalId=id))
             stageEvent(event,"transfer","transfer",toAccountId=if(withdraw)accountId else holdingId)
             set(ref,current.copy(savedMinor=next,holdingAccountId=holdingId,legacySavedMinor=legacy,revision=current.revision+1,lastEventId=event.id))
@@ -290,11 +291,11 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
         db.runTransaction {
             val expense = get(collection("transactions").document(value.expenseId)).data<Transaction>()
             val existing = get(ref)
-            require(expense.type == "expense" && !expense.scheduled && value.amountMinor <= expense.amountMinor) { "Klaim harus berasal dari pengeluaran aktual dan tidak melebihi nominalnya" }
+            require(expense.type == "expense" && !expense.scheduled && value.amountMinor <= expense.amountMinor) { planText(MR.strings.plan_err_claim_source) }
             require(value.currency == expense.currency && value.accountId == expense.accountId)
             if (existing.exists) {
                 val old = existing.data<Reimbursement>()
-                require(value.revision == old.revision && old.receivedAt == 0L) { "Klaim berubah atau sudah diterima" }
+                require(value.revision == old.revision && old.receivedAt == 0L) { planText(MR.strings.plan_err_claim_changed) }
                 set(ref, value.copy(receivedAt = 0, receivedAccountId = null, revision = old.revision + 1, createdAt = old.createdAt))
             } else {
                 require(value.receivedAt == 0L && value.receivedAccountId == null)
@@ -312,9 +313,9 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             val exists = get(collection("financialEvents").document(paymentId)).exists
             val account = get(collection("accounts").document(accountId)).data<Account>()
             if (exists) false else {
-                require(current.receivedAt == 0L) { "Klaim ini sudah diterima" }
+                require(current.receivedAt == 0L) { planText(MR.strings.plan_err_claim_received) }
                 validAccount(account, current.currency)
-                val event = FinancialEvent(paymentId, "reimbursement", id, "Reimburse: ${current.title}", current.amountMinor, current.currency, accountId, date)
+                val event = FinancialEvent(paymentId, "reimbursement", id, planText(MR.strings.plan_event_reimburse,current.title), current.amountMinor, current.currency, accountId, date)
                 stageEvent(event, "income", "other_income", current.note)
                 set(ref, current.copy(receivedAt = event.createdAt, receivedAccountId = accountId, revision = current.revision + 1))
                 true
@@ -326,7 +327,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
         val ref = collection("reimbursements").document(id)
         db.runTransaction {
             val current = get(ref).data<Reimbursement>()
-            require(current.receivedAt == 0L) { "Batalkan penerimaan reimburse sebelum menghapus klaim" }
+            require(current.receivedAt == 0L) { planText(MR.strings.plan_err_claim_cancel_first) }
             delete(ref)
         }
     }
@@ -341,12 +342,12 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             validAccount(account, value.currency); require(category.type == value.type)
             if (snapshot.exists) {
                 val old = snapshot.data<RecurringTransaction>()
-                require(old.revision == value.revision) { "Jadwal sudah diproses. Tutup dan buka ulang form." }
+                require(old.revision == value.revision) { planText(MR.strings.plan_err_schedule_processed) }
                 require(old.startDate == value.startDate)
                 set(ref, value.copy(revision = old.revision + 1, createdAt = old.createdAt, lastEventId = old.lastEventId,
                     anchorDay = if (value.nextDate == old.nextDate) old.anchorDay else value.anchorDay))
             } else {
-                require(value.startDate >= today().toString() && value.nextDate == value.startDate) { "Jadwal baru dimulai hari ini atau setelahnya" }
+                require(value.startDate >= today().toString() && value.nextDate == value.startDate) { planText(MR.strings.plan_err_schedule_start) }
                 set(ref, value.copy(revision = 0, lastEventId = null))
             }
         }
@@ -397,12 +398,12 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             val snapshot = get(eventRef)
             if (!snapshot.exists) return@runTransaction
             val event = snapshot.data<FinancialEvent>()
-            require(!get(collection("reimbursements").document(id)).exists){"Hapus klaim reimburse terkait sebelum membatalkan pencatatan ini"}
+            require(!get(collection("reimbursements").document(id)).exists){planText(MR.strings.plan_err_delete_claim_first)}
             when (event.kind) {
                 "bundle" -> {
                     val ref=collection("notes").document(event.referenceId)
                     val current=get(ref).data<FinanceNote>()
-                    require(event.itemIds.all{id->current.items.any{it.id==id && it.paymentId==event.id}}){"Item bundle sudah berubah"}
+                    require(event.itemIds.all{id->current.items.any{it.id==id && it.paymentId==event.id}}){planText(MR.strings.plan_err_bundle_item_changed)}
                     set(ref,current.copy(items=current.items.map{if(it.id in event.itemIds)it.copy(paymentId=null,checked=false) else it},archived=false,
                         lastPaymentId=if(current.lastPaymentId==id)event.previousEventId else current.lastPaymentId,revision=current.revision+1,updatedAt=nowMillis()))
                 }
@@ -412,14 +413,14 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
                     val holdingRef=collection("accounts").document(requireNotNull(current.holdingAccountId))
                     val holding=get(holdingRef).data<Account>()
                     val next=checkedAdd(current.savedMinor,if(event.kind=="goal_deposit")-event.amountMinor else event.amountMinor)
-                    require(next>=current.legacySavedMinor && next<=FinanceRepository.MAX_MONEY){"Batalkan penarikan dana terlebih dahulu sebelum membatalkan setoran"}
+                    require(next>=current.legacySavedMinor && next<=FinanceRepository.MAX_MONEY){planText(MR.strings.plan_err_cancel_withdraw_first)}
                     if(holding.archived)set(holdingRef,holding.copy(archived=false))
                     set(ref,current.copy(savedMinor=next,revision=current.revision+1,archived=false,lastEventId=id))
                 }
                 "bill" -> {
                     val ref = collection("bills").document(event.referenceId)
                     val current = get(ref).data<Bill>()
-                    require(current.lastPaymentId == id) { "Batalkan pembayaran tagihan terakhir terlebih dahulu" }
+                    require(current.lastPaymentId == id) { planText(MR.strings.plan_err_cancel_last_bill_payment) }
                     set(ref, current.copy(dueDate = event.periodDate, paidAt = 0, lastPaymentId = event.previousEventId, revision = current.revision + 1))
                 }
                 "debt_payment" -> {
@@ -430,7 +431,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
                 }
                 "debt_initial" -> {
                     val ref = collection("debts").document(event.referenceId)
-                    require(get(ref).data<Debt>().paidMinor == 0L) { "Batalkan seluruh cicilan sebelum menghapus hutang" }
+                    require(get(ref).data<Debt>().paidMinor == 0L) { planText(MR.strings.plan_err_cancel_installments_first) }
                     delete(ref)
                 }
                 "reimbursement" -> {
@@ -439,7 +440,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
                     set(ref, current.copy(receivedAt = 0, receivedAccountId = null, revision = current.revision + 1))
                 }
                 "recurring" -> Unit
-                else -> error("Jenis pembayaran tidak valid")
+                else -> error(planText(MR.strings.plan_err_payment_kind_invalid))
             }
             delete(eventRef)
             event.transactionId?.let { delete(collection("transactions").document(it)) }

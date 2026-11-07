@@ -1,5 +1,7 @@
 package com.logikawan.finflow.feature.ai
 
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.core.i18n.transactionTypeLabel
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.model.Transaction
 import com.logikawan.finflow.core.platform.NativeServices
@@ -7,6 +9,7 @@ import com.logikawan.finflow.core.util.currencyDigits
 import com.logikawan.finflow.core.util.money
 import com.logikawan.finflow.core.util.newId
 import com.logikawan.finflow.core.util.today
+import com.logikawan.finflow.i18n.*
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.functions.FirebaseFunctionsException
 import dev.gitlive.firebase.functions.functions
@@ -56,9 +59,9 @@ private fun FirebaseFunctionsException.friendly(fallback: String): String {
     val text = message.orEmpty()
     // Kode mentah (NOT_FOUND, INTERNAL, …) berarti function belum aktif atau server bermasalah.
     return if (text.isBlank() || text.matches(Regex("[A-Z_]+"))) when (text) {
-        "NOT_FOUND" -> "Layanan AI belum aktif di server FinFlow. Coba lagi nanti."
-        "UNAVAILABLE", "DEADLINE_EXCEEDED" -> "Server FinFlow sedang tidak terjangkau. Periksa koneksi lalu coba lagi."
-        "UNAUTHENTICATED" -> "Sesi berakhir. Masuk kembali ke akun FinFlow."
+        "NOT_FOUND" -> MR.strings.ai_err_service_not_active.text()
+        "UNAVAILABLE", "DEADLINE_EXCEEDED" -> MR.strings.ai_err_server_unreachable.text()
+        "UNAUTHENTICATED" -> MR.strings.ai_err_session_expired.text()
         else -> fallback
     } else text
 }
@@ -67,10 +70,10 @@ class AiService {
     private val functions get() = Firebase.functions("asia-southeast2")
     private suspend inline fun <reified T, reified R> call(name: String, data: T, timeoutSeconds: Int = 120): R = try {
         functions.httpsCallable(name, timeoutSeconds.seconds)(data).data<R>()
-    } catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly("Layanan AI belum tersedia"), e) }
+    } catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly(MR.strings.ai_err_service_unavailable.text()), e) }
 
     suspend fun status(): AiStatus = try { functions.httpsCallable("aiStatus", 30.seconds)().data<AiStatus>() }
-        catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly("Status AI belum dapat dimuat"), e) }
+        catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly(MR.strings.ai_err_status_unavailable.text()), e) }
     suspend fun setConsent(feature: AiFeature, granted: Boolean) { call<ConsentRequest, Map<String, String?>>("aiConsent", ConsentRequest(feature.id, granted), 30) }
     suspend fun parse(feature: AiFeature, text: String, context: AiContext): ParseResult =
         call("aiParseText", ParseRequest(feature.id, text.take(2000), context))
@@ -81,7 +84,7 @@ class AiService {
         call<AssistantRequest, AssistantReply>("aiAssistant", AssistantRequest(turns.takeLast(19).let { if (it.first().role != "user") it.drop(1) else it },
             summary.take(12000), settings.personality, settings.nickname.take(40), settings.preference.take(200), language)).reply
     suspend fun refreshPremium(): PremiumState = try { functions.httpsCallable("refreshPremium", 60.seconds)().data<PremiumState>() }
-        catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly("Status Premium belum dapat diperiksa"), e) }
+        catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly(MR.strings.ai_err_premium_check.text()), e) }
 }
 
 fun aiContext(data: FinanceData, language: String): AiContext {
@@ -106,7 +109,7 @@ fun AiDraft.toTransaction(data: FinanceData, fallbackWalletId: String, note: Str
     if (minor <= 0) return null
     val day = date?.takeIf { Regex("\\d{4}-\\d{2}-\\d{2}").matches(it) } ?: today().toString()
     return Transaction(id = newId(), type = finalType, amountMinor = minor, currency = wallet.currency, accountId = wallet.id,
-        categoryId = if (finalType == "transfer") "transfer" else category, title = title.ifBlank { if (finalType == "income") "Pemasukan" else "Pengeluaran" }.take(100),
+        categoryId = if (finalType == "transfer") "transfer" else category, title = title.ifBlank { transactionTypeLabel(if (finalType == "income") "income" else "expense") }.take(100),
         description = listOfNotNull(this.note, note).filter { it.isNotBlank() }.joinToString("\n").take(500), date = day,
         toAccountId = target, receivedAmountMinor = if (target != null) minor else null)
 }
@@ -184,13 +187,13 @@ fun receiptNote(details: ReceiptDetails, settings: ScanSettings, currency: Strin
             "items" -> details.items.takeIf { it.isNotEmpty() }?.joinToString("\n") { item ->
                 item.name + (item.quantity?.let { q -> " x${if (q % 1.0 == 0.0) q.toLong() else q}" } ?: "") + (amount(item.total)?.let { ": $it" } ?: "")
             }
-            "location" -> details.location?.let { "Lokasi: $it" }
-            "discount" -> amount(details.discount)?.let { "Diskon: $it" }
-            "tax" -> amount(details.tax)?.let { "Pajak: $it" }
-            "fees" -> amount(details.fees)?.let { "Biaya: $it" }
-            "payment" -> details.paymentMethod?.let { "Pembayaran: $it" }
-            "address" -> details.address?.let { "Alamat: $it" }
-            "phone" -> details.phone?.let { "Telepon: $it" }
+            "location" -> details.location?.let { MR.strings.ai_receipt_location.text(it) }
+            "discount" -> amount(details.discount)?.let { MR.strings.ai_receipt_discount.text(it) }
+            "tax" -> amount(details.tax)?.let { MR.strings.ai_receipt_tax.text(it) }
+            "fees" -> amount(details.fees)?.let { MR.strings.ai_receipt_fees.text(it) }
+            "payment" -> details.paymentMethod?.let { MR.strings.ai_receipt_payment.text(it) }
+            "address" -> details.address?.let { MR.strings.ai_receipt_address.text(it) }
+            "phone" -> details.phone?.let { MR.strings.ai_receipt_phone.text(it) }
             else -> null
         }
     }.joinToString("\n")

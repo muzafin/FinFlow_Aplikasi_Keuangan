@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.feature.planning.OlloDashedProgress
 import com.logikawan.finflow.feature.planning.OlloEmptyState
 import com.logikawan.finflow.feature.planning.OlloFab
@@ -38,9 +40,9 @@ internal val GoalAccent = Color(0xFF2196F3)
 internal fun fundedGoalAmount(goal:Goal)=if(goal.holdingAccountId==null)0L else (goal.savedMinor-goal.legacySavedMinor).coerceAtLeast(0)
 internal fun legacyGoalAmount(goal:Goal)=if(goal.holdingAccountId==null)goal.savedMinor else goal.legacySavedMinor
 internal fun goalMoney(value:Long,currency:String,preferences:AppPreferences)=if(preferences.hideBalances)"••••" else formatBalance(value,currency,preferences)
-internal fun bucketName(type:String)=when(type){"emergency"->"Dana Darurat";"locked"->"Terkunci / Deposito";else->"Target Standar"}
+internal fun bucketName(type:String)=when(type){"emergency"->MR.strings.acc_bucket_emergency.text();"locked"->MR.strings.acc_bucket_locked.text();else->MR.strings.acc_bucket_standard.text()}
 internal fun bucketIcon(type:String)=when(type){"emergency"->"warning_amber_rounded";"locked"->"lock_outline_rounded";else->"savings_rounded"}
-private fun bucketTypeLabel(type:String)=when(type){"emergency"->"DANA DARURAT";"locked"->"TERKUNCI / DEPOSITO";else->"STANDAR"}
+private fun bucketTypeLabel(type:String)=when(type){"emergency"->MR.strings.acc_bucket_badge_emergency.text();"locked"->MR.strings.acc_bucket_badge_locked.text();else->MR.strings.acc_bucket_badge_standard.text()}
 private fun percentText(fraction:Float):String{
     val tenths=(fraction*1000f).roundToInt()
     return "${tenths/10}.${abs(tenths%10)}"
@@ -57,21 +59,21 @@ fun GoalScreen(data:FinanceData,edit:(Goal)->Unit,add:()->Unit) {
             currencies.forEach{currency->
                 item(key="goal-summary-$currency"){GoalSummary(entries.filter{it.currency==currency},currency,preferences)}
             }
-            item { Text(if(archived)"Arsip Bucket" else "Bucket Keuangan",style=FFType.sectionTitle,color=FFColors.onSurface) }
+            item { Text(if(archived)MR.strings.acc_bucket_archive.text() else MR.strings.acc_bucket_list.text(),style=FFType.sectionTitle,color=FFColors.onSurface) }
             if(entries.isEmpty()) item {
                 Column(Modifier.fillMaxWidth().padding(top=48.dp),horizontalAlignment=Alignment.CenterHorizontally){
                     FFIcon("hi_piggy",FFColors.onSurfaceVariant.copy(alpha=.5f),64.dp)
                     Spacer(Modifier.height(14.dp))
-                    Text(if(archived)"Belum ada target diarsipkan" else "Belum ada target",style=FFType.bodyMain.copy(fontSize=15.5.sp),color=FFColors.onSurfaceVariant)
+                    Text(if(archived)MR.strings.acc_no_archived_goals.text() else MR.strings.acc_no_goals.text(),style=FFType.bodyMain.copy(fontSize=15.5.sp),color=FFColors.onSurfaceVariant)
                 }
             }
             items(entries,key={it.id}){goal->GoalCard(goal,preferences,edit)}
         }
         // Diletakkan setelah daftar agar versi tanpa App (uji) tetap dapat disentuh.
         TopBarActions {
-            OlloMenuButton(listOf(OlloMenuItem("archived",if(archived)"Tampilkan Target Aktif" else "Tampilkan Arsip","archive_rounded")),tint=FFColors.onSurface){key->if(key=="archived")archived=!archived}
+            OlloMenuButton(listOf(OlloMenuItem("archived",if(archived)MR.strings.acc_show_active_goals.text() else MR.strings.acc_show_archive.text(),"archive_rounded")),tint=FFColors.onSurface){key->if(key=="archived")archived=!archived}
         }
-        Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){OlloFab({add()},"Buat target baru")}
+        Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){OlloFab({add()},MR.strings.acc_create_goal.text())}
     }
 }
 
@@ -83,7 +85,7 @@ private fun GoalSummary(goals:List<Goal>,currency:String,preferences:AppPreferen
     val fraction=if(target>0)(funded.toFloat()/target).coerceIn(0f,1f) else 0f
     val percent=fraction*100f
     DesignCard {
-        Text("Total Tabungan",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+        Text(MR.strings.acc_total_savings.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
         Spacer(Modifier.height(10.dp))
         FitMoneyText(goalMoney(funded,currency,preferences),FFType.amountLg.copy(fontSize=33.sp,lineHeight=40.sp),FFColors.onSurface)
         Spacer(Modifier.height(18.dp))
@@ -91,7 +93,7 @@ private fun GoalSummary(goals:List<Goal>,currency:String,preferences:AppPreferen
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
-                Text("Terkumpul",style=FFType.metaData.copy(fontSize=10.5.sp),color=FFColors.onSurfaceVariant)
+                Text(MR.strings.acc_collected.text(),style=FFType.metaData.copy(fontSize=10.5.sp),color=FFColors.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Box(Modifier.weight(1f,fill=false)){FitMoneyText(goalMoney(funded,currency,preferences),FFType.metaData,FFColors.onSurface)}
@@ -100,13 +102,13 @@ private fun GoalSummary(goals:List<Goal>,currency:String,preferences:AppPreferen
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f),horizontalAlignment=Alignment.End) {
-                Text("Sisa Target",style=FFType.metaData.copy(fontSize=10.5.sp),color=FFColors.onSurfaceVariant)
+                Text(MR.strings.acc_remaining_target.text(),style=FFType.metaData.copy(fontSize=10.5.sp),color=FFColors.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 Box(Modifier.fillMaxWidth()){FitMoneyText(goalMoney((target-funded).coerceAtLeast(0),currency,preferences),FFType.metaData,FFColors.onSurface,TextAlign.End)}
             }
         }
 
-        if(legacy>0){Spacer(Modifier.height(6.dp));Text("Progres manual lama ${goalMoney(legacy,currency,preferences)} belum menjadi saldo dompet.",style=FFType.metaData,color=FFColors.onSurfaceVariant)}
+        if(legacy>0){Spacer(Modifier.height(6.dp));Text(MR.strings.acc_legacy_progress_summary.text(goalMoney(legacy,currency,preferences)),style=FFType.metaData,color=FFColors.onSurfaceVariant)}
     }
 }
 
@@ -126,12 +128,12 @@ private fun GoalCard(goal:Goal,preferences:AppPreferences,edit:(Goal)->Unit) {
                 Spacer(Modifier.height(2.dp))
                 Text(bucketTypeLabel(goal.bucketType),style=FFType.metaData.copy(fontSize=10.sp,lineHeight=14.sp,letterSpacing=1.sp),fontWeight=FontWeight.Medium,color=FFColors.onSurfaceVariant)
             }
-            OlloMenuButton(listOf(OlloMenuItem("detail","Lihat Detail","chevron_right_rounded")),tint=FFColors.outline){edit(goal)}
+            OlloMenuButton(listOf(OlloMenuItem("detail",MR.strings.acc_view_detail.text(),"chevron_right_rounded")),tint=FFColors.outline){edit(goal)}
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom) {
             Box(Modifier.weight(1f)){FitMoneyText(goalMoney(funded,goal.currency,preferences),FFType.amountMd.copy(fontWeight=FontWeight.SemiBold),FFColors.onSurface)}
-            Box(Modifier.weight(1f)){FitMoneyText("dari ${goalMoney(goal.targetMinor,goal.currency,preferences)} target",FFType.metaData,FFColors.onSurfaceVariant,TextAlign.End)}
+            Box(Modifier.weight(1f)){FitMoneyText(MR.strings.acc_of_target.text(goalMoney(goal.targetMinor,goal.currency,preferences)),FFType.metaData,FFColors.onSurfaceVariant,TextAlign.End)}
         }
         Spacer(Modifier.height(10.dp))
         OlloProgress(fraction,6.dp,accent)
@@ -139,11 +141,11 @@ private fun GoalCard(goal:Goal,preferences:AppPreferences,edit:(Goal)->Unit) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             FFIcon("calendar_today_rounded",if(overdue)FFColors.expense else FFColors.outline,14.dp)
             Spacer(Modifier.width(6.dp))
-            Text(if(goal.targetDate.isNotBlank())"Tenggat ${shortDateLabel(goal.targetDate)}" else "Tanpa tenggat",style=FFType.metaData,color=if(overdue)FFColors.expense else FFColors.outline)
+            Text(if(goal.targetDate.isNotBlank())MR.strings.acc_due_date.text(shortDateLabel(goal.targetDate)) else MR.strings.acc_no_due_date.text(),style=FFType.metaData,color=if(overdue)FFColors.expense else FFColors.outline)
             Spacer(Modifier.weight(1f))
             Text("${(fraction*100).toInt()}%",style=FFType.metaData,fontWeight=FontWeight.SemiBold,color=accent)
         }
-        if(legacy>0){Spacer(Modifier.height(8.dp));Text("Progres manual lama ${goalMoney(legacy,goal.currency,preferences)} · belum menjadi saldo dompet",style=FFType.metaData,color=FFColors.onSurfaceVariant)}
+        if(legacy>0){Spacer(Modifier.height(8.dp));Text(MR.strings.acc_legacy_progress_card.text(goalMoney(legacy,goal.currency,preferences)),style=FFType.metaData,color=FFColors.onSurfaceVariant)}
     }
 }
 

@@ -13,6 +13,8 @@ import com.logikawan.finflow.core.model.Profile
 import com.logikawan.finflow.core.platform.NativeServices
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 
 @OptIn(ExperimentalResourceApi::class)
 @Composable
@@ -26,7 +28,7 @@ fun ProfilePhoto(profile: Profile?, native: NativeServices, modifier: Modifier =
         onDispose { active = false }
     }
     Box(modifier, contentAlignment = Alignment.Center) {
-        bitmap?.let { Image(it, "Foto profil", Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+        bitmap?.let { Image(it, MR.strings.app_profile_photo.text(), Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
             ?: FFIcon("hi_user", FFColors.onSurfaceVariant, 40.dp)
     }
 }

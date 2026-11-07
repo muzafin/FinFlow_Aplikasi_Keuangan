@@ -18,7 +18,9 @@ import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.ui.*
+import com.logikawan.finflow.i18n.*
 
 @Composable
 fun AuthViews(screen:String,navigate:(String)->Unit,name:String,changeName:(String)->Unit,email:String,changeEmail:(String)->Unit,
@@ -30,50 +32,50 @@ fun AuthViews(screen:String,navigate:(String)->Unit,name:String,changeName:(Stri
         .verticalScroll(rememberScrollState()).padding(horizontal=24.dp)) {
         if(welcome) {
             Spacer(Modifier.height(54.dp))
-            Text("Selamat Datang",style=FFType.appTitle.copy(fontSize=32.sp,lineHeight=40.sp,fontWeight=FontWeight.Bold))
+            Text(MR.strings.auth_welcome_title.text(),style=FFType.appTitle.copy(fontSize=32.sp,lineHeight=40.sp,fontWeight=FontWeight.Bold))
             Spacer(Modifier.height(6.dp))
-            Text("Perjalanan menuju keuangan yang lebih baik dimulai di sini.",style=FFType.bodyMain.copy(fontSize=16.sp,lineHeight=24.sp),color=FFColors.onSurfaceVariant)
+            Text(MR.strings.auth_welcome_subtitle.text(),style=FFType.bodyMain.copy(fontSize=16.sp,lineHeight=24.sp),color=FFColors.onSurfaceVariant)
             Spacer(Modifier.height(18.dp))
             Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center){FinFlowLogo(140.dp)}
             Spacer(Modifier.height(20.dp))
-            EntryField("Nama lengkap","Nama lengkap",name,changeName,busy)
+            EntryField(MR.strings.auth_full_name.text(),MR.strings.auth_full_name.text(),name,changeName,busy,tag="Nama lengkap")
             Spacer(Modifier.height(28.dp))
-            Text("Mencari data lamamu?",Modifier.fillMaxWidth(),style=FFType.metaData,textAlign=TextAlign.Center,color=FFColors.onSurfaceVariant)
+            Text(MR.strings.auth_looking_for_old_data.text(),Modifier.fillMaxWidth(),style=FFType.metaData,textAlign=TextAlign.Center,color=FFColors.onSurfaceVariant)
             if(restore!=null) {
                 TextButton(onClick=restore,enabled=!busy,modifier=Modifier.align(Alignment.CenterHorizontally)) {
-                    FFIcon("history",entryAccent,20.dp);Spacer(Modifier.width(8.dp));Text("Pulihkan dari Cadangan",fontWeight=FontWeight.SemiBold)
+                    FFIcon("history",entryAccent,20.dp);Spacer(Modifier.width(8.dp));Text(MR.strings.auth_restore_from_backup.text(),fontWeight=FontWeight.SemiBold)
                 }
             }
-            GoogleEntryButton(busy,google,"Masuk dengan Google")
+            GoogleEntryButton(busy,google,MR.strings.auth_sign_in_google.text())
             Spacer(Modifier.height(12.dp))
-            Text("Baru di FinFlow? Lanjutkan tanpa akun dan data disimpan di perangkat ini. Hubungkan akun melalui Profil saat ingin memakai sinkronisasi cloud. Buat cadangan agar data lokal tetap aman.",
+            Text(MR.strings.auth_local_mode_note.text(),
                 style=FFType.metaData.copy(lineHeight=20.sp),color=FFColors.onSurfaceVariant,textAlign=TextAlign.Center)
             Spacer(Modifier.height(20.dp))
-            EntryButton("Lanjut",busy,continueLocal ?: {navigate("register")})
+            EntryButton(MR.strings.common_next.text(),busy,continueLocal ?: {navigate("register")})
             Spacer(Modifier.height(12.dp))
             Row(Modifier.align(Alignment.CenterHorizontally),verticalAlignment=Alignment.CenterVertically) {
-                Text("Sudah punya akun? ",style=FFType.metaData,color=FFColors.onSurfaceVariant)
-                Text("Masuk",Modifier.clickable(enabled=!busy){navigate("login")},style=FFType.metaData,fontWeight=FontWeight.Bold,color=entryAccent)
+                Text(MR.strings.auth_have_account.text()+" ",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+                Text(MR.strings.auth_sign_in.text(),Modifier.clickable(enabled=!busy){navigate("login")},style=FFType.metaData,fontWeight=FontWeight.Bold,color=entryAccent)
             }
         } else {
-            TextButton(onClick={navigate("welcome")},enabled=!busy,contentPadding=PaddingValues(0.dp)) { FFIcon("arrow_back",entryAccent,20.dp);Spacer(Modifier.width(8.dp));Text("Kembali") }
+            TextButton(onClick={navigate("welcome")},enabled=!busy,contentPadding=PaddingValues(0.dp)) { FFIcon("arrow_back",entryAccent,20.dp);Spacer(Modifier.width(8.dp));Text(MR.strings.common_back.text()) }
             Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center){FinFlowLogo(108.dp)}
             Spacer(Modifier.height(24.dp))
-            Text(if(login)"Selamat Datang Kembali" else "Buat Akun",style=FFType.appTitle.copy(fontSize=28.sp,lineHeight=36.sp,fontWeight=FontWeight.Bold))
-            Text(if(login)"Masuk untuk membuka data cloud milikmu." else "Hubungkan keuanganmu dengan akun FinFlow.",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+            Text(if(login)MR.strings.auth_welcome_back.text() else MR.strings.auth_create_account.text(),style=FFType.appTitle.copy(fontSize=28.sp,lineHeight=36.sp,fontWeight=FontWeight.Bold))
+            Text(if(login)MR.strings.auth_login_subtitle.text() else MR.strings.auth_register_subtitle.text(),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
-            if(!login){EntryField("Nama","Nama lengkap",name,changeName,busy);Spacer(Modifier.height(16.dp))}
-            EntryField("Email","nama@email.com",email,changeEmail,busy,keyboardType=KeyboardType.Email)
+            if(!login){EntryField(MR.strings.auth_name.text(),MR.strings.auth_full_name.text(),name,changeName,busy,tag="Nama");Spacer(Modifier.height(16.dp))}
+            EntryField(MR.strings.auth_email.text(),MR.strings.auth_email_placeholder.text(),email,changeEmail,busy,keyboardType=KeyboardType.Email,tag="Email")
             Spacer(Modifier.height(16.dp))
-            EntryField("Password","Minimal 8 karakter",password,changePassword,busy,secret=true)
-            if(login)TextButton(onClick=reset,enabled=!busy,modifier=Modifier.align(Alignment.End)){Text("Lupa password?")}
-            else {Spacer(Modifier.height(6.dp));Text("Minimal 8 karakter.",style=FFType.metaData,color=FFColors.onSurfaceVariant)}
-            Spacer(Modifier.height(24.dp));EntryButton(if(login)"Masuk" else "Daftar Sekarang",busy,submit)
-            Spacer(Modifier.height(16.dp));GoogleEntryButton(busy,google,"Masuk dengan Google")
+            EntryField(MR.strings.auth_password.text(),MR.strings.auth_password_min_placeholder.text(),password,changePassword,busy,secret=true,tag="Password")
+            if(login)TextButton(onClick=reset,enabled=!busy,modifier=Modifier.align(Alignment.End)){Text(MR.strings.auth_forgot_password.text())}
+            else {Spacer(Modifier.height(6.dp));Text(MR.strings.auth_password_min_hint.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)}
+            Spacer(Modifier.height(24.dp));EntryButton(if(login)MR.strings.auth_sign_in.text() else MR.strings.auth_register_now.text(),busy,submit)
+            Spacer(Modifier.height(16.dp));GoogleEntryButton(busy,google,MR.strings.auth_sign_in_google.text())
             Spacer(Modifier.height(24.dp))
             Row(Modifier.align(Alignment.CenterHorizontally)) {
-                Text(if(login)"Belum punya akun? " else "Sudah punya akun? ",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
-                Text(if(login)"Daftar" else "Masuk",Modifier.clickable(enabled=!busy){navigate(if(login)"register" else "login")},style=FFType.bodyMain,fontWeight=FontWeight.Bold,color=entryAccent)
+                Text((if(login)MR.strings.auth_no_account.text() else MR.strings.auth_have_account.text())+" ",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+                Text(if(login)MR.strings.auth_register.text() else MR.strings.auth_sign_in.text(),Modifier.clickable(enabled=!busy){navigate(if(login)"register" else "login")},style=FFType.bodyMain,fontWeight=FontWeight.Bold,color=entryAccent)
             }
         }
         error?.let { Spacer(Modifier.height(16.dp));Text(it,Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer,RoundedCornerShape(12.dp)).padding(12.dp),color=MaterialTheme.colorScheme.onErrorContainer) }
@@ -97,13 +99,14 @@ private fun GoogleEntryButton(busy:Boolean,onClick:()->Unit,label:String) {
     }
 }
 
+/** [tag] membentuk testTag `entry-<tag>`; tetap berupa label Indonesia agar tidak berubah mengikuti bahasa. */
 @Composable
-internal fun EntryField(label:String,placeholder:String,value:String,change:(String)->Unit,busy:Boolean,secret:Boolean=false,keyboardType:KeyboardType=KeyboardType.Text) {
+internal fun EntryField(label:String,placeholder:String,value:String,change:(String)->Unit,busy:Boolean,secret:Boolean=false,keyboardType:KeyboardType=KeyboardType.Text,tag:String=label) {
     var obscure by remember{mutableStateOf(true)}
-    OutlinedTextField(value,change,modifier=Modifier.fillMaxWidth().heightIn(min=60.dp).testTag("entry-${label.lowercase()}"),enabled=!busy,
+    OutlinedTextField(value,change,modifier=Modifier.fillMaxWidth().heightIn(min=60.dp).testTag("entry-${tag.lowercase()}"),enabled=!busy,
         label={Text(label)},placeholder={Text(placeholder)},singleLine=true,textStyle=FFType.bodyMain,
         keyboardOptions=KeyboardOptions(keyboardType=if(secret)KeyboardType.Password else keyboardType),
         visualTransformation=if(secret && obscure)PasswordVisualTransformation() else VisualTransformation.None,
-        trailingIcon=if(secret)({IconButton(onClick={obscure=!obscure},enabled=!busy){FFIcon(if(obscure)"visibility_outlined" else "visibility_off_outlined",contentDescription=if(obscure)"Tampilkan password" else "Sembunyikan password")}})else null,
+        trailingIcon=if(secret)({IconButton(onClick={obscure=!obscure},enabled=!busy){FFIcon(if(obscure)"visibility_outlined" else "visibility_off_outlined",contentDescription=if(obscure)MR.strings.auth_show_password.text() else MR.strings.auth_hide_password.text())}})else null,
         shape=RoundedCornerShape(18.dp),colors=OutlinedTextFieldDefaults.colors(focusedBorderColor=entryAccent,unfocusedBorderColor=Color(0xFFE1E3E6)))
 }

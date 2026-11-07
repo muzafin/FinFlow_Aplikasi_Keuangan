@@ -35,6 +35,10 @@ import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
 import com.logikawan.finflow.feature.planning.recurringOn
 import kotlinx.datetime.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.core.i18n.transactionTypeLabel
+import com.logikawan.finflow.i18n.*
+import dev.icerock.moko.resources.StringResource
 
 /*
  * Halaman "Berulang" bergaya Ollo: kartu kalender bulan dengan total jadwal, empty state
@@ -69,7 +73,7 @@ fun RecurringListScreen(
     if (!data.featuresReady) {
         Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
             Text(
-                data.featuresError?.let { "Data fitur gagal dimuat. $it\nBuka ulang aplikasi untuk memuat kembali." } ?: "Memuat data…",
+                data.featuresError?.let { MR.strings.tx_features_error.text(it) } ?: MR.strings.tx_loading.text(),
                 style = FFType.bodyMain, color = if (data.featuresError != null) FFColors.expense else FFColors.outline,
             )
         }
@@ -107,8 +111,8 @@ fun RecurringListScreen(
         // Ollo tidak punya baris tautan; aksi khusus FinFlow pindah ke menu ⋮ header.
         TopBarActions {
             com.logikawan.finflow.feature.planning.OlloMenuButton(listOf(
-                com.logikawan.finflow.feature.planning.OlloMenuItem("process", "Proses jadwal", "hi_recurring"),
-                com.logikawan.finflow.feature.planning.OlloMenuItem("calendar", "Kalender terjadwal", "hi_calendar"),
+                com.logikawan.finflow.feature.planning.OlloMenuItem("process", MR.strings.tx_process_schedule.text(), "hi_recurring"),
+                com.logikawan.finflow.feature.planning.OlloMenuItem("calendar", MR.strings.tx_scheduled_calendar.text(), "hi_calendar"),
             ), tint = FFColors.onSurface) { key -> if (key == "process") { if (!busy) onProcess() } else onCalendar() }
         }
     }
@@ -130,18 +134,18 @@ private fun RecurringCalendarCard(
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(horizontal = 12.dp, vertical = 14.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).clickable { moveMonth(month, -1, monthChange) }.testTag("recurring-prev"), contentAlignment = Alignment.Center) {
-                FFIcon("hi_chevron_left", FFColors.onSurface, 22.dp, "Bulan sebelumnya")
+                FFIcon("hi_chevron_left", FFColors.onSurface, 22.dp, MR.strings.tx_prev_month.text())
             }
             Text(monthLabel(month), Modifier.weight(1f), style = FFType.sectionTitle, color = FFColors.onSurface, textAlign = TextAlign.Center, maxLines = 1)
             Box(Modifier.size(40.dp).clip(CircleShape).clickable { moveMonth(month, 1, monthChange) }.testTag("recurring-next"), contentAlignment = Alignment.Center) {
-                FFIcon("hi_chevron_right", FFColors.onSurface, 22.dp, "Bulan berikutnya")
+                FFIcon("hi_chevron_right", FFColors.onSurface, 22.dp, MR.strings.tx_next_month.text())
             }
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth()) {
             days.take(7).forEach { day ->
                 Text(
-                    listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")[day.dayOfWeek.isoDayNumber - 1],
+                    txShortWeekday(day.dayOfWeek.isoDayNumber),
                     Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurfaceVariant.copy(alpha = .6f), textAlign = TextAlign.Center,
                 )
             }
@@ -173,9 +177,9 @@ private fun RecurringCalendarCard(
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.chip).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Total berulang bulan ini", style = FFType.metaData, color = FFColors.onSurface.copy(alpha = .85f))
+                Text(MR.strings.tx_recurring_total_month.text(), style = FFType.metaData, color = FFColors.onSurface.copy(alpha = .85f))
                 Text(
-                    if (selectedCount > 0) "$selectedCount jadwal pada ${shortDateLabel(selectedDate)}" else "$count jadwal terjadwal",
+                    if (selectedCount > 0) MR.strings.tx_schedules_on.text(selectedCount, shortDateLabel(selectedDate)) else MR.strings.tx_schedules_scheduled.text(count),
                     style = FFType.metaData.copy(fontSize = 10.7.sp), color = FFColors.onSurfaceVariant,
                 )
             }
@@ -201,7 +205,7 @@ private fun RecurringEmptyState(onAdd: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         FFIcon("hi_calendar_doc", FFColors.onSurfaceVariant.copy(alpha = .5f), 56.dp)
         Spacer(Modifier.height(10.dp))
-        Text("Belum ada jadwal berulang", style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+        Text(MR.strings.tx_recurring_empty.text(), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
         Row(
             Modifier.height(44.dp).clip(RoundedCornerShape(22.dp)).background(FFColors.pill)
@@ -210,7 +214,7 @@ private fun RecurringEmptyState(onAdd: () -> Unit) {
         ) {
             FFIcon("hi_add", FFColors.onPill, 20.dp)
             Spacer(Modifier.width(10.dp))
-            Text("Tambah Berulang", style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), color = FFColors.onPill)
+            Text(MR.strings.tx_add_recurring.text(), style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), color = FFColors.onPill)
         }
     }
 }
@@ -233,7 +237,7 @@ private fun RecurringItemCard(rule: RecurringTransaction, data: FinanceData, pre
                     style = FFType.metaData, color = FFColors.outline, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "Berikutnya ${shortDateLabel(rule.nextDate)}",
+                    MR.strings.tx_next_on.text(shortDateLabel(rule.nextDate)),
                     style = FFType.metaData, color = if (rule.nextDate < today().toString()) FFColors.expense else FFColors.outline,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
@@ -244,29 +248,34 @@ private fun RecurringItemCard(rule: RecurringTransaction, data: FinanceData, pre
                     if (preferences.hideBalances) "••••••" else formatBalance(rule.amountMinor, rule.currency, preferences),
                     FFType.amountMd, if (rule.type == "income") FFColors.income else FFColors.expense, TextAlign.End,
                 )
-                Text(if (rule.type == "income") "Masuk" else "Keluar", style = FFType.metaData, color = FFColors.outline)
+                Text(if (rule.type == "income") MR.strings.tx_in.text() else MR.strings.tx_out.text(), style = FFType.metaData, color = FFColors.outline)
             }
             Box {
                 Box(
                     Modifier.size(34.dp).clip(CircleShape).clickable { menu = true }.testTag("recurring-menu-${rule.id}"),
                     contentAlignment = Alignment.Center,
-                ) { FFIcon("more_vert", FFColors.outline, 20.dp, "Menu jadwal") }
+                ) { FFIcon("more_vert", FFColors.outline, 20.dp, MR.strings.tx_schedule_menu.text()) }
                 DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem(text = { Text("Edit", style = FFType.bodyMain) }, onClick = { menu = false; onEdit() })
-                    DropdownMenuItem(text = { Text("Arsipkan", style = FFType.bodyMain, color = FFColors.expense) }, onClick = { menu = false; onArchive() })
+                    DropdownMenuItem(text = { Text(MR.strings.tx_edit.text(), style = FFType.bodyMain) }, onClick = { menu = false; onEdit() })
+                    DropdownMenuItem(text = { Text(MR.strings.tx_archive.text(), style = FFType.bodyMain, color = FFColors.expense) }, onClick = { menu = false; onArchive() })
                 }
             }
         }
         rule.endDate?.let {
             Spacer(Modifier.height(8.dp))
-            Text("Berakhir ${shortDateLabel(it)}", style = FFType.metaData, color = FFColors.outline)
+            Text(MR.strings.tx_ends_on.text(shortDateLabel(it)), style = FFType.metaData, color = FFColors.outline)
         }
     }
 }
 
 private fun frequencyLabel(frequency: String, interval: Int): String {
-    val unit = when (frequency) { "daily" -> "hari"; "weekly" -> "minggu"; "yearly" -> "tahun"; else -> "bulan" }
-    return if (interval == 1) "Setiap $unit" else "Setiap $interval $unit"
+    return if (interval == 1) when (frequency) {
+        "daily" -> MR.strings.tx_every_day.text(); "weekly" -> MR.strings.tx_every_week.text()
+        "yearly" -> MR.strings.tx_every_year.text(); else -> MR.strings.tx_every_month.text()
+    } else when (frequency) {
+        "daily" -> MR.strings.tx_every_n_days.text(interval); "weekly" -> MR.strings.tx_every_n_weeks.text(interval)
+        "yearly" -> MR.strings.tx_every_n_years.text(interval); else -> MR.strings.tx_every_n_months.text(interval)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -302,9 +311,9 @@ fun RecurringFormEditor(
     fun submit() {
         if (busy) return
         try {
-            require(title.isNotBlank()) { "Judul transaksi berulang wajib diisi" }
-            require(categories.any { it.id == category }) { "Pilih kategori" }
-            require(accountId.isNotBlank()) { "Pilih dompet pembayaran" }
+            require(title.isNotBlank()) { MR.strings.tx_err_recurring_title.text() }
+            require(categories.any { it.id == category }) { MR.strings.tx_err_pick_category.text() }
+            require(accountId.isNotBlank()) { MR.strings.tx_err_pick_payment_wallet.text() }
             val value = minorAmount(amount, currency)
             val next = date
             val start = old?.takeIf { it.nextDate == next }?.startDate ?: next
@@ -319,24 +328,24 @@ fun RecurringFormEditor(
             PlanningValidation.recurring(recurring)
             error = null
             save(recurring)
-        } catch (e: Exception) { error = e.message ?: "Data jadwal berulang tidak valid" }
+        } catch (e: Exception) { error = e.message ?: MR.strings.tx_err_recurring_invalid.text() }
     }
 
     Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(Modifier.fillMaxSize().background(designBackground).safeDrawingPadding().imePadding().testTag("recurring-editor")) {
             Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(48.dp).clip(CircleShape).clickable { if (!busy) dismiss() }.testTag("recurring-close"), contentAlignment = Alignment.Center) {
-                    FFIcon("close_rounded", FFColors.onSurface, 24.dp, "Tutup")
+                    FFIcon("close_rounded", FFColors.onSurface, 24.dp, MR.strings.common_close.text())
                 }
-                Text(if (old == null) "Berulang Baru" else "Edit Berulang", Modifier.weight(1f), style = FFType.appTitle, textAlign = TextAlign.Center, color = FFColors.onSurface)
+                Text(if (old == null) MR.strings.tx_new_recurring.text() else MR.strings.tx_edit_recurring.text(), Modifier.weight(1f), style = FFType.appTitle, textAlign = TextAlign.Center, color = FFColors.onSurface)
                 Box(Modifier.size(48.dp).clip(CircleShape).clickable { submit() }.testTag("recurring-save"), contentAlignment = Alignment.Center) {
                     if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else FFIcon("check_rounded", if (amount.isNotBlank()) FFColors.onSurface else FFColors.outline, 26.dp, "Simpan")
+                    else FFIcon("check_rounded", if (amount.isNotBlank()) FFColors.onSurface else FFColors.outline, 26.dp, MR.strings.common_save.text())
                 }
             }
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(16.dp))
-                OlloLabel("Nominal")
+                OlloLabel(MR.strings.tx_amount.text())
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.height(54.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -357,7 +366,7 @@ fun RecurringFormEditor(
                 }
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(4.dp)) {
-                    listOf("expense" to "Pengeluaran", "income" to "Pemasukan").forEach { (value, label) ->
+                    listOf("expense", "income").map { it to transactionTypeLabel(it) }.forEach { (value, label) ->
                         val selected = type == value
                         Box(
                             Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(12.dp))
@@ -371,7 +380,7 @@ fun RecurringFormEditor(
                     }
                 }
                 Spacer(Modifier.height(22.dp))
-                OlloLabel("Kategori")
+                OlloLabel(MR.strings.tx_category.text())
                 Spacer(Modifier.height(10.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
                     items(categories, key = { it.id }) { cat ->
@@ -379,13 +388,13 @@ fun RecurringFormEditor(
                     }
                 }
                 Spacer(Modifier.height(22.dp))
-                OlloLabel("Judul")
+                OlloLabel(MR.strings.tx_title.text())
                 Spacer(Modifier.height(10.dp))
-                OlloTextField(title, { title = it.take(100) }, "cth. Gaji bulanan", enabled = !busy, tag = "recurring-title")
+                OlloTextField(title, { title = it.take(100) }, MR.strings.tx_recurring_title_placeholder.text(), enabled = !busy, tag = "recurring-title")
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OlloLabel("Frekuensi")
+                        OlloLabel(MR.strings.tx_frequency.text())
                         Box {
                             Row(
                                 Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface)
@@ -397,7 +406,7 @@ fun RecurringFormEditor(
                             }
                             DropdownMenu(frequencyMenu, { frequencyMenu = false }) {
                                 frequencyChoices.forEach { (value, label) ->
-                                    DropdownMenuItem(text = { Text(label, style = FFType.bodyMain) }, onClick = {
+                                    DropdownMenuItem(text = { Text(label.text(), style = FFType.bodyMain) }, onClick = {
                                         frequency = value; frequencyMenu = false
                                         interval = interval.coerceIn(1, 120)
                                     })
@@ -406,7 +415,7 @@ fun RecurringFormEditor(
                         }
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OlloLabel(if (old == null) "Tanggal mulai" else "Jadwal berikutnya")
+                        OlloLabel(if (old == null) MR.strings.tx_start_date.text() else MR.strings.tx_next_schedule.text())
                         Row(
                             Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface)
                                 .clickable(enabled = !busy) { datePicker = true }.padding(horizontal = 12.dp),
@@ -419,7 +428,7 @@ fun RecurringFormEditor(
                     }
                 }
                 Spacer(Modifier.height(22.dp))
-                OlloLabel("Ulangi setiap (${periodUnit(frequency)})")
+                OlloLabel(MR.strings.tx_repeat_every.text(periodUnit(frequency)))
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(FFColors.surface).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IntervalButton("−", enabled = !busy && interval > 1) { interval = (interval - 1).coerceAtLeast(1) }
@@ -431,8 +440,8 @@ fun RecurringFormEditor(
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Tanggal akhir", style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), fontWeight = FontWeight.Medium, color = FFColors.onSurfaceVariant)
-                        Text("Transaksi berhenti setelah tanggal ini", style = FFType.metaData, color = FFColors.outline)
+                        Text(MR.strings.tx_end_date.text(), style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), fontWeight = FontWeight.Medium, color = FFColors.onSurfaceVariant)
+                        Text(MR.strings.tx_end_date_hint.text(), style = FFType.metaData, color = FFColors.outline)
                     }
                     Switch(checked = hasEnd, onCheckedChange = { if (!busy) hasEnd = it })
                 }
@@ -449,11 +458,11 @@ fun RecurringFormEditor(
                     }
                 }
                 Spacer(Modifier.height(24.dp))
-                WalletChoice("Bayar dengan Dompet", accountId, data, walletOptions, !busy) { accountId = it }
+                WalletChoice(MR.strings.tx_pay_with_wallet.text(), accountId, data, walletOptions, !busy) { accountId = it }
                 Spacer(Modifier.height(22.dp))
-                OlloLabel("Catatan (opsional)")
+                OlloLabel(MR.strings.tx_note_optional.text())
                 Spacer(Modifier.height(10.dp))
-                OlloTextField(note, { note = it.take(4000) }, "Catatan", enabled = !busy, tag = "recurring-note")
+                OlloTextField(note, { note = it.take(4000) }, MR.strings.tx_note.text(), enabled = !busy, tag = "recurring-note")
                 error?.let {
                     Spacer(Modifier.height(14.dp))
                     Text(it, style = FFType.bodyMain, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("recurring-error"))
@@ -461,7 +470,7 @@ fun RecurringFormEditor(
                 archive?.let {
                     Spacer(Modifier.height(18.dp))
                     TextButton(enabled = !busy, onClick = it, modifier = Modifier.fillMaxWidth()) {
-                        Text("Arsipkan jadwal berulang", style = FFType.bodyMain, color = FFColors.expense)
+                        Text(MR.strings.tx_archive_recurring.text(), style = FFType.bodyMain, color = FFColors.expense)
                     }
                 }
                 Spacer(Modifier.height(28.dp))
@@ -476,11 +485,17 @@ fun RecurringFormEditor(
     }
 }
 
-private val frequencyChoices = listOf("daily" to "Harian", "weekly" to "Mingguan", "monthly" to "Bulanan", "yearly" to "Tahunan")
+private val frequencyChoices: List<Pair<String, StringResource>> = listOf(
+    "daily" to MR.strings.tx_freq_daily, "weekly" to MR.strings.tx_freq_weekly,
+    "monthly" to MR.strings.tx_freq_monthly, "yearly" to MR.strings.tx_freq_yearly,
+)
 
-private fun frequencyOption(frequency: String): String = frequencyChoices.firstOrNull { it.first == frequency }?.second ?: "Bulanan"
+private fun frequencyOption(frequency: String): String = (frequencyChoices.firstOrNull { it.first == frequency }?.second ?: MR.strings.tx_freq_monthly).text()
 
-private fun periodUnit(frequency: String): String = when (frequency) { "daily" -> "hari"; "weekly" -> "minggu"; "yearly" -> "tahun"; else -> "bulan" }
+private fun periodUnit(frequency: String): String = when (frequency) {
+    "daily" -> MR.strings.tx_unit_day.text(); "weekly" -> MR.strings.tx_unit_week.text()
+    "yearly" -> MR.strings.tx_unit_year.text(); else -> MR.strings.tx_unit_month.text()
+}
 
 @Composable
 private fun OlloLabel(text: String) {
@@ -550,8 +565,8 @@ private fun OlloDatePickerDialog(value: String, pick: (String) -> Unit, dismiss:
         confirmButton = {
             TextButton(onClick = {
                 state.selectedDateMillis?.let { millis -> pick(LocalDate.fromEpochDays((millis / 86400000L).toInt()).toString()) }
-            }) { Text("Pilih") }
+            }) { Text(MR.strings.tx_pick.text()) }
         },
-        dismissButton = { TextButton(onClick = dismiss) { Text("Batal") } },
+        dismissButton = { TextButton(onClick = dismiss) { Text(MR.strings.common_cancel.text()) } },
     ) { DatePicker(state) }
 }

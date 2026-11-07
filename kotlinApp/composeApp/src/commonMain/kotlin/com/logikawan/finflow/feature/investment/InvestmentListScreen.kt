@@ -26,6 +26,20 @@ import com.logikawan.finflow.core.ui.FFType
 import com.logikawan.finflow.core.ui.FeatureEmpty
 import com.logikawan.finflow.core.util.checkedAdd
 import com.logikawan.finflow.core.util.displayMoney
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
+
+/** Label tampilan jenis investasi (id `saham`, `reksaDana`, ... tetap pengenal yang disimpan). */
+fun investmentTypeLabel(type: String): String = when (type) {
+    "saham" -> MR.strings.acc_inv_stocks.text()
+    "reksaDana" -> MR.strings.acc_inv_mutual_fund.text()
+    "crypto" -> MR.strings.acc_inv_crypto.text()
+    "emas" -> MR.strings.acc_inv_gold.text()
+    "deposito" -> MR.strings.acc_inv_deposit.text()
+    "properti" -> MR.strings.acc_inv_property.text()
+    "p2pLending" -> MR.strings.acc_inv_p2p.text()
+    else -> type
+}
 
 @Composable
 fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> Unit) {
@@ -34,18 +48,18 @@ fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> U
         val currency = data.profile?.baseCurrency ?: "IDR"
         Column(Modifier.fillMaxSize().padding(16.dp).testTag("investment-empty"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(20.dp)) {
-                Text("Total Nilai Aset", style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant)
+                Text(MR.strings.acc_total_asset_value.text(), style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant)
                 Spacer(Modifier.height(14.dp))
                 Text(com.logikawan.finflow.core.util.formatBalance(0L, currency, com.logikawan.finflow.core.model.LocalPreferences.current), style = FFType.amountLg.copy(fontSize = 33.sp, lineHeight = 40.sp), color = FFColors.onSurface)
             }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(horizontal = 24.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 FFIcon("hi_wallet", FFColors.onSurfaceVariant.copy(alpha = .6f), 48.dp)
                 Spacer(Modifier.height(14.dp))
-                Text("Tambahkan asetmu untuk dipantau setiap hari", style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center)
+                Text(MR.strings.acc_investment_empty_hint.text(), style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(18.dp))
                 Row(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(23.dp)).border(1.dp, FFColors.outlineVariant, RoundedCornerShape(23.dp)).clickable(onClick = add).testTag("investment-add"),
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    FFIcon("hi_add", FFColors.onSurface, 18.dp); Spacer(Modifier.width(8.dp)); Text("Tambah Investasi", style = FFType.bodyMain.copy(fontSize = 15.sp))
+                    FFIcon("hi_add", FFColors.onSurface, 18.dp); Spacer(Modifier.width(8.dp)); Text(MR.strings.acc_add_investment.text(), style = FFType.bodyMain.copy(fontSize = 15.sp))
                 }
             }
         }
@@ -61,7 +75,7 @@ fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> U
             val positive = profit >= 0
             item("summary-$currency") {
                 Column(Modifier.fillMaxWidth().background(Brush.linearGradient(if (positive) listOf(FFColors.income.copy(alpha = .85f), FFColors.primary.copy(alpha = .85f)) else listOf(FFColors.expense.copy(alpha = .85f), Color(0xD9D32F2F))), RoundedCornerShape(20.dp)).padding(20.dp)) {
-                    Text("Total Portofolio", style = FFType.bodyMain, color = Color.White.copy(alpha = .7f))
+                    Text(MR.strings.acc_total_portfolio.text(), style = FFType.bodyMain, color = Color.White.copy(alpha = .7f))
                     Spacer(Modifier.height(4.dp))
                     Text(displayMoney(value, currency), style = FFType.amountLg, color = Color.White)
                     Spacer(Modifier.height(12.dp))
@@ -73,7 +87,7 @@ fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> U
                 }
             }
             item("allocation-$currency") {
-                Text("Alokasi Aset", style = FFType.sectionTitle)
+                Text(MR.strings.acc_asset_allocation.text(), style = FFType.sectionTitle)
                 Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
                     val trackColor = FFColors.outlineVariant
                     Canvas(Modifier.size(150.dp).padding(20.dp)) {
@@ -88,7 +102,7 @@ fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> U
                         }
                     }
                 }
-                Text("Daftar Investasi", style = FFType.sectionTitle)
+                Text(MR.strings.acc_investment_list.text(), style = FFType.sectionTitle)
             }
             items(investments, key = { it.id }) { inv ->
                 val gain = checkedAdd(checkedAdd(inv.currentMinor, inv.dividendsMinor), -inv.investedMinor)
@@ -99,7 +113,7 @@ fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> U
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(inv.name, style = FFType.bodyMain, fontWeight = FontWeight.SemiBold)
-                            Text(inv.type, style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                            Text(investmentTypeLabel(inv.type), style = FFType.metaData, color = FFColors.onSurfaceVariant)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text(displayMoney(inv.currentMinor, currency), style = FFType.amountSm)

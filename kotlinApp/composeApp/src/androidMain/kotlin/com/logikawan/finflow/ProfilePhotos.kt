@@ -1,5 +1,7 @@
 package com.logikawan.finflow
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -27,25 +29,25 @@ class ProfilePhotos(private val activity: FragmentActivity) {
             try {
                 val bytes = withContext(Dispatchers.IO) {
                     val raw = activity.contentResolver.openInputStream(uri).use { input ->
-                        requireNotNull(input) { "Foto tidak dapat dibaca" }
+                        requireNotNull(input) { MR.strings.core_photo_unreadable.text() }
                         val output = ByteArrayOutputStream()
                         val buffer = ByteArray(8192)
                         while (true) {
                             val count = input.read(buffer)
                             if (count < 0) break
-                            require(output.size() + count <= 5 * 1024 * 1024) { "Pilih foto maksimal 5 MB" }
+                            require(output.size() + count <= 5 * 1024 * 1024) { MR.strings.core_photo_max_5mb.text() }
                             output.write(buffer, 0, count)
                         }
                         output.toByteArray()
                     }
-                    require(raw.size <= 5 * 1024 * 1024) { "Pilih foto maksimal 5 MB" }
+                    require(raw.size <= 5 * 1024 * 1024) { MR.strings.core_photo_max_5mb.text() }
                     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
-                    require(bounds.outWidth in 1..20000 && bounds.outHeight in 1..20000) { "Format atau ukuran foto tidak didukung" }
+                    require(bounds.outWidth in 1..20000 && bounds.outHeight in 1..20000) { MR.strings.core_photo_format_size_unsupported.text() }
                     var sample = 1
                     while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 1024) sample *= 2
                     val bitmap = requireNotNull(BitmapFactory.decodeByteArray(raw, 0, raw.size,
-                        BitmapFactory.Options().apply { inSampleSize = sample })) { "Foto tidak dapat dibaca" }
+                        BitmapFactory.Options().apply { inSampleSize = sample })) { MR.strings.core_photo_unreadable.text() }
                     val orientation = runCatching { ExifInterface(ByteArrayInputStream(raw)).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
                     val matrix = Matrix().apply {
                         when (orientation) {
@@ -65,16 +67,16 @@ class ProfilePhotos(private val activity: FragmentActivity) {
                     }
                     finally { bitmap.recycle() }
                 }
-                require(bytes.size <= 2 * 1024 * 1024) { "Foto hasil kompresi terlalu besar" }
+                require(bytes.size <= 2 * 1024 * 1024) { MR.strings.core_photo_compressed_too_large.text() }
                 callback(bytes, null)
-            } catch (e: Exception) { callback(null, e.message ?: "Foto gagal dibaca") }
+            } catch (e: Exception) { callback(null, e.message ?: MR.strings.core_photo_read_failed.text()) }
         }
     }
     fun pick(result: (ByteArray?, String?) -> Unit) {
-        if (pending != null) { result(null, "Pemilihan foto masih berjalan"); return }
+        if (pending != null) { result(null, MR.strings.core_photo_picking_in_progress.text()); return }
         pending = result
         try { picker.launch("image/*") }
-        catch (e: Exception) { pending = null; result(null, "Pemilih foto tidak tersedia") }
+        catch (e: Exception) { pending = null; result(null, MR.strings.core_photo_picker_unavailable.text()) }
     }
     fun upload(uid: String, bytes: ByteArray, result: (String?, String?) -> Unit) {
         if(uid=="local") {
@@ -88,17 +90,17 @@ class ProfilePhotos(private val activity: FragmentActivity) {
                         try{output.write(bytes);file.finishWrite(output)}catch(e:Exception){file.failWrite(output);throw e}
                     }
                     result("local/profile/avatar.jpg",null)
-                }catch(e:Exception){result(null,"Foto lokal gagal disimpan")}
+                }catch(e:Exception){result(null,MR.strings.core_photo_local_save_failed.text())}
             }
             return
         }
         if (uid != FirebaseAuth.getInstance().currentUser?.uid || bytes.isEmpty() || bytes.size > 2 * 1024 * 1024) {
-            result(null, "Akun atau ukuran foto tidak valid"); return
+            result(null, MR.strings.core_photo_invalid_account_size.text()); return
         }
         val path = "users/$uid/profile/avatar.jpg"
         storage.reference.child(path).putBytes(bytes, StorageMetadata.Builder().setContentType("image/jpeg").build())
             .addOnSuccessListener { result(path, null) }
-            .addOnFailureListener { result(null, "Foto gagal diunggah. Periksa koneksi dan konfigurasi Storage.") }
+            .addOnFailureListener { result(null, MR.strings.core_photo_upload_failed_storage.text()) }
     }
     fun load(path: String, result: (ByteArray?, String?) -> Unit) {
         if(path=="local/profile/avatar.jpg") {
@@ -106,13 +108,13 @@ class ProfilePhotos(private val activity: FragmentActivity) {
                 try {
                     val bytes=withContext(Dispatchers.IO){val file=java.io.File(activity.noBackupFilesDir,"finflow-local/avatar.jpg");require(file.length() in 1..2*1024*1024);file.readBytes()}
                     result(bytes,null)
-                }catch(e:Exception){result(null,"Foto lokal belum dapat dimuat")}
+                }catch(e:Exception){result(null,MR.strings.core_photo_local_load_failed.text())}
             }
             return
         }
         val uid = FirebaseAuth.getInstance().currentUser?.uid
-        if (uid == null || path != "users/$uid/profile/avatar.jpg") { result(null, "Akses foto ditolak"); return }
+        if (uid == null || path != "users/$uid/profile/avatar.jpg") { result(null, MR.strings.core_photo_access_denied.text()); return }
         storage.reference.child(path).getBytes(2L * 1024 * 1024)
-            .addOnSuccessListener { result(it, null) }.addOnFailureListener { result(null, "Foto belum dapat dimuat") }
+            .addOnSuccessListener { result(it, null) }.addOnFailureListener { result(null, MR.strings.core_photo_load_failed.text()) }
     }
 }

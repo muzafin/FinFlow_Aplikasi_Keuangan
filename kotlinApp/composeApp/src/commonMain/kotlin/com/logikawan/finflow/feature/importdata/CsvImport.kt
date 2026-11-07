@@ -1,6 +1,7 @@
 package com.logikawan.finflow.feature.importdata
 
 import com.logikawan.finflow.core.data.FinanceRepository
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.model.Account
 import com.logikawan.finflow.core.model.Category
 import com.logikawan.finflow.core.model.FinanceData
@@ -8,6 +9,7 @@ import com.logikawan.finflow.core.model.ImportPlan
 import com.logikawan.finflow.core.model.Transaction
 import com.logikawan.finflow.core.util.decimalAmount
 import com.logikawan.finflow.core.util.minorAmount
+import com.logikawan.finflow.i18n.*
 import kotlinx.datetime.*
 
 object CsvImport {
@@ -18,7 +20,7 @@ object CsvImport {
 
     // Parser ditulis mandiri berdasarkan format publik CSV Ivy; bukan menyalin implementasi GPL.
     fun parse(text: String): List<List<String>> {
-        require(text.encodeToByteArray().size <= MAX_FILE_BYTES) { "CSV maksimal 5 MB" }
+        require(text.encodeToByteArray().size <= MAX_FILE_BYTES) { MR.strings.ai_csv_max_size.text() }
         val result = mutableListOf<List<String>>()
         var row = mutableListOf<String>()
         val cell = StringBuilder()
@@ -27,7 +29,7 @@ object CsvImport {
         var i = 0
         val input = text.removePrefix("\uFEFF")
         fun endCell() { row.add(cell.toString()); cell.clear(); closedQuote = false }
-        fun endRow() { endCell(); if (row.any { it.isNotBlank() }) result.add(row); row = mutableListOf(); require(result.size <= MAX_ROWS + 1) { "Maksimal $MAX_ROWS transaksi per file" } }
+        fun endRow() { endCell(); if (row.any { it.isNotBlank() }) result.add(row); row = mutableListOf(); require(result.size <= MAX_ROWS + 1) { MR.strings.ai_csv_max_rows.text(MAX_ROWS) } }
         while (i < input.length) {
             val c = input[i]
             when {
@@ -37,13 +39,13 @@ object CsvImport {
                 c == '"' && cell.isEmpty() && !closedQuote -> quoted = true
                 c == ',' -> endCell()
                 c == '\n' || c == '\r' -> { endRow(); if (c == '\r' && input.getOrNull(i + 1) == '\n') i++ }
-                closedQuote -> require(c == ' ' || c == '\t') { "Karakter tidak valid setelah tanda kutip CSV" }
-                c == '"' -> error("Tanda kutip CSV harus membungkus seluruh isi kolom")
+                closedQuote -> require(c == ' ' || c == '\t') { MR.strings.ai_csv_invalid_after_quote.text() }
+                c == '"' -> error(MR.strings.ai_csv_quote_whole_cell.text())
                 else -> cell.append(c)
             }
             i++
         }
-        require(!quoted) { "Tanda kutip CSV belum ditutup" }
+        require(!quoted) { MR.strings.ai_csv_quote_unclosed.text() }
         if (cell.isNotEmpty() || row.isNotEmpty() || closedQuote) endRow()
         return result
     }
@@ -51,55 +53,55 @@ object CsvImport {
     fun preview(text: String, source: String, existing: FinanceData): ImportPlan {
         require(source in listOf("ivy", "finflow"))
         val rows = parse(text)
-        require(rows.isNotEmpty()) { "CSV kosong" }
+        require(rows.isNotEmpty()) { MR.strings.ai_csv_empty.text() }
         val header = rows.first().map { it.trim().lowercase() }
-        require(header.distinct().size == header.size) { "Nama kolom CSV tidak boleh berulang" }
+        require(header.distinct().size == header.size) { MR.strings.ai_csv_duplicate_columns.text() }
         val required = listOf("Date", "Account", "Amount", "Currency", "Type", "ID")
-        require(required.all { it.lowercase() in header }) { "Kolom wajib: ${required.joinToString()}. Gunakan ekspor CSV Ivy atau template FinFlow." }
+        require(required.all { it.lowercase() in header }) { MR.strings.ai_csv_required_columns.text(required.joinToString()) }
         val accounts = mutableMapOf<String, Account>()
         val categories = mutableMapOf<String, Category>()
         val transactions = mutableListOf<Transaction>()
         val errors = mutableListOf<String>()
-        val warnings = mutableListOf("CSV transaksi tidak berisi saldo awal: sesuaikan saldo awal setiap dompet setelah impor.", "Tanggal CSV Ivy tanpa zona waktu dibaca memakai zona waktu perangkat saat impor.")
+        val warnings = mutableListOf(MR.strings.ai_csv_warn_opening_balance.text(), MR.strings.ai_csv_warn_timezone.text())
         val seen = existing.transactions.map { it.id }.toMutableSet()
         var duplicates = 0
         fun account(name: String, currency: String): Account {
-            require(name.isNotBlank() && name.length <= 100 && currency.matches(Regex("[A-Z]{3}"))) { "Nama dompet/kode mata uang tidak valid; aset kripto memerlukan impor khusus" }
+            require(name.isNotBlank() && name.length <= 100 && currency.matches(Regex("[A-Z]{3}"))) { MR.strings.ai_csv_invalid_wallet.text() }
             val matches = existing.accounts.filter { it.name == name && it.currency == currency && !it.archived }
-            require(matches.size <= 1) { "Ada beberapa dompet bernama $name ($currency); ubah nama agar unik" }
+            require(matches.size <= 1) { MR.strings.ai_csv_ambiguous_wallet.text(name, currency) }
             return matches.singleOrNull() ?: accounts.getOrPut("$currency:$name") {
                 val id = "import_" + hex("$currency:$name")
-                require(existing.accounts.none { it.id == id && it.archived }) { "Dompet $name diarsipkan; aktifkan kembali sebelum impor" }
+                require(existing.accounts.none { it.id == id && it.archived }) { MR.strings.ai_csv_archived_wallet.text(name) }
                 Account(id = id, name = name, currency = currency)
             }
         }
         rows.drop(1).forEachIndexed { index, row ->
             try {
-                require(row.size == header.size) { "Jumlah kolom berbeda dengan header" }
+                require(row.size == header.size) { MR.strings.ai_csv_column_count.text() }
                 fun value(name: String) = header.indexOf(name.lowercase()).let { if (it < 0) "" else row[it].trim() }
                 val externalId = value("ID")
                 val exportedId = if (source == "finflow") value("FinFlow ID") else ""
-                require(externalId.isNotBlank()) { "ID transaksi wajib diisi" }
-                require(exportedId.isEmpty() || exportedId.matches(Regex("[A-Za-z0-9_-]{1,1400}"))) { "FinFlow ID tidak valid" }
+                require(externalId.isNotBlank()) { MR.strings.ai_csv_id_required.text() }
+                require(exportedId.isEmpty() || exportedId.matches(Regex("[A-Za-z0-9_-]{1,1400}"))) { MR.strings.ai_csv_invalid_finflow_id.text() }
                 val origin = if (exportedId.isEmpty()) source else value("Source").ifBlank { "finflow" }
                 val originId = if (exportedId.isEmpty()) externalId else value("Source ID").ifBlank { null }
                 val managed = origin in com.logikawan.finflow.core.model.managedTransactionSources
-                require(origin in listOf("manual", "ivy", "finflow", "notification") || managed) { "Source transaksi tidak dikenali" }
-                require(originId == null || originId.length <= 200 && originId.encodeToByteArray().size <= 600) { "ID sumber maksimal 200 karakter/600 byte UTF-8" }
+                require(origin in listOf("manual", "ivy", "finflow", "notification") || managed) { MR.strings.ai_csv_unknown_source.text() }
+                require(originId == null || originId.length <= 200 && originId.encodeToByteArray().size <= 600) { MR.strings.ai_csv_source_id_too_long.text() }
                 val id = exportedId.ifEmpty { "${source}_" + hex(externalId) }
                 // Ekspor FinFlow mempertahankan ID jurnal agar impor ulang tidak menyalin transaksi sendiri.
                 if (id in seen) { duplicates++; return@forEachIndexed }
                 if (managed) {
-                    val warning = "CSV memulihkan jurnal pembayaran sebagai transaksi biasa. Tagihan, hutang, klaim dan jadwal berulang tidak disertakan dalam CSV."
+                    val warning = MR.strings.ai_csv_warn_managed.text()
                     if (warning !in warnings) warnings.add(warning)
                 }
                 val type = value("Type").lowercase()
-                require(type in listOf("income", "expense", "transfer")) { "Type harus INCOME, EXPENSE, atau TRANSFER" }
+                require(type in listOf("income", "expense", "transfer")) { MR.strings.ai_csv_invalid_type.text() }
                 val currency = (if (type == "transfer") value("Transfer Currency").ifBlank { value("Currency") } else value("Currency")).uppercase()
                 val from = account(value("Account"), currency)
                 val to = if (type == "transfer") account(value("To Account"), value("Receive Currency").ifBlank { currency }.uppercase()) else null
                 val categoryName = value("Category").ifBlank { "Lainnya" }
-                require(categoryName.length <= 100) { "Nama kategori maksimal 100 karakter" }
+                require(categoryName.length <= 100) { MR.strings.ai_csv_category_too_long.text() }
                 val category = if (type == "transfer") null else {
                     existing.categories.find { it.name == categoryName && it.type == type }
                         ?: categories.getOrPut("$type:$categoryName") { Category("import_" + hex("$type:$categoryName"), categoryName, type) }
@@ -110,7 +112,7 @@ object CsvImport {
                 fun amountValue(raw: String, code: String): Long {
                     // Ekspor Ivy memakai angka Inggris berkoma ribuan, misalnya "1,234.50".
                     val normalized = if (source == "ivy" && ',' in raw) {
-                        require(Regex("[0-9]{1,3}(,[0-9]{3})+(\\.[0-9]+)?").matches(raw)) { "Pemisah ribuan pada nominal Ivy tidak valid" }
+                        require(Regex("[0-9]{1,3}(,[0-9]{3})+(\\.[0-9]+)?").matches(raw)) { MR.strings.ai_csv_invalid_ivy_grouping.text() }
                         raw.replace(",", "")
                     } else raw
                     return minorAmount(normalized, code)
@@ -124,7 +126,7 @@ object CsvImport {
                 FinanceRepository.validateTransaction(tx)
                 if (!seen.add(id)) duplicates++ else transactions.add(tx)
             } catch (e: Exception) {
-                errors.add("Baris ${index + 2}: ${e.message ?: "Data tidak valid"}")
+                errors.add(MR.strings.ai_csv_row_error.text(index + 2, e.message ?: MR.strings.ai_csv_invalid_data.text()))
             }
         }
         return ImportPlan(accounts.values.toList(), categories.values.toList(), transactions, errors, warnings, duplicates)
@@ -132,7 +134,7 @@ object CsvImport {
 
     private fun hex(value: String) = value.encodeToByteArray().joinToString("") { it.toUByte().toString(16).padStart(2, '0') }
     private fun parseDate(value: String): String {
-        require(value.isNotBlank()) { "Date atau Due Date wajib diisi" }
+        require(value.isNotBlank()) { MR.strings.ai_csv_date_required.text() }
         return when {
             value.length == 10 -> LocalDate.parse(value).toString()
             value.endsWith('Z') || Regex("[+-]\\d\\d:\\d\\d$").containsMatchIn(value) -> Instant.parse(value).toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()

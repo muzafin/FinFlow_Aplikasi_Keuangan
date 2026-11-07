@@ -14,10 +14,13 @@ import androidx.compose.ui.unit.dp
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.core.i18n.transactionTypeLabel
+import com.logikawan.finflow.i18n.*
 import kotlinx.datetime.LocalDate
 
 private val decimalKeyboard=KeyboardOptions(keyboardType=KeyboardType.Decimal)
-private val frequencies=listOf("daily" to "Harian","weekly" to "Mingguan","monthly" to "Bulanan","yearly" to "Tahunan")
+private fun frequencies()=listOf("daily" to MR.strings.plan_freq_daily.text(),"weekly" to MR.strings.plan_freq_weekly.text(),"monthly" to MR.strings.plan_freq_monthly.text(),"yearly" to MR.strings.plan_freq_yearly.text())
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,7 +37,7 @@ fun PlanDateField(label:String,value:String,change:(String)->Unit,enabled:Boolea
         val state=rememberDatePickerState(initialSelectedDateMillis=runCatching{LocalDate.parse(value).toEpochDays().toLong()*86400000L}.getOrNull())
         DatePickerDialog(onDismissRequest={open=false},confirmButton={TextButton(onClick={
             state.selectedDateMillis?.let{change(LocalDate.fromEpochDays((it/86400000L).toInt()).toString())};open=false
-        }){Text("Pilih")}},dismissButton={TextButton(onClick={open=false}){Text("Batal")}}) { DatePicker(state) }
+        }){Text(MR.strings.plan_pick.text())}},dismissButton={TextButton(onClick={open=false}){Text(MR.strings.common_cancel.text())}}) { DatePicker(state) }
     }
 }
 
@@ -53,26 +56,26 @@ fun BillEditor(old:Bill?,data:FinanceData,busy:Boolean,dismiss:()->Unit,save:(Bi
     var error by remember{mutableStateOf<String?>(null)}
     val paid=old?.paidAt?.let{it>0} ?: false
     var archived by remember{mutableStateOf(old?.archived ?: false)}
-    EditorDialog(if(old==null)"Tambah Tagihan" else "Edit Tagihan",busy,dismiss,save={
+    EditorDialog(if(old==null)MR.strings.plan_bill_add_title.text() else MR.strings.plan_bill_edit_title.text(),busy,dismiss,save={
         if(!busy)try {
             val value=Bill(id,title.trim(),minorAmount(amount,currency),currency,accountId,category,date,frequency,LocalDate.parse(date).dayOfMonth,note.trim(),
                 old?.paidAt ?: 0,old?.lastPaymentId,archived,old?.revision ?: 0,old?.createdAt ?: nowMillis())
             PlanningValidation.bill(value);save(value)
         }catch(e:Exception){error=e.message}
     },archive,error) {
-        OlloFormSection("Detail Tagihan")
-        Field("Nama tagihan",title,{title=it},enabled=!busy)
-        Field("Jumlah tagihan ($currency)",amount,{amount=it},enabled=!busy,readOnly=paid,keyboardOptions=decimalKeyboard)
-        PlanDateField("Jatuh tempo",date,{date=it},enabled=!busy && !paid)
+        OlloFormSection(MR.strings.plan_bill_section_detail.text())
+        Field(MR.strings.plan_bill_name.text(),title,{title=it},enabled=!busy)
+        Field(MR.strings.plan_bill_amount.text(currency),amount,{amount=it},enabled=!busy,readOnly=paid,keyboardOptions=decimalKeyboard)
+        PlanDateField(MR.strings.plan_due_date.text(),date,{date=it},enabled=!busy && !paid)
         if(!paid) {
-            OlloFormSection("Kategori & Dompet")
-            Choice("Kategori",category,data.categories.filter{it.type=="expense"}.map{it.id to it.name},{if(!busy)category=it})
-            Choice("Pengulangan",frequency,listOf("once" to "Sekali") + frequencies.filter{it.first!="daily"},{if(!busy)frequency=it})
-            WalletChoice("Dompet pembayaran",accountId,data,data.accounts.filter{!it.archived && it.type!="savings"},!busy){accountId=it}
-        } else Text("Tagihan sudah lunas. Batalkan pembayarannya untuk mengubah nominal atau jadwal.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
-        Field("Catatan",note,{note=it},singleLine=false,enabled=!busy)
-        if(old!=null) Row(verticalAlignment=Alignment.CenterVertically) { Switch(archived,{archived=it},enabled=!busy);Spacer(Modifier.width(12.dp));Text("Diarsipkan",style=FFType.bodyMain) }
-        Text("Saldo berkurang ketika Anda mengonfirmasi pembayaran, bukan saat membuat tagihan.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            OlloFormSection(MR.strings.plan_section_category_wallet.text())
+            Choice(MR.strings.plan_category.text(),category,data.categories.filter{it.type=="expense"}.map{it.id to it.name},{if(!busy)category=it})
+            Choice(MR.strings.plan_repeat.text(),frequency,listOf("once" to MR.strings.plan_freq_once.text()) + frequencies().filter{it.first!="daily"},{if(!busy)frequency=it})
+            WalletChoice(MR.strings.plan_payment_wallet.text(),accountId,data,data.accounts.filter{!it.archived && it.type!="savings"},!busy){accountId=it}
+        } else Text(MR.strings.plan_bill_paid_locked.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
+        Field(MR.strings.plan_note.text(),note,{note=it},singleLine=false,enabled=!busy)
+        if(old!=null) Row(verticalAlignment=Alignment.CenterVertically) { Switch(archived,{archived=it},enabled=!busy);Spacer(Modifier.width(12.dp));Text(MR.strings.plan_archived.text(),style=FFType.bodyMain) }
+        Text(MR.strings.plan_bill_balance_hint.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
     }
 }
 
@@ -90,27 +93,27 @@ fun DebtEditor(old:Debt?,data:FinanceData,busy:Boolean,dismiss:()->Unit,save:(De
     var archived by remember{mutableStateOf(old?.archived ?: false)}
     var note by remember{mutableStateOf(old?.note.orEmpty())}
     var error by remember{mutableStateOf<String?>(null)}
-    EditorDialog(if(old==null)"Tambah Hutang / Piutang" else "Edit Hutang / Piutang",busy,dismiss,save={
+    EditorDialog(if(old==null)MR.strings.plan_debt_add_title.text() else MR.strings.plan_debt_edit_title.text(),busy,dismiss,save={
         if(!busy)try {
             val value=Debt(id,person.trim(),direction,minorAmount(amount,currency),old?.paidMinor ?: 0,currency,accountId,issueDate,dueDate,
                 include,note.trim(),archived,old?.lastEventId,old?.revision ?: 0,old?.createdAt ?: nowMillis())
             PlanningValidation.debt(value);save(value)
         }catch(e:Exception){error=e.message}
     },delete,error) {
-        if(old==null) Choice("Jenis",direction,listOf("borrowed" to "Saya berhutang","lent" to "Saya meminjamkan"),{if(!busy)direction=it})
-        OlloFormSection("Detail Hutang / Piutang")
-        Field("Nama debitur / kreditur",person,{person=it},enabled=!busy)
-        Field("Jumlah ($currency)",amount,{amount=it},enabled=!busy,readOnly=old!=null,keyboardOptions=decimalKeyboard)
-        if(old==null) PlanDateField("Tanggal pinjam",issueDate,{issueDate=it},!busy)
-        PlanDateField("Jatuh tempo",dueDate,{dueDate=it},!busy)
-        OlloFormSection("Dompet & Pencatatan")
+        if(old==null) Choice(MR.strings.plan_type.text(),direction,listOf("borrowed" to MR.strings.plan_debt_borrowed.text(),"lent" to MR.strings.plan_debt_lent.text()),{if(!busy)direction=it})
+        OlloFormSection(MR.strings.plan_debt_section_detail.text())
+        Field(MR.strings.plan_debt_person.text(),person,{person=it},enabled=!busy)
+        Field(MR.strings.plan_amount_currency.text(currency),amount,{amount=it},enabled=!busy,readOnly=old!=null,keyboardOptions=decimalKeyboard)
+        if(old==null) PlanDateField(MR.strings.plan_issue_date.text(),issueDate,{issueDate=it},!busy)
+        PlanDateField(MR.strings.plan_due_date.text(),dueDate,{dueDate=it},!busy)
+        OlloFormSection(MR.strings.plan_section_wallet_record.text())
         if(old==null) {
-            WalletChoice("Dompet",accountId,data,data.accounts.filter{!it.archived && it.type!="savings"},!busy){accountId=it}
-            Row(verticalAlignment=Alignment.CenterVertically) { Switch(include,{include=it},enabled=!busy);Spacer(Modifier.width(12.dp));Column { Text("Catat ke saldo dompet",style=FFType.bodyMain);Text("Aktif: pinjaman dan cicilan masuk jurnal.",style=FFType.metaData,color=FFColors.outline) } }
-        } else Text("Nominal awal, jenis dan dompet dikunci setelah pencatatan. Cicilan dicatat melalui tombol Bayar / Terima.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
-        Field("Catatan",note,{note=it},singleLine=false,enabled=!busy)
-        if(old!=null) Row(verticalAlignment=Alignment.CenterVertically) { Switch(archived,{archived=it},enabled=!busy);Spacer(Modifier.width(12.dp));Text("Diarsipkan",style=FFType.bodyMain) }
-        Text(if(old==null) (if(include) "Saat disimpan, saldo ${if(direction=="borrowed")"bertambah" else "berkurang"} sesuai nominal pinjaman." else "Hanya melacak hutang dan cicilan; saldo dan statistik tidak berubah.") else "Riwayat cicilan tetap tersimpan saat data diarsipkan.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            WalletChoice(MR.strings.plan_wallet.text(),accountId,data,data.accounts.filter{!it.archived && it.type!="savings"},!busy){accountId=it}
+            Row(verticalAlignment=Alignment.CenterVertically) { Switch(include,{include=it},enabled=!busy);Spacer(Modifier.width(12.dp));Column { Text(MR.strings.plan_debt_include.text(),style=FFType.bodyMain);Text(MR.strings.plan_debt_include_hint.text(),style=FFType.metaData,color=FFColors.outline) } }
+        } else Text(MR.strings.plan_debt_locked.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
+        Field(MR.strings.plan_note.text(),note,{note=it},singleLine=false,enabled=!busy)
+        if(old!=null) Row(verticalAlignment=Alignment.CenterVertically) { Switch(archived,{archived=it},enabled=!busy);Spacer(Modifier.width(12.dp));Text(MR.strings.plan_archived.text(),style=FFType.bodyMain) }
+        Text(if(old==null) (if(include) (if(direction=="borrowed")MR.strings.plan_debt_hint_increase.text() else MR.strings.plan_debt_hint_decrease.text()) else MR.strings.plan_debt_hint_tracking.text()) else MR.strings.plan_debt_hint_archive.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
     }
 }
 
@@ -131,7 +134,7 @@ fun RecurringEditor(old:RecurringTransaction?,data:FinanceData,busy:Boolean,dism
     var active by remember{mutableStateOf(old?.active ?: true)}
     var note by remember{mutableStateOf(old?.note.orEmpty())}
     var error by remember{mutableStateOf<String?>(null)}
-    EditorDialog(if(old==null)"Transaksi Berulang Baru" else "Edit Transaksi Berulang",busy,dismiss,save={
+    EditorDialog(if(old==null)MR.strings.plan_recurring_new_title.text() else MR.strings.plan_recurring_edit_title.text(),busy,dismiss,save={
         if(!busy)try {
             val value=RecurringTransaction(id,title.trim(),type,minorAmount(amount,currency),currency,accountId,category,frequency,
                 interval.toInt(),LocalDate.parse(date).dayOfMonth,old?.startDate ?: date,date,if(hasEnd)endDate else null,active,note.trim(),
@@ -139,21 +142,21 @@ fun RecurringEditor(old:RecurringTransaction?,data:FinanceData,busy:Boolean,dism
             PlanningValidation.recurring(value);save(value)
         }catch(e:Exception){error=e.message}
     },archive,error) {
-        Field("Jumlah ($currency)",amount,{amount=it},enabled=!busy,keyboardOptions=decimalKeyboard)
-        SegmentedTabs(listOf("expense" to "Pengeluaran","income" to "Pemasukan"),type,{if(!busy){type=it;category=data.categories.firstOrNull{c->c.type==it}?.id.orEmpty()}})
-        Choice("Kategori",category,data.categories.filter{it.type==type}.map{it.id to it.name},{if(!busy)category=it})
-        Field("Judul",title,{title=it},enabled=!busy)
+        Field(MR.strings.plan_amount_currency.text(currency),amount,{amount=it},enabled=!busy,keyboardOptions=decimalKeyboard)
+        SegmentedTabs(listOf("expense" to transactionTypeLabel("expense"),"income" to transactionTypeLabel("income")),type,{if(!busy){type=it;category=data.categories.firstOrNull{c->c.type==it}?.id.orEmpty()}})
+        Choice(MR.strings.plan_category.text(),category,data.categories.filter{it.type==type}.map{it.id to it.name},{if(!busy)category=it})
+        Field(MR.strings.plan_title.text(),title,{title=it},enabled=!busy)
         Row(horizontalArrangement=Arrangement.spacedBy(16.dp)) {
-            Column(Modifier.weight(1f)){Choice("Frekuensi",frequency,frequencies,{if(!busy)frequency=it})}
-            Column(Modifier.weight(1f)){PlanDateField(if(old==null)"Tanggal mulai" else "Jadwal berikutnya",date,{date=it},!busy)}
+            Column(Modifier.weight(1f)){Choice(MR.strings.plan_frequency.text(),frequency,frequencies(),{if(!busy)frequency=it})}
+            Column(Modifier.weight(1f)){PlanDateField(if(old==null)MR.strings.plan_start_date.text() else MR.strings.plan_next_schedule.text(),date,{date=it},!busy)}
         }
-        Field("Ulangi setiap (${when(frequency){"daily"->"hari";"weekly"->"minggu";"yearly"->"tahun";else->"bulan"}})",interval,{interval=it},enabled=!busy,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
-        Row { Checkbox(hasEnd,{hasEnd=it},enabled=!busy);Text("Gunakan tanggal akhir") }
-        if(hasEnd)PlanDateField("Tanggal akhir",endDate,{endDate=it},!busy)
-        WalletChoice("Bayar dengan Dompet",accountId,data,data.accounts.filter{!it.archived && it.type!="savings"},!busy){accountId=it}
-        Row { Switch(active,{active=it},enabled=!busy);Spacer(Modifier.width(12.dp));Text("Jadwal aktif") }
-        Field("Catatan",note,{note=it},singleLine=false,enabled=!busy)
-        Text("Jadwal yang jatuh tempo dicatat otomatis saat aplikasi dibuka. Pemeriksaan latar belakang mengikuti dukungan perangkat dan pembatasan sistem.",style=FFType.metaData,color=FFColors.onSurfaceVariant)
+        Field(MR.strings.plan_repeat_every.text(when(frequency){"daily"->MR.strings.plan_unit_day.text();"weekly"->MR.strings.plan_unit_week.text();"yearly"->MR.strings.plan_unit_year.text();else->MR.strings.plan_unit_month.text()}),interval,{interval=it},enabled=!busy,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
+        Row { Checkbox(hasEnd,{hasEnd=it},enabled=!busy);Text(MR.strings.plan_use_end_date.text()) }
+        if(hasEnd)PlanDateField(MR.strings.plan_end_date.text(),endDate,{endDate=it},!busy)
+        WalletChoice(MR.strings.plan_pay_with_wallet.text(),accountId,data,data.accounts.filter{!it.archived && it.type!="savings"},!busy){accountId=it}
+        Row { Switch(active,{active=it},enabled=!busy);Spacer(Modifier.width(12.dp));Text(MR.strings.plan_schedule_active.text()) }
+        Field(MR.strings.plan_note.text(),note,{note=it},singleLine=false,enabled=!busy)
+        Text(MR.strings.plan_recurring_hint.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
     }
 }
 
@@ -171,18 +174,18 @@ fun PaymentEditor(title:String,currency:String,amountMinor:Long,data:FinanceData
     EditorDialog(title,busy,dismiss,save={
         if(!busy)try {
             val minor=minorAmount(amount,currency)
-            require(minor in 1..amountMinor){"Nominal melebihi sisa pembayaran"}
-            require(date<=today().toString()){"Pembayaran tidak boleh di masa depan"}
-            require(account.isNotBlank() || !changesBalance){"Pilih dompet"}
+            require(minor in 1..amountMinor){MR.strings.plan_err_payment_exceeds.text()}
+            require(date<=today().toString()){MR.strings.plan_err_payment_future.text()}
+            require(account.isNotBlank() || !changesBalance){MR.strings.plan_err_pick_wallet.text()}
             confirm(PaymentRequest(minor,if(selectAccount)account else defaultAccountId,date,requestId))
         }catch(e:Exception){error=e.message}
     },error=error) {
-        Field("Nominal ($currency)",amount,{amount=it},enabled=!busy,readOnly=!partial,keyboardOptions=decimalKeyboard)
-        if(selectAccount) WalletChoice("Dompet",account,data,accounts,!busy){account=it}
-        else Text("Dompet: ${data.accountName(defaultAccountId)}",style=FFType.bodyMain)
-        PlanDateField("Tanggal pembayaran",date,{date=it},!busy)
-        Text(if(changesBalance)"Konfirmasi akan menyimpan transaksi dan memperbarui saldo dompet."
-            else "Pembayaran ini hanya memperbarui status hutang; tidak mengubah saldo.",style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
+        Field(MR.strings.plan_amount_nominal.text(currency),amount,{amount=it},enabled=!busy,readOnly=!partial,keyboardOptions=decimalKeyboard)
+        if(selectAccount) WalletChoice(MR.strings.plan_wallet.text(),account,data,accounts,!busy){account=it}
+        else Text(MR.strings.plan_wallet_named.text(data.accountName(defaultAccountId)),style=FFType.bodyMain)
+        PlanDateField(MR.strings.plan_payment_date.text(),date,{date=it},!busy)
+        Text(if(changesBalance)MR.strings.plan_payment_hint_balance.text()
+            else MR.strings.plan_payment_hint_status.text(),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
     }
 }
 

@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.model.Transaction
 import com.logikawan.finflow.core.ui.Choice
@@ -23,6 +24,7 @@ import com.logikawan.finflow.core.ui.FinanceCard
 import com.logikawan.finflow.core.ui.Field
 import com.logikawan.finflow.core.util.displayMoney
 import com.logikawan.finflow.core.util.nowMillis
+import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.notificationimport.NotificationCandidate
 import com.logikawan.finflow.notificationimport.NotificationImportStore
 import kotlinx.coroutines.Dispatchers
@@ -71,109 +73,109 @@ actual fun NotificationImportScreen(data: FinanceData, onReview: (Transaction, (
     LaunchedEffect(revision, accepted) { candidates = if (accepted) withContext(Dispatchers.IO) { store.candidates() } else emptyList() }
     fun settings() {
         try { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-        catch (_: Exception) { error = "Pengaturan akses notifikasi tidak tersedia pada perangkat ini" }
+        catch (_: Exception) { error = MR.strings.ai_notif_settings_unavailable.text() }
     }
     fun review(candidate: NotificationCandidate) {
         val account = accounts.find { it.id == candidate.accountId && it.currency == candidate.currency }
             ?: accounts.firstOrNull { it.currency == candidate.currency }
-        if (account == null) { error = "Tambahkan dompet aktif ${candidate.currency} terlebih dahulu"; return }
+        if (account == null) { error = MR.strings.ai_notif_add_wallet_first.text(candidate.currency); return }
         val category = data.categories.firstOrNull { it.type == candidate.type }
-        if (category == null) { error = "Tambahkan kategori ${candidate.type} terlebih dahulu"; return }
+        if (category == null) { error = MR.strings.ai_notif_add_category_first.text(candidate.type); return }
         val date = Instant.ofEpochMilli(candidate.postedAt).atZone(ZoneId.systemDefault()).toLocalDate().toString()
         val draft = Transaction(id = "notification-${candidate.id}", type = candidate.type, amountMinor = candidate.amountMinor,
-            currency = candidate.currency, accountId = account.id, categoryId = category.id, title = "Transaksi dari notifikasi",
+            currency = candidate.currency, accountId = account.id, categoryId = category.id, title = MR.strings.ai_notif_draft_title.text(),
             date = date, createdAt = nowMillis(), source = "notification", sourceId = candidate.id)
         onReview(draft) { store.dismiss(candidate.id) }
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Text("Impor transaksi bank/e-wallet", style = MaterialTheme.typography.headlineMedium) }
+        item { Text(MR.strings.ai_notif_title.text(), style = MaterialTheme.typography.headlineMedium) }
         item { Disclosure() }
         if (!accepted) {
             item {
                 Row {
                     Checkbox(consent, { consent = it })
-                    Text("Saya memahami dan menyetujui akses untuk fitur impor transaksi ini.", Modifier.weight(1f))
+                    Text(MR.strings.ai_notif_consent_check.text(), Modifier.weight(1f))
                 }
-                Button(enabled = consent && data.profile?.id != null, onClick = { store.acceptDisclosure() }, modifier = Modifier.fillMaxWidth()) { Text("Setujui & pilih aplikasi") }
-                TextButton(onClick = onOpenCsv) { Text("Gunakan CSV") }
+                Button(enabled = consent && data.profile?.id != null, onClick = { store.acceptDisclosure() }, modifier = Modifier.fillMaxWidth()) { Text(MR.strings.ai_notif_accept.text()) }
+                TextButton(onClick = onOpenCsv) { Text(MR.strings.ai_notif_use_csv.text()) }
             }
         } else {
             item { FinanceCard {
-                Text(if (enabled && granted) "Impor notifikasi aktif" else "Impor notifikasi belum aktif", style = MaterialTheme.typography.titleMedium)
-                Text("Izin Android: ${if (granted) "diberikan" else "belum diberikan"}")
-                if (!enabled) Button(enabled = sources.isNotEmpty(), onClick = { store.setEnabled(true); settings() }) { Text("Aktifkan & buka pengaturan Android") }
+                Text(if (enabled && granted) MR.strings.ai_notif_active.text() else MR.strings.ai_notif_inactive.text(), style = MaterialTheme.typography.titleMedium)
+                Text(if (granted) MR.strings.ai_notif_permission_granted.text() else MR.strings.ai_notif_permission_not_granted.text())
+                if (!enabled) Button(enabled = sources.isNotEmpty(), onClick = { store.setEnabled(true); settings() }) { Text(MR.strings.ai_notif_enable_open_settings.text()) }
                 else {
-                    if (!granted) Button(onClick = ::settings) { Text("Buka akses notifikasi Android") }
-                    OutlinedButton(onClick = { store.setEnabled(false) }) { Text("Nonaktifkan pemrosesan") }
+                    if (!granted) Button(onClick = ::settings) { Text(MR.strings.ai_notif_open_access.text()) }
+                    OutlinedButton(onClick = { store.setEnabled(false) }) { Text(MR.strings.ai_notif_disable.text()) }
                 }
-                TextButton(onClick = ::settings) { Text("Kelola/cabut izin Android") }
-                Text("Izin sistem mencakup akses notifikasi umum. FinFlow memeriksa pilihan aplikasi sebelum membaca isinya. Nonaktifkan pemrosesan di sini, atau cabut izin melalui Android.", style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = ::settings) { Text(MR.strings.ai_notif_manage_permission.text()) }
+                Text(MR.strings.ai_notif_permission_note.text(), style = MaterialTheme.typography.bodySmall)
             } }
             item { FinanceCard {
-                Text("Pilih sumber dan dompet", style = MaterialTheme.typography.titleMedium)
-                Text("Pilih hanya aplikasi bank/e-wallet milikmu. Daftar aplikasi tetap di perangkat.", style = MaterialTheme.typography.bodySmall)
-                Field("Cari aplikasi bank/e-wallet", query, { query = it; selectedApp = "" })
+                Text(MR.strings.ai_notif_pick_source_title.text(), style = MaterialTheme.typography.titleMedium)
+                Text(MR.strings.ai_notif_pick_source_caption.text(), style = MaterialTheme.typography.bodySmall)
+                Field(MR.strings.ai_notif_search_app.text(), query, { query = it; selectedApp = "" })
                 val choices = apps.filter { it.second.contains(query, true) || it.first.contains(query, true) }.take(50)
-                Choice("Aplikasi", selectedApp, choices.map { it.first to "${it.second} (${it.first})" }, { selectedApp = it })
-                Choice("Dompet tujuan pencatatan", selectedAccount, accounts.map { it.id to "${it.name} (${it.currency})" }, { selectedAccount = it })
-                if (accounts.isEmpty()) Text("Buat dompet terlebih dahulu pada tab Dompet.")
+                Choice(MR.strings.ai_notif_app.text(), selectedApp, choices.map { it.first to "${it.second} (${it.first})" }, { selectedApp = it })
+                Choice(MR.strings.ai_notif_target_wallet.text(), selectedAccount, accounts.map { it.id to "${it.name} (${it.currency})" }, { selectedAccount = it })
+                if (accounts.isEmpty()) Text(MR.strings.ai_notif_create_wallet_first.text())
                 Button(enabled = apps.any { it.first == selectedApp } && accounts.any { it.id == selectedAccount }, onClick = {
                     val account = accounts.first { it.id == selectedAccount }
                     store.selectSource(selectedApp, account.id, account.currency)
                     selectedApp = ""
-                }) { Text("Simpan sumber") }
-                Text("Maksimal 50 hasil ditampilkan; gunakan pencarian. Pemetaan dompet adalah nilai awal untuk pratinjau, bukan verifikasi rekening bank.", style = MaterialTheme.typography.bodySmall)
+                }) { Text(MR.strings.ai_notif_save_source.text()) }
+                Text(MR.strings.ai_notif_results_note.text(), style = MaterialTheme.typography.bodySmall)
             } }
             items(sources, key = { "source-${it.packageName}" }) { source -> FinanceCard {
                 Text(apps.find { it.first == source.packageName }?.second ?: source.packageName, style = MaterialTheme.typography.titleMedium)
                 Text("${data.accountName(source.accountId)} · ${source.currency}")
-                TextButton(onClick = { store.removeSource(source.packageName) }) { Text("Hapus sumber") }
+                TextButton(onClick = { store.removeSource(source.packageName) }) { Text(MR.strings.ai_notif_remove_source.text()) }
             } }
             item {
-                Text("Kandidat transaksi (${candidates.size})", style = MaterialTheme.typography.titleLarge)
-                Text("Kandidat belum memengaruhi saldo. Periksa nominal, arah, tanggal dan dompet sebelum menyimpan. Transfer antar-dompet milikmu dapat muncul dari dua aplikasi; catat satu transfer dan abaikan pasangannya.", style = MaterialTheme.typography.bodySmall)
-                Text("Format awal: nominal dengan kode/simbol mata uang yang jelas, pesan transaksi selesai berbahasa Indonesia/Inggris. Notifikasi ambigu, OTP, promo, atau konten yang disembunyikan Android tidak diimpor.", style = MaterialTheme.typography.bodySmall)
+                Text(MR.strings.ai_notif_candidates_title.text(candidates.size), style = MaterialTheme.typography.titleLarge)
+                Text(MR.strings.ai_notif_candidates_note.text(), style = MaterialTheme.typography.bodySmall)
+                Text(MR.strings.ai_notif_format_note.text(), style = MaterialTheme.typography.bodySmall)
             }
-            if (candidates.isEmpty()) item { Text("Belum ada kandidat. Hanya notifikasi baru setelah aktivasi yang diproses; kelengkapan bergantung pada isi notifikasi aplikasi sumber.") }
+            if (candidates.isEmpty()) item { Text(MR.strings.ai_notif_no_candidates.text()) }
             items(candidates, key = { "candidate-${it.id}" }) { candidate -> FinanceCard {
                 val existing = data.transactions.any { it.id == "notification-${candidate.id}" }
                 val date = Instant.ofEpochMilli(candidate.postedAt).atZone(ZoneId.systemDefault()).toLocalDate().toString()
                 val possibleDuplicate = data.transactions.any { it.date == date && it.type == candidate.type && it.amountMinor == candidate.amountMinor && it.currency == candidate.currency && it.accountId == candidate.accountId }
                 Text(candidate.appName, style = MaterialTheme.typography.titleMedium)
-                Text((if (candidate.type == "income") "Pemasukan " else "Pengeluaran ") + displayMoney(candidate.amountMinor, candidate.currency), color = if (candidate.type == "income") FFColors.income else FFColors.expense)
+                Text(if (candidate.type == "income") MR.strings.ai_notif_income_amount.text(displayMoney(candidate.amountMinor, candidate.currency)) else MR.strings.ai_notif_expense_amount.text(displayMoney(candidate.amountMinor, candidate.currency)), color = if (candidate.type == "income") FFColors.income else FFColors.expense)
                 Text("$date · ${data.accountName(candidate.accountId)}")
-                if (existing) Text("Sudah diimpor. Kandidat dapat diabaikan.")
-                else if (possibleDuplicate) Text("Ada transaksi dengan tanggal, dompet dan nominal sama. Periksa kemungkinan duplikat.", color = FFColors.expense)
+                if (existing) Text(MR.strings.ai_notif_already_imported.text())
+                else if (possibleDuplicate) Text(MR.strings.ai_notif_possible_duplicate.text(), color = FFColors.expense)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(enabled = !existing, onClick = { review(candidate) }) { Text("Tinjau") }
-                    TextButton(onClick = { store.dismiss(candidate.id) }) { Text("Abaikan") }
+                    Button(enabled = !existing, onClick = { review(candidate) }) { Text(MR.strings.ai_notif_review.text()) }
+                    TextButton(onClick = { store.dismiss(candidate.id) }) { Text(MR.strings.ai_notif_ignore.text()) }
                 }
             } }
             item {
-                Text("Kandidat disimpan lokal, maksimal 300 item. Data berusia lebih dari 30 hari dibersihkan saat fitur dibaca/digunakan. Isi notifikasi asli tidak disimpan.", style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { clear = true }) { Text("Hapus semua kandidat lokal") }
-                TextButton(onClick = { revoke = true }) { Text("Cabut persetujuan & hapus pengaturan impor") }
-                TextButton(onClick = onOpenCsv) { Text("Impor CSV") }
+                Text(MR.strings.ai_notif_storage_note.text(), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { clear = true }) { Text(MR.strings.ai_notif_clear_all.text()) }
+                TextButton(onClick = { revoke = true }) { Text(MR.strings.ai_notif_revoke_all.text()) }
+                TextButton(onClick = onOpenCsv) { Text(MR.strings.ai_import_csv.text()) }
             }
         }
         error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
     }
     if (clear || revoke) AlertDialog(onDismissRequest = { clear = false; revoke = false },
-        title = { Text(if (revoke) "Cabut persetujuan impor?" else "Hapus kandidat lokal?") },
-        text = { Text("Kandidat yang belum disimpan akan dihapus. Transaksi yang sudah dikonfirmasi di akun Firebase tetap ada. Untuk mencabut izin sistem, gunakan pengaturan Android.") },
+        title = { Text(if (revoke) MR.strings.ai_notif_revoke_title.text() else MR.strings.ai_notif_clear_title.text()) },
+        text = { Text(MR.strings.ai_notif_clear_body.text()) },
         confirmButton = { TextButton(onClick = {
             if (revoke) { store.revokeConsent(); consent = false } else store.clearCandidates()
             clear = false; revoke = false
-        }) { Text("Lanjutkan") } }, dismissButton = { TextButton(onClick = { clear = false; revoke = false }) { Text("Batal") } })
+        }) { Text(MR.strings.ai_continue.text()) } }, dismissButton = { TextButton(onClick = { clear = false; revoke = false }) { Text(MR.strings.common_cancel.text()) } })
 }
 
 @Composable
 private fun Disclosure() {
     FinanceCard {
-        Text("Persetujuan akses notifikasi", style = MaterialTheme.typography.titleMedium)
-        Text("FinFlow menggunakan akses notifikasi Android untuk menemukan kandidat pemasukan dan pengeluaran dari aplikasi bank/e-wallet yang kamu pilih, termasuk ketika FinFlow tidak sedang dibuka.")
-        Text("Android memberikan akses notifikasi umum. FinFlow menyaring aplikasi pilihan sebelum membaca isi pesannya. OTP, PIN, password, promo dan pesan yang tidak dapat dikenali sebagai transaksi diabaikan.")
-        Text("Daftar aplikasi dan kandidat diproses lokal di perangkat. Isi notifikasi asli tidak disimpan atau dikirim. Hanya data transaksi yang kamu tinjau dan konfirmasi yang dikirim ke Firebase akunmu untuk pencatatan/sinkronisasi.")
-        Text("Fitur opsional; pencatatan manual dan CSV tetap bisa dipakai tanpa izin ini. Kamu dapat menghentikan pemrosesan, menghapus kandidat lokal, serta mencabut izin pada pengaturan Android.")
+        Text(MR.strings.ai_notif_disclosure_title.text(), style = MaterialTheme.typography.titleMedium)
+        Text(MR.strings.ai_notif_disclosure_1.text())
+        Text(MR.strings.ai_notif_disclosure_2.text())
+        Text(MR.strings.ai_notif_disclosure_3.text())
+        Text(MR.strings.ai_notif_disclosure_4.text())
     }
 }

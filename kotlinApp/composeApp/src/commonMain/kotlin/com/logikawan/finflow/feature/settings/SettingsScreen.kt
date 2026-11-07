@@ -13,6 +13,8 @@ import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.platform.NativeServices
 import com.logikawan.finflow.core.ui.Field
 import com.logikawan.finflow.feature.importdata.CsvImport
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 
 @Composable
 fun Settings(native: NativeServices, email: String, data: FinanceData, addCategory: () -> Unit, logout: () -> Unit) {
@@ -24,24 +26,24 @@ fun Settings(native: NativeServices, email: String, data: FinanceData, addCatego
     Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(email, style = MaterialTheme.typography.titleMedium)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Kunci aplikasi", modifier = Modifier.weight(1f))
-            Switch(locked, { requested -> native.unlock { ok -> if (ok) { locked = requested; native.setLockEnabled(requested) } else message = "Autentikasi perangkat dibatalkan atau tidak tersedia" } })
+            Text(MR.strings.set_app_lock.text(), modifier = Modifier.weight(1f))
+            Switch(locked, { requested -> native.unlock { ok -> if (ok) { locked = requested; native.setLockEnabled(requested) } else message = MR.strings.set_auth_cancelled.text() } })
         }
-        Text("Kunci memakai biometrik atau kode perangkat. FinFlow tidak menyimpan sidik jari atau PIN perangkat.", style = MaterialTheme.typography.bodySmall)
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("Pengingat harian", Modifier.weight(1f)); Switch(reminder, { reminder = it }) }
+        Text(MR.strings.set_app_lock_hint.text(), style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically) { Text(MR.strings.set_daily_reminder.text(), Modifier.weight(1f)); Switch(reminder, { reminder = it }) }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Field("Jam 0–23", hour, { hour = it }, Modifier.weight(1f))
-            Field("Menit 0–59", minute, { minute = it }, Modifier.weight(1f))
+            Field(MR.strings.set_hour_field.text(), hour, { hour = it }, Modifier.weight(1f))
+            Field(MR.strings.set_minute_field.text(), minute, { minute = it }, Modifier.weight(1f))
         }
         Button(onClick = {
             val h = hour.toIntOrNull(); val m = minute.toIntOrNull()
-            if (h == null || m == null || h !in 0..23 || m !in 0..59) message = "Masukkan jam dan menit yang valid"
-            else native.setReminder(reminder, h, m) { error -> message = error ?: "Pengingat disimpan"; reminder = native.reminderEnabled() }
-        }) { Text("Simpan pengingat") }
+            if (h == null || m == null || h !in 0..23 || m !in 0..59) message = MR.strings.set_invalid_time.text()
+            else native.setReminder(reminder, h, m) { error -> message = error ?: MR.strings.set_reminder_saved.text(); reminder = native.reminderEnabled() }
+        }) { Text(MR.strings.set_save_reminder.text()) }
         message?.let { Text(it) }
-        OutlinedButton(onClick = addCategory) { Text("Tambah kategori") }
-        OutlinedButton(onClick = { native.shareCsv("finflow-transactions.csv", CsvImport.export(data)) }) { Text("Ekspor semua transaksi CSV") }
-        Text("CSV transaksi tidak menggantikan backup lengkap dompet, saldo awal, anggaran, target, dan investasi.", style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick = logout) { Text("Keluar") }
+        OutlinedButton(onClick = addCategory) { Text(MR.strings.set_add_category.text()) }
+        OutlinedButton(onClick = { native.shareCsv("finflow-transactions.csv", CsvImport.export(data)) }) { Text(MR.strings.set_export_all_csv.text()) }
+        Text(MR.strings.set_csv_not_backup.text(), style = MaterialTheme.typography.bodySmall)
+        OutlinedButton(onClick = logout) { Text(MR.strings.set_logout.text()) }
     }
 }

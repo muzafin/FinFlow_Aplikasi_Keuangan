@@ -1,6 +1,8 @@
 package com.logikawan.finflow.feature.settings
 
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.model.FinanceData
+import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.core.util.today
 import kotlinx.datetime.*
 
@@ -36,4 +38,35 @@ fun recordingProgress(data: FinanceData, date: LocalDate = today()): RecordingPr
     )
     // shortcut: progres dihitung dari jurnal yang tersedia; ledger XP permanen diperlukan sebelum kompetisi server.
     return RecordingProgress(records.size, days.size, streak, longest, records.size * 5 + achievements.filter { it.earned }.sumOf { it.xp }, achievements)
+}
+
+/*
+ * Judul pencapaian berbahasa Indonesia juga dipakai sebagai pengenal (ikon, pengelompokan lencana),
+ * jadi data tidak diubah; layar memakai label terjemahan berikut.
+ */
+val RecordingAchievement.displayTitle: String get() = achievementTitleLabel(title)
+val RecordingAchievement.displayDescription: String get() = achievementDescriptionLabel(title, description)
+
+fun achievementTitleLabel(title: String): String = when (title) {
+    "Catatan Pertama" -> MR.strings.rm_ach_first_record.text()
+    "Mulai Konsisten" -> MR.strings.rm_ach_consistent.text()
+    "On Fire" -> MR.strings.rm_ach_on_fire.text()
+    "Tak Terhentikan" -> MR.strings.rm_ach_unstoppable.text()
+    "Disiplin" -> MR.strings.rm_ach_disciplined.text()
+    "Legendaris" -> MR.strings.rm_ach_legendary.text()
+    "Anggaran Pertama" -> MR.strings.rm_ach_first_budget.text()
+    "Tabungan Pertama" -> MR.strings.rm_ach_first_goal.text()
+    else -> title
+}
+
+fun achievementDescriptionLabel(title: String, fallback: String): String = when (title) {
+    "Catatan Pertama" -> MR.strings.rm_ach_first_record_desc.text()
+    "Mulai Konsisten" -> MR.strings.rm_ach_streak_days_desc.text(3)
+    "On Fire" -> MR.strings.rm_ach_streak_days_desc.text(7)
+    "Tak Terhentikan" -> MR.strings.rm_ach_streak_days_desc.text(14)
+    "Disiplin" -> MR.strings.rm_ach_streak_days_desc.text(30)
+    "Legendaris" -> MR.strings.rm_ach_streak_days_desc.text(100)
+    "Anggaran Pertama" -> MR.strings.rm_ach_first_budget_desc.text()
+    "Tabungan Pertama" -> MR.strings.rm_ach_first_goal_desc.text()
+    else -> fallback
 }

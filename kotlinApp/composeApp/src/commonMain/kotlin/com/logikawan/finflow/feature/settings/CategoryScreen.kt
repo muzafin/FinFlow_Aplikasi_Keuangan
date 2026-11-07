@@ -19,6 +19,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.core.i18n.transactionTypeLabel
+import com.logikawan.finflow.i18n.*
 
 @Composable
 fun CategoryScreen(data: FinanceData, busy: Boolean = false, edit: (Category?) -> Unit) {
@@ -33,13 +36,13 @@ fun CategoryScreen(data: FinanceData, busy: Boolean = false, edit: (Category?) -
         LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("categories-list"), contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item {
-                SegmentedTabs(listOf("expense" to "Pengeluaran", "income" to "Pemasukan"), type, { type = it })
+                SegmentedTabs(listOf("expense" to transactionTypeLabel("expense"), "income" to transactionTypeLabel("income")), type, { type = it })
                 Spacer(Modifier.height(16.dp))
-                OutlinedTextField(query, { query = it }, placeholder = { Text("Cari kategori") }, singleLine = true,
+                OutlinedTextField(query, { query = it }, placeholder = { Text(MR.strings.set_cat_search.text()) }, singleLine = true,
                     leadingIcon = { FFIcon("search_rounded") }, modifier = Modifier.fillMaxWidth().testTag("category-search"))
             }
             if (visibleRoots.isEmpty()) item {
-                DesignCard { Text(if (query.isBlank()) "Belum ada kategori. Tambahkan kategori utama atau subkategori." else "Kategori tidak ditemukan.",
+                DesignCard { Text(if (query.isBlank()) MR.strings.set_cat_empty.text() else MR.strings.set_cat_not_found.text(),
                     style = FFType.bodyMain, color = FFColors.outline) }
             }
             items(visibleRoots, key = { it.id }) { root ->
@@ -52,11 +55,11 @@ fun CategoryScreen(data: FinanceData, busy: Boolean = false, edit: (Category?) -
                     }
                 }
             }
-            item { Text("Tambah subkategori melalui pilihan Kategori induk. Mengubah nama atau ikon tidak menghapus riwayat transaksi.",
+            item { Text(MR.strings.set_cat_hint.text(),
                 style = FFType.metaData, color = FFColors.outline) }
         }
         Button(onClick = { edit(null) }, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(20.dp).height(50.dp)) {
-            Text("+  Tambah Kategori")
+            Text(MR.strings.set_cat_add_button.text())
         }
     }
 }
@@ -73,7 +76,7 @@ private fun CategoryRow(category: Category, busy: Boolean, child: Boolean, edit:
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(category.name, style = FFType.bodyMain, fontWeight = if (child) FontWeight.Normal else FontWeight.SemiBold)
-            if (child) Text("Subkategori", style = FFType.metaData, color = FFColors.outline)
+            if (child) Text(MR.strings.set_cat_subcategory.text(), style = FFType.metaData, color = FFColors.outline)
         }
         FFIcon("chevron_right_rounded", size = 20.dp)
     }

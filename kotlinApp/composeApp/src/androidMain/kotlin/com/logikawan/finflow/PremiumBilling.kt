@@ -1,5 +1,7 @@
 package com.logikawan.finflow
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import android.content.Intent
 import android.net.Uri
 import androidx.fragment.app.FragmentActivity
@@ -30,7 +32,7 @@ class PremiumBilling(private val activity: FragmentActivity) {
     fun configured() = apiKey != null
 
     private suspend fun ensure(userId: String) {
-        val key = requireNotNull(apiKey) { "Pembelian Premium belum dikonfigurasi. Isi revenuecat_api_key." }
+        val key = requireNotNull(apiKey) { MR.strings.core_premium_not_configured.text() }
         if (!Purchases.isConfigured) Purchases.configure(PurchasesConfiguration.Builder(activity.applicationContext, key).appUserID(userId).build())
         else if (Purchases.sharedInstance.appUserID != userId) Purchases.sharedInstance.awaitLogIn(userId)
     }
@@ -39,7 +41,7 @@ class PremiumBilling(private val activity: FragmentActivity) {
         activity.lifecycleScope.launch {
             try {
                 ensure(userId)
-                val offering = requireNotNull(Purchases.sharedInstance.awaitOfferings().current) { "Paket Premium belum tersedia di toko." }
+                val offering = requireNotNull(Purchases.sharedInstance.awaitOfferings().current) { MR.strings.core_premium_no_packages.text() }
                 val mapped = offering.availablePackages.mapNotNull { item ->
                     val kind = when (item.packageType) {
                         PackageType.MONTHLY -> "monthly"; PackageType.SIX_MONTH -> "six_month"
@@ -54,17 +56,17 @@ class PremiumBilling(private val activity: FragmentActivity) {
                 packages = offering.availablePackages.associateBy { it.identifier }
                 result(mapped.sortedBy { listOf("monthly", "six_month", "annual", "lifetime").indexOf(it.kind) }, null)
             } catch (e: PurchasesException) { result(null, e.error.message) }
-            catch (e: Exception) { result(null, e.message ?: "Paket Premium belum dapat dimuat") }
+            catch (e: Exception) { result(null, e.message ?: MR.strings.core_premium_load_failed.text()) }
         }
     }
 
     fun purchase(planId: String, result: (Boolean, String?) -> Unit) {
-        val item = packages[planId] ?: run { result(false, "Muat ulang paket Premium lalu coba lagi."); return }
+        val item = packages[planId] ?: run { result(false, MR.strings.core_premium_reload.text()); return }
         activity.lifecycleScope.launch {
             try { Purchases.sharedInstance.awaitPurchase(PurchaseParams.Builder(activity, item).build()); result(true, null) }
             catch (e: PurchasesTransactionException) { result(false, if (e.userCancelled) null else e.error.message) }
             catch (e: PurchasesException) { result(false, e.error.message) }
-            catch (e: Exception) { result(false, e.message ?: "Pembelian belum berhasil") }
+            catch (e: Exception) { result(false, e.message ?: MR.strings.core_premium_purchase_failed.text()) }
         }
     }
 
@@ -72,12 +74,12 @@ class PremiumBilling(private val activity: FragmentActivity) {
         activity.lifecycleScope.launch {
             try { ensure(userId); Purchases.sharedInstance.awaitRestore(); result(true, null) }
             catch (e: PurchasesException) { result(false, e.error.message) }
-            catch (e: Exception) { result(false, e.message ?: "Pemulihan pembelian belum berhasil") }
+            catch (e: Exception) { result(false, e.message ?: MR.strings.core_premium_restore_failed.text()) }
         }
     }
 
     fun manage(): String? = try {
         activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/account/subscriptions?package=${activity.packageName}")))
         null
-    } catch (e: Exception) { "Google Play tidak dapat dibuka" }
+    } catch (e: Exception) { MR.strings.core_premium_play_unavailable.text() }
 }

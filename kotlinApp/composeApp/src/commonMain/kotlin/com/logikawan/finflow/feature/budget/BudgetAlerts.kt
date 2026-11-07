@@ -2,6 +2,8 @@ package com.logikawan.finflow.feature.budget
 
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.util.*
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 
 data class BudgetAlert(val id: String, val title: String, val message: String)
 
@@ -21,7 +23,7 @@ fun budgetAlerts(data: FinanceData, month: String, recordingDay: Int = 1): List<
             else -> return@mapNotNull null
         }
         BudgetAlert("${budget.id}:$month:$level",
-            if (level == 100) "Anggaran mencapai batas" else "Anggaran mendekati batas",
+            if (level == 100) MR.strings.dash_alert_budget_reached.text() else MR.strings.dash_alert_budget_near.text(),
             // Nominal dan kategori tidak ditampilkan di layar kunci perangkat.
-            "Buka FinFlow untuk melihat rincian anggaran bulan ini.")
+            MR.strings.dash_alert_budget_message.text())
     }

@@ -29,6 +29,10 @@ import androidx.compose.ui.unit.dp
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.ui.*
 import com.logikawan.finflow.core.util.*
+import com.logikawan.finflow.core.i18n.transactionTypeLabel
+import dev.icerock.moko.resources.StringResource
+import com.logikawan.finflow.core.i18n.text
+import com.logikawan.finflow.i18n.*
 import kotlinx.datetime.*
 
 fun accountDelta(transaction:Transaction,accountId:String):Long = when {
@@ -38,16 +42,18 @@ fun accountDelta(transaction:Transaction,accountId:String):Long = when {
     else -> 0L
 }
 
-private val walletMonths=listOf("Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des")
+private val walletMonths:List<StringResource> get()=listOf(MR.strings.acc_month_jan,MR.strings.acc_month_feb,MR.strings.acc_month_mar,MR.strings.acc_month_apr,
+    MR.strings.acc_month_may,MR.strings.acc_month_jun,MR.strings.acc_month_jul,MR.strings.acc_month_aug,MR.strings.acc_month_sep,MR.strings.acc_month_oct,
+    MR.strings.acc_month_nov,MR.strings.acc_month_dec)
 
 private fun dateRangeLabel(period:FinancePeriod):String {
     val start=period.start;val end=period.endExclusive.plus(DatePeriod(days=-1))
-    return "${start.dayOfMonth} ${walletMonths[start.monthNumber-1]} – ${end.dayOfMonth} ${walletMonths[end.monthNumber-1]} ${end.year}"
+    return MR.strings.acc_date_range_year.text(start.dayOfMonth,walletMonths[start.monthNumber-1].text(),end.dayOfMonth,walletMonths[end.monthNumber-1].text(),end.year)
 }
 
 private fun shortRangeLabel(period:FinancePeriod):String {
     val start=period.start;val end=period.endExclusive.plus(DatePeriod(days=-1))
-    return "${start.dayOfMonth} ${walletMonths[start.monthNumber-1]} – ${end.dayOfMonth} ${walletMonths[end.monthNumber-1]}"
+    return MR.strings.acc_date_range.text(start.dayOfMonth,walletMonths[start.monthNumber-1].text(),end.dayOfMonth,walletMonths[end.monthNumber-1].text())
 }
 
 @Composable
@@ -62,20 +68,20 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
     val inflow=entries.fold(0L){sum,t->checkedAdd(sum,accountDelta(t,account.id).coerceAtLeast(0))}
     val outflow=entries.fold(0L){sum,t->checkedAdd(sum,-accountDelta(t,account.id).coerceAtMost(0))}
     fun shift(direction:Int){anchor=date.plus(when(kind){"week"->DatePeriod(days=7*direction);"year"->DatePeriod(years=direction);else->DatePeriod(months=direction)}).toString()}
-    val summaryTitle=when(kind){"week"->"Ringkasan Mingguan";"year"->"Ringkasan Tahunan";"all"->"Ringkasan Semua";else->"Ringkasan Bulanan"}
-    val summaryRange=if(kind=="all")"Semua transaksi" else shortRangeLabel(range)
+    val summaryTitle=when(kind){"week"->MR.strings.acc_summary_weekly.text();"year"->MR.strings.acc_summary_yearly.text();"all"->MR.strings.acc_summary_all.text();else->MR.strings.acc_summary_monthly.text()}
+    val summaryRange=if(kind=="all")MR.strings.acc_all_transactions.text() else shortRangeLabel(range)
     // Susunan detail dompet Ollo: segmen periode, navigasi tanggal, saldo di tengah, grafik pendek berisi,
     // ringkasan 2×2, tombol aksi, lalu transaksi terbaru bergaya Beranda.
     val canGoNext=kind=="all" || range.endExclusive<=today()
     LazyColumn(Modifier.fillMaxSize().testTag("wallet-detail"),contentPadding=PaddingValues(start=16.dp,end=16.dp,top=4.dp,bottom=40.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        item{SegmentedTabs(listOf("week" to "Mingguan","month" to "Bulanan","year" to "Tahunan","all" to "Semua"),kind,{kind=it})}
+        item{SegmentedTabs(listOf("week" to MR.strings.acc_tab_weekly.text(),"month" to MR.strings.acc_tab_monthly.text(),"year" to MR.strings.acc_tab_yearly.text(),"all" to MR.strings.common_all.text()),kind,{kind=it})}
         if(kind!="all")item{Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically){
-            IconButton({shift(-1)}){FFIcon("hi_chevron_left",FFColors.onSurface,20.dp,contentDescription="Sebelumnya")}
+            IconButton({shift(-1)}){FFIcon("hi_chevron_left",FFColors.onSurface,20.dp,contentDescription=MR.strings.acc_previous.text())}
             Text(dateRangeLabel(range),Modifier.weight(1f),style=FFType.bodyMain,textAlign=TextAlign.Center)
-            IconButton({shift(1)},enabled=canGoNext){FFIcon("hi_chevron_right",if(canGoNext)FFColors.onSurface else FFColors.onSurfaceVariant.copy(alpha=.4f),20.dp,contentDescription="Berikutnya")}
+            IconButton({shift(1)},enabled=canGoNext){FFIcon("hi_chevron_right",if(canGoNext)FFColors.onSurface else FFColors.onSurfaceVariant.copy(alpha=.4f),20.dp,contentDescription=MR.strings.acc_next_period.text())}
         }}
         item{Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
-            Text("Saldo Saat Ini",style=FFType.bodyMain.copy(fontSize=15.sp),color=FFColors.onSurfaceVariant)
+            Text(MR.strings.acc_current_balance.text(),style=FFType.bodyMain.copy(fontSize=15.sp),color=FFColors.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))
             FitMoneyText(formatBalance(data.balance(account),account.currency,p),FFType.amountXl.copy(fontSize=36.sp),FFColors.onSurface,TextAlign.Center)
         }}
@@ -94,17 +100,17 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
                 Text(summaryRange,style=FFType.metaData,color=FFColors.onSurfaceVariant)
             }
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric("Arus Masuk",formatBalance(inflow,account.currency,p),Modifier.weight(1f));WalletMetric("Arus Keluar",formatBalance(outflow,account.currency,p),Modifier.weight(1f))}
+            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric(MR.strings.acc_inflow.text(),formatBalance(inflow,account.currency,p),Modifier.weight(1f));WalletMetric(MR.strings.acc_outflow.text(),formatBalance(outflow,account.currency,p),Modifier.weight(1f))}
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric("Arus Bersih",formatBalance(checkedAdd(inflow,-outflow),account.currency,p),Modifier.weight(1f));WalletMetric("Jumlah Transaksi",entries.size.toString(),Modifier.weight(1f))}
+            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric(MR.strings.acc_net_flow.text(),formatBalance(checkedAdd(inflow,-outflow),account.currency,p),Modifier.weight(1f));WalletMetric(MR.strings.acc_transaction_count.text(),entries.size.toString(),Modifier.weight(1f))}
         }
         if(!account.archived)item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
-            WalletAction("Pengeluaran","hi_arrow_up_right",FFColors.expense,Modifier.weight(1f)){add("expense")}
-            WalletAction("Pemasukan","hi_arrow_down_left",FFColors.income,Modifier.weight(1f)){add("income")}
-            WalletAction("Transfer","hi_sort",Color(0xFF2196F3),Modifier.weight(1f)){add("transfer")}
+            WalletAction(transactionTypeLabel("expense"),"hi_arrow_up_right",FFColors.expense,Modifier.weight(1f)){add("expense")}
+            WalletAction(transactionTypeLabel("income"),"hi_arrow_down_left",FFColors.income,Modifier.weight(1f)){add("income")}
+            WalletAction(transactionTypeLabel("transfer"),"hi_sort",Color(0xFF2196F3),Modifier.weight(1f)){add("transfer")}
         }}
-        item{Text("Transaksi Terbaru",Modifier.padding(top=8.dp),style=FFType.sectionTitle)}
-        if(entries.isEmpty())item{Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(FFColors.surface),contentAlignment=Alignment.Center){FFIcon("receipt_long",FFColors.outline,30.dp)};Spacer(Modifier.height(12.dp));Text("Belum ada transaksi",style=FFType.bodyMain,fontWeight=FontWeight.SemiBold);Spacer(Modifier.height(6.dp));Text("Ayo mulai catat pengeluaran dan pemasukanmu agar keuangan lebih rapi!",style=FFType.metaData,color=FFColors.outline,textAlign=TextAlign.Center)}}
+        item{Text(MR.strings.acc_recent_transactions.text(),Modifier.padding(top=8.dp),style=FFType.sectionTitle)}
+        if(entries.isEmpty())item{Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(FFColors.surface),contentAlignment=Alignment.Center){FFIcon("receipt_long",FFColors.outline,30.dp)};Spacer(Modifier.height(12.dp));Text(MR.strings.acc_no_transactions.text(),style=FFType.bodyMain,fontWeight=FontWeight.SemiBold);Spacer(Modifier.height(6.dp));Text(MR.strings.acc_no_transactions_hint.text(),style=FFType.metaData,color=FFColors.outline,textAlign=TextAlign.Center)}}
         else entries.groupBy{it.date}.forEach{(date,rows)->
             item(key="date-$date"){
                 val net=rows.fold(0L){sum,t->checkedAdd(sum,accountDelta(t,account.id))}

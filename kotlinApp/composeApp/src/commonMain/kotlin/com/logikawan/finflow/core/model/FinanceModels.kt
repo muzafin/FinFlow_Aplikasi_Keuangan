@@ -1,5 +1,7 @@
 package com.logikawan.finflow.core.model
 
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.util.checkedAdd
 import com.logikawan.finflow.core.util.newId
 import com.logikawan.finflow.core.util.nowMillis
@@ -80,17 +82,18 @@ data class FinanceData(
         }
         checkedAdd(sum, delta)
     }
-    fun categoryName(id: String) = categories.find { it.id == id }?.name ?: "Lainnya"
-    fun accountName(id: String) = accounts.find { it.id == id }?.name ?: "Dompet diarsipkan"
+    fun categoryName(id: String) = categories.find { it.id == id }?.name ?: MR.strings.core_category_other.text()
+    fun accountName(id: String) = accounts.find { it.id == id }?.name ?: MR.strings.core_archived_wallet.text()
     fun includedAccounts() = accounts.filter { !it.archived && !it.excludedFromTotal }
     fun reportTransactions() = transactions.filter { tx -> !tx.scheduled && accounts.none { it.excludedFromTotal && (it.id == tx.accountId || it.id == tx.toAccountId) } }
 }
 
-val defaultCategories = listOf(
-    Category("food", "Makan & minum", "expense"), Category("transport", "Transportasi", "expense"),
-    Category("shopping", "Belanja", "expense"), Category("health", "Kesehatan", "expense"),
-    Category("bills", "Tagihan", "expense"), Category("education", "Pendidikan", "expense"),
-    Category("entertainment", "Hiburan", "expense"), Category("other_expense", "Lainnya", "expense"),
-    Category("salary", "Gaji", "income"), Category("business", "Usaha", "income"),
-    Category("other_income", "Lainnya", "income"),
+// Nama kategori bawaan mengikuti bahasa aktif saat profil dibuat; id tetap menjadi pengenal.
+val defaultCategories: List<Category> get() = listOf(
+    Category("food", MR.strings.core_category_food.text(), "expense"), Category("transport", MR.strings.core_category_transport.text(), "expense"),
+    Category("shopping", MR.strings.core_category_shopping.text(), "expense"), Category("health", MR.strings.core_category_health.text(), "expense"),
+    Category("bills", MR.strings.core_category_bills.text(), "expense"), Category("education", MR.strings.core_category_education.text(), "expense"),
+    Category("entertainment", MR.strings.core_category_entertainment.text(), "expense"), Category("other_expense", MR.strings.core_category_other.text(), "expense"),
+    Category("salary", MR.strings.core_category_salary.text(), "income"), Category("business", MR.strings.core_category_business.text(), "income"),
+    Category("other_income", MR.strings.core_category_other.text(), "income"),
 )

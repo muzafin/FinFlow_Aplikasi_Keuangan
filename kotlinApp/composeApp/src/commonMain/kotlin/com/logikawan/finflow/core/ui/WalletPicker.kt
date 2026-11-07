@@ -30,6 +30,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.util.compactDisplayMoney
 import com.logikawan.finflow.core.util.formatBalance
+import com.logikawan.finflow.i18n.*
+import com.logikawan.finflow.core.i18n.text
 
 /*
  * Dialog pemilih dompet bergaya Ollo: kartu tengah 358dp, judul dengan ikon, pencarian, chip
@@ -38,14 +40,14 @@ import com.logikawan.finflow.core.util.formatBalance
  */
 
 private val walletChipTypes = listOf(
-    "all" to "Semua",
-    "cash" to "Tunai",
-    "bank" to "Bank",
-    "ewallet" to "E-Wallet",
-    "savings" to "Tabungan",
-    "credit" to "Kartu Kredit",
-    "loan" to "Pinjaman",
-    "pocket" to "Pocket",
+    "all" to MR.strings.common_all,
+    "cash" to MR.strings.app_wallet_type_cash,
+    "bank" to MR.strings.app_wallet_type_bank,
+    "ewallet" to MR.strings.app_wallet_type_ewallet,
+    "savings" to MR.strings.app_wallet_type_savings,
+    "credit" to MR.strings.app_wallet_type_credit,
+    "loan" to MR.strings.app_wallet_type_loan,
+    "pocket" to MR.strings.app_wallet_type_pocket,
 )
 
 private fun matchesType(account: Account, type: String): Boolean = when (type) {
@@ -86,7 +88,7 @@ fun WalletPicker(data: FinanceData, accounts: List<Account>, selected: String, d
                     ) { FFIcon("settings_outlined", FFColors.onSurfaceVariant, 22.dp) }
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        "Pilih Dompet",
+                        MR.strings.app_choose_wallet_title.text(),
                         Modifier.weight(1f),
                         style = FFType.sectionTitle.copy(fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold),
                         color = FFColors.onSurface,
@@ -94,7 +96,7 @@ fun WalletPicker(data: FinanceData, accounts: List<Account>, selected: String, d
                     Box(
                         Modifier.size(40.dp).clip(CircleShape).background(FFColors.surfaceLow).clickable(onClick = dismiss).testTag("wallet-picker-close"),
                         contentAlignment = Alignment.Center,
-                    ) { FFIcon("close_rounded", FFColors.onSurfaceVariant, 20.dp, "Tutup") }
+                    ) { FFIcon("close_rounded", FFColors.onSurfaceVariant, 20.dp, MR.strings.common_close.text()) }
                 }
                 HorizontalDivider(thickness = 1.dp, color = FFColors.outlineVariant)
                 Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp).weight(1f)) {
@@ -110,7 +112,7 @@ fun WalletPicker(data: FinanceData, accounts: List<Account>, selected: String, d
                     Spacer(Modifier.height(12.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(walletChipTypes, key = { it.first }) { (key, label) ->
-                            WalletFilterChip(label, type == key) { type = key }
+                            WalletFilterChip(label.text(), type == key) { type = key }
                         }
                     }
                     Spacer(Modifier.height(6.dp))
@@ -118,7 +120,7 @@ fun WalletPicker(data: FinanceData, accounts: List<Account>, selected: String, d
                         if (visible.isEmpty()) {
                             item {
                                 Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
-                                    Text("Tidak ada dompet yang sesuai", style = FFType.bodyMain, color = FFColors.outline)
+                                    Text(MR.strings.app_no_matching_wallet.text(), style = FFType.bodyMain, color = FFColors.outline)
                                 }
                             }
                         }
@@ -159,7 +161,7 @@ private fun WalletSearchField(value: String, change: (String) -> Unit, modifier:
                 FFIcon("search_outlined", FFColors.outline, 20.dp)
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f)) {
-                    if (value.isEmpty()) Text("Cari dompet...", style = FFType.bodyMain, color = FFColors.outline, maxLines = 1)
+                    if (value.isEmpty()) Text(MR.strings.app_search_wallet.text(), style = FFType.bodyMain, color = FFColors.outline, maxLines = 1)
                     innerTextField()
                 }
             }
@@ -236,7 +238,7 @@ fun WalletChoice(label: String, value: String, data: FinanceData, accounts: List
             FFIcon(account?.icon ?: "account_balance_wallet_outlined", if (account == null) FFColors.outline else FFColors.onSurface, 24.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(account?.name ?: if (allowNone && value.isBlank()) "Tanpa tautan" else "Pilih dompet",
+                Text(account?.name ?: if (allowNone && value.isBlank()) MR.strings.app_no_link.text() else MR.strings.app_choose_wallet.text(),
                     style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), fontWeight = FontWeight.SemiBold, color = FFColors.onSurface)
                 account?.let {
                     FitMoneyText(
@@ -247,7 +249,7 @@ fun WalletChoice(label: String, value: String, data: FinanceData, accounts: List
             }
             FFIcon("expand_more_rounded", FFColors.outline, 20.dp)
         }
-        if (allowNone && value.isNotBlank()) TextButton(enabled = enabled, onClick = { change("") }) { Text("Lepas tautan dompet") }
+        if (allowNone && value.isNotBlank()) TextButton(enabled = enabled, onClick = { change("") }) { Text(MR.strings.app_unlink_wallet.text()) }
     }
     if (open) WalletPicker(data, accounts, value, { open = false }) { change(it); open = false }
 }
