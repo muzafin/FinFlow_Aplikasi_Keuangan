@@ -96,7 +96,7 @@ fun TransactionCalendar(month: String, monthChange: (String) -> Unit, selected: 
                         Spacer(Modifier.weight(1f))
                         entries.groupBy { it.currency }.forEach { (currency, records) ->
                             val net = records.fold(0L) { sum, t -> checkedAdd(sum, when (t.type) { "income" -> t.amountMinor; "expense" -> -t.amountMinor; else -> 0 }) }
-                            if (privacy) Text("•••", style = FFType.metaData.copy(fontSize = 9.sp, lineHeight = 11.sp), color = FFColors.onSurfaceVariant, maxLines = 1)
+                            if (privacy) Text(LocalPreferences.current.maskCharacter.ifEmpty { "•" }.repeat(3), style = FFType.metaData.copy(fontSize = 9.sp, lineHeight = 11.sp), color = FFColors.onSurfaceVariant, maxLines = 1)
                             else FitMoneyText((if (net > 0) "+" else "") + compactDisplayMoney(net, currency),
                                 FFType.metaData.copy(fontSize = 9.sp, lineHeight = 11.sp),
                                 if (net >= 0) FFColors.income else FFColors.expense)

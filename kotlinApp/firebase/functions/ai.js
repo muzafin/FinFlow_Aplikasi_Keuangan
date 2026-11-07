@@ -1,9 +1,11 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const { z } = require('zod');
-const { zodOutputFormat } = require('@anthropic-ai/sdk/helpers/zod');
+const { jsonOutputFormat: zodOutputFormat, mapDeepSeekError } = require('./deepseek');
 
-// Model diatur lewat parameter function; default mengikuti docs/FIREBASE.md §9 (parse murah, chat lebih cerdas).
-const DEFAULT_MODELS = { parse: 'claude-haiku-5-5', assistant: 'claude-sonnet-5-5' };
+// Model diatur lewat parameter function. Penyedia: DeepSeek (lihat deepseek.js); deepseek-chat untuk parse dan asisten.
+const DEFAULT_MODELS = { parse: 'deepseek-chat', assistant: 'deepseek-chat' };
+// Bahasa jawaban asisten mengikuti bahasa aplikasi (9 bahasa FinFlow).
+const LANGUAGE_NAMES = { id: 'Indonesia', en: 'Inggris', ms: 'Melayu', de: 'Jerman', fr: 'Prancis', ja: 'Jepang', es: 'Spanyol', hi: 'Hindi', zh: 'Mandarin (Sederhana)' };
 const FEATURES = ['chat', 'voice', 'scan', 'assistant'];
 // Batas Free per bulan (asisten: seumur akun, seperti trial Ollo). Premium dibatasi wajar per hari untuk melindungi biaya.
 const FREE_LIMITS = { chat: 30, voice: 30, scan: 10, assistant: 10 };
@@ -41,7 +43,7 @@ function parseContext(raw) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) fail('invalid-argument', 'Tanggal perangkat tidak valid.');
   const baseCurrency = str(raw.baseCurrency, 3);
   if (!/^[A-Z]{3}$/.test(baseCurrency)) fail('invalid-argument', 'Mata uang tidak valid.');
-  const language = raw.language === 'en' ? 'en' : 'id';
+  const language = Object.hasOwn(LANGUAGE_NAMES, raw.language) ? raw.language : 'id';
   const list = (items, max, keys) => {
     if (!Array.isArray(items) || items.length > max) fail('invalid-argument', 'Daftar kategori atau dompet terlalu panjang.');
     return items.map(item => { onlyKeys(item, keys); return Object.fromEntries(keys.map(key => [key, str(item[key], 120, { optional: key !== 'id' && key !== 'name' })])); });
@@ -184,6 +186,8 @@ function checkStop(response) {
 
 function mapAnthropicError(error, Anthropic) {
   if (error instanceof HttpsError) return error;
+  const provider = mapDeepSeekError(error);
+  if (provider) return provider;
   if (Anthropic && error instanceof Anthropic.RateLimitError) return new HttpsError('unavailable', 'Layanan AI sedang sibuk. Coba lagi sebentar lagi.');
   if (Anthropic && error instanceof Anthropic.AuthenticationError) return new HttpsError('internal', 'Layanan AI belum dikonfigurasi di server.');
   if (Anthropic && error instanceof Anthropic.BadRequestError) return new HttpsError('invalid-argument', 'Masukan tidak dapat diproses AI.');
@@ -287,9 +291,9 @@ function createAi({ db, client, Anthropic, models = DEFAULT_MODELS, now = () => 
     const personality = PERSONALITIES[data.personality] || PERSONALITIES.friendly;
     const nickname = str(data.nickname, 40, { optional: true }).trim();
     const preference = str(data.preference, 200, { optional: true }).trim();
-    const english = data.language === 'en';
+    const languageName = LANGUAGE_NAMES[data.language] || LANGUAGE_NAMES.id;
     const system = [
-      `Anda adalah FinFlow Assistant, asisten keuangan pribadi di aplikasi FinFlow. Jawab dalam bahasa ${english ? 'Inggris' : 'Indonesia'}, ringkas, memakai format teks biasa (boleh daftar berpoin).
+      `Anda adalah FinFlow Assistant, asisten keuangan pribadi di aplikasi FinFlow. Jawab dalam bahasa ${languageName}, ringkas, memakai format teks biasa (boleh daftar berpoin).
 Anda hanya melihat ringkasan angka pengguna (total bulanan, kategori teratas, anggaran, saldo, tagihan) di bawah; Anda tidak melihat transaksi satu per satu dan tidak bisa mengubah data.
 Bila data tidak cukup, katakan terus terang. Ini bukan nasihat keuangan profesional; jangan merekomendasikan produk investasi tertentu.
 Gaya bicara: ${personality}`,

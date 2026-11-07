@@ -43,3 +43,22 @@ test('pending data reset blocks media while completed reset permits new photos',
   await env.withSecurityRulesDisabled(async context=>setDoc(doc(context.firestore(),'_dataResets/reset-owner'),{status:'complete'}));
   await assertSucceeds(uploadBytes(target,data,{contentType:'image/jpeg'}));await assertSucceeds(getBytes(target));
 });
+
+test('wallet icons are private, small JPEG files named after the wallet',async()=>{
+  const owner=env.authenticatedContext('owner').storage(),other=env.authenticatedContext('other').storage();
+  const data=new Uint8Array([255,216,255,217]);
+  const icon=(client,name='1730000000000-abc.jpg',uid='owner')=>ref(client,`users/${uid}/wallet-icons/${name}`);
+  await assertSucceeds(uploadBytes(icon(owner),data,{contentType:'image/jpeg'}));
+  await assertSucceeds(getBytes(icon(owner)));
+  await assertFails(getBytes(icon(other)));
+  await assertFails(getBytes(icon(env.unauthenticatedContext().storage())));
+  await assertFails(uploadBytes(icon(other),data,{contentType:'image/jpeg'}));
+  await assertFails(uploadBytes(icon(owner),data,{contentType:'image/png'}));
+  await assertFails(uploadBytes(icon(owner),new Uint8Array(100*1024+1),{contentType:'image/jpeg'}));
+  await assertSucceeds(uploadBytes(icon(owner),new Uint8Array(100*1024),{contentType:'image/jpeg'}));
+  await assertFails(uploadBytes(icon(owner,'bad name.jpg'),data,{contentType:'image/jpeg'}));
+  await assertFails(uploadBytes(icon(owner,'acc_cash.png'),data,{contentType:'image/jpeg'}));
+  await assertFails(uploadBytes(ref(owner,'users/owner/wallet-icons/nested/acc.jpg'),data,{contentType:'image/jpeg'}));
+  await assertFails(deleteObject(icon(other)));
+  await assertSucceeds(deleteObject(icon(owner)));
+});

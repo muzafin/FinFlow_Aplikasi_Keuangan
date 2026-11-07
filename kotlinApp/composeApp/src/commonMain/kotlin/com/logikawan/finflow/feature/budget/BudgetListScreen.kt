@@ -140,7 +140,7 @@ private fun BudgetSummaryCard(month: String, period: String, range: FinancePerio
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(MR.strings.tx_you_can_spend.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
-                FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(remaining, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp, lineHeight = 24.sp))
+                FitMoneyText(if (preferences.hideBalances) maskedBalance(remaining, currency, preferences) else formatBalance(remaining, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp, lineHeight = 24.sp))
                 Text(periodLabel, style = FFType.metaData.copy(fontSize = 10.sp, lineHeight = 13.sp), color = FFColors.onSurfaceVariant)
                 Text(if (period == "weekly") MR.strings.tx_left_this_week.text() else MR.strings.tx_left_this_month.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
             }
@@ -173,11 +173,11 @@ private fun BudgetSummaryCard(month: String, period: String, range: FinancePerio
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                    FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(spent, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp), FFColors.onSurface, TextAlign.End)
+                    FitMoneyText(if (preferences.hideBalances) maskedBalance(spent, currency, preferences) else formatBalance(spent, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp), FFColors.onSurface, TextAlign.End)
                 }
                 Text(" / ", style = FFType.amountMd.copy(fontSize = 18.sp), color = FFColors.onSurfaceVariant)
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(limit, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp), FFColors.onSurfaceVariant)
+                    FitMoneyText(if (preferences.hideBalances) maskedBalance(limit, currency, preferences) else formatBalance(limit, currency, preferences), FFType.amountMd.copy(fontSize = 18.sp), FFColors.onSurfaceVariant)
                 }
             }
         }
@@ -210,7 +210,7 @@ private fun BudgetProgressCard(budget: Budget, data: FinanceData, used: Long, pr
             }
             Spacer(Modifier.width(8.dp))
             Column(Modifier.width(112.dp), horizontalAlignment = Alignment.End) {
-                FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(used, budget.currency, preferences), FFType.amountMd, FFColors.onSurface, TextAlign.End)
+                FitMoneyText(if (preferences.hideBalances) maskedBalance(used, budget.currency, preferences) else formatBalance(used, budget.currency, preferences), FFType.amountMd, FFColors.onSurface, TextAlign.End)
                 Text("${(ratio * 100).roundToInt()}%", style = FFType.metaData, color = if (used > budget.limitMinor) FFColors.expense else FFColors.outline)
             }
         }
@@ -223,12 +223,12 @@ private fun BudgetProgressCard(budget: Budget, data: FinanceData, used: Long, pr
             Text(MR.strings.tx_remaining.text(), style = FFType.metaData, color = FFColors.outline)
             Spacer(Modifier.width(6.dp))
             Box(Modifier.weight(1f)) {
-                FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(remaining, budget.currency, preferences),
+                FitMoneyText(if (preferences.hideBalances) maskedBalance(remaining, budget.currency, preferences) else formatBalance(remaining, budget.currency, preferences),
                     FFType.metaData, if (remaining < 0) FFColors.expense else FFColors.outline)
             }
             Spacer(Modifier.width(12.dp))
             Box(Modifier.width(110.dp), contentAlignment = Alignment.CenterEnd) {
-                FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(budget.limitMinor, budget.currency, preferences),
+                FitMoneyText(if (preferences.hideBalances) maskedBalance(budget.limitMinor, budget.currency, preferences) else formatBalance(budget.limitMinor, budget.currency, preferences),
                     FFType.metaData, FFColors.outline, TextAlign.End)
             }
         }

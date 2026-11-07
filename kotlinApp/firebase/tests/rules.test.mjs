@@ -274,3 +274,36 @@ test('AI consent, AI usage and Premium entitlements are owner-readable but only 
   await assertFails(getDoc(doc(db,'users/rules-owner/ai/other')));
   await assertFails(getDoc(doc(env.authenticatedContext('other').firestore(),'users/rules-owner/entitlements/premium')));
 });
+
+const device=(overrides={})=>({name:'Pixel 9 · Android 16',platform:'android',appVersion:'1.4.0',createdAt:10,lastActiveAt:10,revoked:false,...overrides});
+const deviceId='dev-1730000000000-abcdef12';
+test('connected devices are owner-only with strict fields and a one-way revoke',async()=>{
+  const ref=doc(db,`users/rules-owner/devices/${deviceId}`);
+  await assertSucceeds(setDoc(ref,device()));
+  await assertSucceeds(getDoc(ref));
+  await assertSucceeds(setDoc(ref,device({lastActiveAt:20,appVersion:'1.4.1'})));
+  for(const other of [env.unauthenticatedContext().firestore(),env.authenticatedContext('other').firestore()]){
+    await assertFails(getDoc(doc(other,`users/rules-owner/devices/${deviceId}`)));
+    await assertFails(setDoc(doc(other,`users/rules-owner/devices/${deviceId}`),device()));
+    await assertFails(deleteDoc(doc(other,`users/rules-owner/devices/${deviceId}`)));
+  }
+  await assertFails(setDoc(ref,device({createdAt:11,lastActiveAt:30})));
+  await assertFails(setDoc(ref,device({lastActiveAt:5})));
+  await assertFails(setDoc(ref,device({lastActiveAt:30,extra:'x'})));
+  await assertFails(setDoc(ref,device({lastActiveAt:30,platform:'symbian'})));
+  await assertFails(setDoc(ref,device({lastActiveAt:30,name:''})));
+  await assertFails(setDoc(ref,device({lastActiveAt:30,name:'x'.repeat(101)})));
+  await assertFails(setDoc(ref,device({lastActiveAt:30,appVersion:'x'.repeat(41)})));
+  await assertFails(setDoc(ref,device({lastActiveAt:30,revoked:'yes'})));
+  await assertFails(setDoc(doc(db,'users/rules-owner/devices/short'),device()));
+  await assertFails(setDoc(doc(db,'users/rules-owner/devices/dev-1730000000000-ABC!def'),device()));
+  await assertFails(setDoc(doc(db,'users/rules-owner/devices/dev-1730000000000-new'),device({revoked:true})));
+  await assertSucceeds(updateDoc(ref,{revoked:true}));
+  await assertFails(updateDoc(ref,{revoked:false}));
+  await assertFails(updateDoc(ref,{lastActiveAt:99}));
+  await assertSucceeds(deleteDoc(ref));
+});
+test('pending data reset blocks device registration',async()=>{
+  await env.withSecurityRulesDisabled(async context=>setDoc(doc(context.firestore(),'_dataResets/rules-owner'),{status:'pending'}));
+  await assertFails(setDoc(doc(db,`users/rules-owner/devices/${deviceId}`),device()));
+});

@@ -25,6 +25,6 @@ sealed interface Editor {
     data class Limit(val value: Budget? = null) : Editor
     data class Target(val value: Goal? = null) : Editor
     data class Asset(val value: Investment? = null) : Editor
-    data class Cat(val value: com.logikawan.finflow.core.model.Category? = null) : Editor
+    data class Cat(val value: com.logikawan.finflow.core.model.Category? = null, val parentId: String? = null) : Editor
     data object Person : Editor
 }

@@ -34,7 +34,7 @@ data class RoadmapFeature(
     """.trimIndent()
 }
 
-const val roadmapUpdated = "3 November 2026"
+const val roadmapUpdated = "7 November 2026"
 
 // Status describes each stated scope, not a claim that the entire app matches Ollo.
 val productRoadmap = listOf(
@@ -105,7 +105,7 @@ val productRoadmap = listOf(
     RoadmapFeature("FF-033", "Bantuan, masukan dan informasi aplikasi", "Profil", RoadmapStatus.Done,
         "Panduan, draf email saran/bug, versi aplikasi dan catatan pembaruan tersedia.", "Pengguna meninjau dan mengirim email sendiri. Android dapat membagikan APK melalui pemilih aplikasi."),
     RoadmapFeature("FF-034", "Masukan & Peta Jalan", "Profil", RoadmapStatus.Done,
-        "Daftar pekerjaan FinFlow dipisah ke tiga tab dengan rincian dan ID fitur.", "Cari fitur, salin prompt per fitur/seluruh daftar, dan buka formulir Kirim Masukan."),
+        "Peta jalan mengikuti susunan Ollo: tiga tab teks dan kartu judul, badge bagian serta deskripsi. Ollo tidak memiliki voting fitur.", "Ketuk kartu untuk rincian dan salin prompt; cari, salin semua dan Kirim Masukan ada di aksi header."),
     RoadmapFeature("FF-035", "Mode lokal tanpa login", "Data", RoadmapStatus.InProgress,
         "Repository lokal, penyimpanan privat Android/iOS, transaksi atomik dan alur masuk lokal sudah ditulis.", "Selesaikan pengujian penyimpanan native, restart aplikasi, alur awal dan seluruh modul dalam mode tanpa jaringan."),
     RoadmapFeature("FF-036", "Pindahkan data lokal ke akun", "Sinkronisasi", RoadmapStatus.InProgress,
@@ -120,10 +120,10 @@ val productRoadmap = listOf(
         "Pengingat harian dan peringatan 80%/100% anggaran sudah dihubungkan dengan izin perangkat.", "Verifikasi pengiriman sistem pada HP, pergantian akun, waktu lokal dan batasan penjadwalan latar belakang."),
     RoadmapFeature("FF-041", "Audit semua tombol dan alur kembali", "Kualitas", RoadmapStatus.InProgress,
         "Uji perangkat sudah mencakup sejumlah menu, preferensi, repository dan cadangan. Asal halaman detail dompet/target telah diperbaiki. Integrasi Firebase diverifikasi pada ronde 6 (3 November 2026) memakai Firebase Emulator Suite project demo demo-finflow: Firestore rules 17/17, storage rules 3/3, Cloud Functions hapus akun/reset data 2/2, dan 42 instrumentasi di HP (31 UI lokal + 11 Firebase cloud, dijalankan dua proses terpisah) termasuk CloudModeSmokeDeviceTest yang membuat akun cloud lewat Auth emulator, menyimpan transaksi lewat Firestore emulator dan memastikan tampilan lokal ikut terbarui, serta ProfileParityDeviceTest untuk halaman Profil; rules/functions produksi tidak diubah.", "Uji manual pengguna dan akun cloud nyata (bukan emulator), lalu tuntaskan matriks semua tombol, batal, Back, validasi error, mode lokal/cloud dan data kosong; jangan menyatakan setara penuh sebelum semuanya diperiksa."),
-    RoadmapFeature("FF-042", "Quick Record: chat, suara dan scan", "Pencatatan", RoadmapStatus.Planned,
-        "Pencatatan manual sudah ada; input chat, pengenalan suara dan scan struk belum tersedia.", "Tambahkan pilihan cara mencatat seperti Ollo, ekstraksi nominal yang aman dan layar tinjau sebelum menyimpan. Pilihan harus benar-benar berfungsi."),
-    RoadmapFeature("FF-043", "Memori dan bahasa Quick Record", "Preferensi", RoadmapStatus.Planned,
-        "Memori saat ini hanya dompet dan kategori transaksi manual.", "Setelah Quick Record tersedia, tambahkan bahasa input suara serta memori preferensi yang dapat ditinjau dan direset."),
+    RoadmapFeature("FF-042", "Quick Record: chat, suara dan scan", "Pencatatan", RoadmapStatus.InProgress,
+        "Lembar Quick Record dengan AI Chat, AI Voice dan AI Scan sudah ditulis; hasil AI selalu ditinjau di editor sebelum disimpan. Cloud Functions AI (DeepSeek) belum di-deploy karena secret belum diisi, sehingga aplikasi menampilkan keadaan layanan AI belum tersedia. Penyedia saat ini tidak menerima gambar, jadi AI Scan ditolak server dengan pesan yang jelas.", "Deploy functions AI beserta secret, uji kuota/persetujuan di HP, dan pilih penyedia yang mendukung gambar untuk AI Scan."),
+    RoadmapFeature("FF-043", "Memori dan bahasa Quick Record", "Preferensi", RoadmapStatus.InProgress,
+        "Bahasa Input Suara tersedia sebagai preferensi (ikut bahasa aplikasi atau pilih salah satu dari 11 bahasa) dan tersinkron bersama preferensi lain.", "Pastikan App memakai preferensi ini saat memanggil pengenalan suara, lalu tambahkan memori preferensi Quick Record yang dapat ditinjau dan direset."),
     RoadmapFeature("FF-044", "Reimburse langsung dari transaksi", "Pencatatan", RoadmapStatus.Planned,
         "Reimburse terpisah sudah tersedia, tetapi kolom nominal penggantian di editor transaksi belum ada.", "Tautkan transaksi dan klaim secara atomik; edit/hapus/pembatalan tidak boleh menggandakan saldo."),
     RoadmapFeature("FF-045", "Foto target, kartu dan lampiran", "Media", RoadmapStatus.Planned,
@@ -142,10 +142,10 @@ val productRoadmap = listOf(
         "Manual, CSV/Ivy dan calon transaksi dari notifikasi Android tersedia. Belum ada koneksi API penyedia keuangan.", "Pilih penyedia serta cakupan bank yang konkret, persetujuan pengguna, kredensial, token backend dan webhook; Blaze saja tidak menyediakan integrasi bank."),
     RoadmapFeature("FF-052", "Harga pasar aset otomatis", "Aset", RoadmapStatus.Planned,
         "Nilai portofolio saat ini diisi manual.", "Integrasikan sumber harga berlisensi dengan simbol, mata uang, waktu pembaruan, cache dan penanganan data tidak tersedia."),
-    RoadmapFeature("FF-053", "Asisten keuangan AI", "AI", RoadmapStatus.Planned,
-        "Asisten percakapan dan analisis AI belum tersedia. Fitur AI sebelumnya ditunda.", "Tentukan layanan/model, biaya, privasi dan konteks yang diizinkan. Semua tindakan yang mengubah uang harus ditinjau pengguna."),
+    RoadmapFeature("FF-053", "Asisten keuangan AI", "AI", RoadmapStatus.InProgress,
+        "Layar Asisten, riwayat 5 percakapan, Pengaturan Asisten (kepribadian, panggilan, preferensi) dan persetujuan per fitur sudah ditulis. Asisten hanya menerima ringkasan angka dan menjawab dalam bahasa aplikasi. Layanan server belum aktif.", "Deploy functions AI dan secret, verifikasi biaya, batas Free/Premium, privasi dan pesan error di HP sebelum dibuka untuk pengguna."),
     RoadmapFeature("FF-054", "Scan struk per item", "AI", RoadmapStatus.Planned,
-        "OCR, ekstraksi item dan pembagian transaksi dari struk belum ada.", "Sesudah scan dasar tersedia, periksa total/diskon/pajak/pembulatan dan konfirmasi pembagian sebelum menyimpan jurnal."),
+        "Pengaturan AI Scan (nama pemilik rekening, detail struk yang ditulis ke catatan, urutan dengan tekan lama dan seret) sudah ada. Pembagian satu struk menjadi transaksi per item belum ada.", "Sesudah penyedia AI dengan input gambar aktif, periksa total/diskon/pajak/pembulatan dan konfirmasi pembagian sebelum menyimpan jurnal."),
     RoadmapFeature("FF-055", "Anggaran bersama dan keluarga", "Kolaborasi", RoadmapStatus.Planned,
         "Data saat ini milik satu akun atau satu penyimpanan lokal.", "Tambahkan ruang bersama, undangan, peran, izin data dan audit setelah sinkronisasi serta konflik aman."),
     RoadmapFeature("FF-056", "Perjalanan finansial personal", "Perencanaan", RoadmapStatus.Planned,
@@ -156,11 +156,13 @@ val productRoadmap = listOf(
         "Kode bersama dan layanan native iOS tersedia, tetapi perubahan terbaru belum dibangun atau diuji pada perangkat Apple.", "Build di macOS, uji autentikasi, penyimpanan lokal, foto, restore, aksesibilitas dan alur UI di iPhone/iPad sebelum distribusi."),
     RoadmapFeature("FF-059", "Distribusi resmi dan pembaruan", "Rilis", RoadmapStatus.Planned,
         "APK Android debug dapat dipasang. Belum ada tautan toko resmi atau pemeriksa pembaruan produksi.", "Siapkan signing rilis, kebijakan privasi, listing, jalur uji dan mekanisme pembaruan sebelum publikasi."),
-    RoadmapFeature("FF-060", "Premium dan langganan", "Rilis", RoadmapStatus.Planned,
-        "Belum ada paywall atau langganan FinFlow. Premium sebelumnya ditunda.", "Hanya lanjut setelah model fitur/biaya disepakati; verifikasi pembelian dan pemulihan hak akses di backend, tanpa mengunci fitur secara semu."),
+    RoadmapFeature("FF-060", "Premium dan langganan", "Rilis", RoadmapStatus.InProgress,
+        "Halaman Premium, status hak akses dari Firestore dan pemulihan pembelian sudah ditulis di aplikasi. Produk toko dan secret RevenueCat belum dikonfigurasi.", "Konfigurasikan produk toko dan secret, verifikasi pembelian dan pemulihan hak akses di backend, tanpa mengunci fitur secara semu."),
     RoadmapFeature("FF-061", "Leaderboard global dan per negara", "Komunitas", RoadmapStatus.Planned,
         "Kompetisi pencatatan bulanan global dan lokal per negara disepakati pengguna pada 3 November 2026. Halaman level menampilkan aturan hadiah; layanan peringkat belum aktif.",
         "Gunakan ledger aktivitas yang diverifikasi server, persetujuan profil publik dan pilihan negara. Tutup periode bulanan di server, cegah penggandaan poin lewat edit/impor/restore, dan tentukan aturan seri serta zona waktu kompetisi. Admin memverifikasi pemenang dan memberikan Premium gratis: peringkat 1 tiga bulan, peringkat 2 dua bulan, peringkat 3 satu bulan. Pemberian hak akses harus idempoten dan hanya melalui admin."),
+    RoadmapFeature("FF-062", "Otomasi & Integrasi", "Integrasi", RoadmapStatus.Planned,
+        "Menu Otomasi & Integrasi menampilkan kartu Segera Hadir seperti Ollo; belum ada otomasi atau integrasi eksternal.", "Tentukan alat eksternal dan pemicu otomasi yang konkret, izin data, token backend dan pembatalan sebelum membangunnya."),
 )
 
 fun roadmapPrompt(features: List<RoadmapFeature> = productRoadmap): String =
@@ -235,6 +237,7 @@ fun roadmapTitleLabel(id: String, fallback: String): String = when (id) {
     "FF-059" -> MR.strings.rm_ff059_title.text()
     "FF-060" -> MR.strings.rm_ff060_title.text()
     "FF-061" -> MR.strings.rm_ff061_title.text()
+    "FF-062" -> MR.strings.pd_rm_ff062_title.text()
     else -> fallback
 }
 

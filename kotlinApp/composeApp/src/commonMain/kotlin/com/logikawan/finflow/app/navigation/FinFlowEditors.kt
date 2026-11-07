@@ -73,7 +73,7 @@ fun EntityEditor(
             editor.value?.let { value -> { delete(if(value.holdingAccountId!=null)"arsip:target tabungan" else "target") { repo.deleteGoal(value.id) } } })
         is Editor.Asset -> InvestmentEditor(editor.value, busy, dismiss, saveInvestment,
             editor.value?.let { value -> { delete("investasi") { repo.deleteInvestment(value.id) } } })
-        is Editor.Cat -> CategoryEditor(busy, dismiss, saveCategory, old=editor.value, data=data)
+        is Editor.Cat -> CategoryEditor(busy, dismiss, saveCategory, old=editor.value, data=data, initialParentId=editor.parentId)
         Editor.Person -> ProfileEditor(data.profile, busy, dismiss, saveProfile)
     }
 }

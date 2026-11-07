@@ -84,7 +84,10 @@ fun WalletScreen(data:FinanceData,edit:(Account)->Unit,add:()->Unit,open:((Accou
     var composition by remember{mutableStateOf(false)}
     var compositionCode by rememberSaveable{mutableStateOf("")}
     val active=data.accounts.filterNot{it.archived}
-    val visible=data.accounts.filter{it.archived==archived}
+    // Pengaturan Dompet → Urutan Dompet Saya: dompet sesuai walletOrder (id tak tercantum tetap di belakang, urutan asli).
+    val visible=data.accounts.filter{it.archived==archived}.orderedWallets(preferences)
+    // Grup mengikuti walletGroupOrder (selalu berisi 8 grup yang valid); bawaan sama dengan urutan lama.
+    val groupOrder=preferences.walletGroupOrder.filter{it in walletGroups}.let{if(it.toSet()==walletGroups.toSet())it else walletGroups}
     val currencies=(active.map{it.currency}+data.debts.filter{it.direction=="borrowed" && it.paidMinor<it.amountMinor}.map{it.currency})
         .distinct().ifEmpty{listOf(data.profile?.baseCurrency ?: "IDR")}.sortedWith(compareBy<String>{if(it==data.profile?.baseCurrency)0 else 1}.thenBy{it})
     val types=walletGroups.toSet()-"other"
@@ -101,7 +104,7 @@ fun WalletScreen(data:FinanceData,edit:(Account)->Unit,add:()->Unit,open:((Accou
             }
         }
     }
-    val firstGroup = walletGroups.firstOrNull { type -> type in pinnedWalletGroups || roots.any { if (type == "other") it.type !in types else it.type == type } }
+    val firstGroup = groupOrder.firstOrNull { type -> type in pinnedWalletGroups || roots.any { if (type == "other") it.type !in types else it.type == type } }
     LazyColumn(Modifier.fillMaxSize().testTag("wallet-list"),contentPadding=PaddingValues(start=16.dp,end=16.dp,bottom=120.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
         stickyHeader(key = "wallet-header") {
             Box(Modifier.fillMaxWidth().background(FFColors.background).padding(top = 6.dp)) {
@@ -126,7 +129,7 @@ fun WalletScreen(data:FinanceData,edit:(Account)->Unit,add:()->Unit,open:((Accou
                 color = if (data.featuresError != null) FFColors.expense else FFColors.outline)
         }
         if (!archived) {
-            walletGroups.forEach { type ->
+            groupOrder.forEach { type ->
                 val accounts = roots.filter { if (type == "other") it.type !in types else it.type == type }
                 if (type in pinnedWalletGroups || accounts.isNotEmpty()) item(key = "group-${type}") {
                     val title = walletTypeLabel(type)
@@ -330,4 +333,4 @@ private fun MoneyCompositionDialog(currencies:List<String>,currency:String,selec
     },confirmButton={TextButton(onClick=dismiss){Text(MR.strings.common_close.text())}})
 }
 
-private fun walletMoney(value:Long,currency:String,preferences:AppPreferences)=if(preferences.hideBalances)"••••" else formatBalance(value,currency,preferences)
+private fun walletMoney(value:Long,currency:String,preferences:AppPreferences)=if(preferences.hideBalances)maskedBalance(value,currency,preferences) else formatBalance(value,currency,preferences)

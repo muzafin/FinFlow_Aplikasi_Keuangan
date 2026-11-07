@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.model.LocalPreferences
 import com.logikawan.finflow.core.model.Transaction
+import com.logikawan.finflow.core.model.maskedBalance
 import com.logikawan.finflow.core.ui.FFColors
 import com.logikawan.finflow.core.ui.FFIcon
 import com.logikawan.finflow.core.ui.FFType
@@ -161,8 +162,8 @@ private fun FilterPill(label: String, options: List<Pair<String, String>>, modif
 @Composable
 fun TransactionCard(tx: Transaction, data: FinanceData, click: () -> Unit) {
     val category = data.categories.find { it.id == tx.categoryId }
-    val tone = when (tx.type) { "income" -> FFColors.income; "transfer" -> FFColors.onSurfaceVariant; else -> category?.color?.let { androidx.compose.ui.graphics.Color(it) } ?: categoryColor(tx.categoryId) }
-    val amountColor = when (tx.type) { "income" -> FFColors.income; "expense" -> FFColors.expense; else -> FFColors.onSurfaceVariant }
+    val tone = when (tx.type) { "income" -> FFColors.income; "transfer" -> FFColors.transfer; else -> category?.color?.let { androidx.compose.ui.graphics.Color(it) } ?: categoryColor(tx.categoryId) }
+    val amountColor = when (tx.type) { "income" -> FFColors.income; "expense" -> FFColors.expense; "transfer" -> FFColors.transfer; else -> FFColors.onSurfaceVariant }
     val prefix = when (tx.type) { "income" -> "+"; "expense" -> "-"; else -> "" }
     val preferences = LocalPreferences.current
     val sub = if (tx.type == "transfer") "${data.accountName(tx.accountId)} → ${tx.toAccountId?.let(data::accountName) ?: MR.strings.tx_destination_wallet.text()}"
@@ -185,7 +186,7 @@ fun TransactionCard(tx: Transaction, data: FinanceData, click: () -> Unit) {
         }
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
-            Text(prefix + if (preferences.hideBalances) "••••" else compactDisplayMoney(tx.amountMinor, tx.currency), style = FFType.bodyMain.copy(fontSize = 15.sp), color = amountColor, maxLines = 1)
+            Text(prefix + if (preferences.hideBalances) maskedBalance(tx.amountMinor, tx.currency, preferences) else compactDisplayMoney(tx.amountMinor, tx.currency), style = FFType.bodyMain.copy(fontSize = 15.sp), color = amountColor, maxLines = 1)
             Spacer(Modifier.height(2.dp))
             Text(stamp, style = FFType.metaData.copy(fontSize = 10.5.sp), color = FFColors.onSurfaceVariant, maxLines = 1)
         }

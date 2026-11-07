@@ -39,7 +39,7 @@ internal val GoalAccent = Color(0xFF2196F3)
 
 internal fun fundedGoalAmount(goal:Goal)=if(goal.holdingAccountId==null)0L else (goal.savedMinor-goal.legacySavedMinor).coerceAtLeast(0)
 internal fun legacyGoalAmount(goal:Goal)=if(goal.holdingAccountId==null)goal.savedMinor else goal.legacySavedMinor
-internal fun goalMoney(value:Long,currency:String,preferences:AppPreferences)=if(preferences.hideBalances)"••••" else formatBalance(value,currency,preferences)
+internal fun goalMoney(value:Long,currency:String,preferences:AppPreferences)=if(preferences.hideBalances)maskedBalance(value,currency,preferences) else formatBalance(value,currency,preferences)
 internal fun bucketName(type:String)=when(type){"emergency"->MR.strings.acc_bucket_emergency.text();"locked"->MR.strings.acc_bucket_locked.text();else->MR.strings.acc_bucket_standard.text()}
 internal fun bucketIcon(type:String)=when(type){"emergency"->"warning_amber_rounded";"locked"->"lock_outline_rounded";else->"savings_rounded"}
 private fun bucketTypeLabel(type:String)=when(type){"emergency"->MR.strings.acc_bucket_badge_emergency.text();"locked"->MR.strings.acc_bucket_badge_locked.text();else->MR.strings.acc_bucket_badge_standard.text()}

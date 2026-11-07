@@ -23,6 +23,19 @@ data class AppPreferences(
     val defaultWalletId: String = "", val rememberCategory: Boolean = true,
     val lastExpenseCategory: String = "", val lastIncomeCategory: String = "",
     val language: String = "system", val cardGradient: String = "teal", val menuTheme: String = "colorful", val addButtonMode: String = "all",
+    // Pengaturan (Ollo Settings): "" = sama dengan mata uang tampilan (profil).
+    val defaultTransactionCurrency: String = "",
+    val tapAnimations: Boolean = true, val pageTransitions: Boolean = true, val listAnimations: Boolean = true,
+    // Preferensi Ollo (grup C): warna transfer, masker saldo, pemilih tanggal, isi cepat.
+    val transferColor: Long = 0xFF2196F3, val maskCharacter: String = "•", val preserveMaskFormat: Boolean = true,
+    val datePickerStyle: String = "calendar", val quickFill: Boolean = true,
+    // Pengaturan Dompet & Kategori (grup B): kosong/0 = otomatis.
+    val dashboardWalletIds: List<String> = emptyList(), val dashboardWalletCount: Int = 0,
+    val walletPickerLayout: String = "grid", val walletPickerOrder: String = "my_wallets",
+    val walletGroupOrder: List<String> = listOf("cash", "bank", "ewallet", "savings", "credit", "investment", "loan", "other"),
+    val walletOrder: List<String> = emptyList(), val categoryOrder: List<String> = emptyList(),
+    // Bahasa Input Suara (grup D): "system" = ikut bahasa aplikasi, selain itu tag BCP-47 seperti "id-ID".
+    val voiceLanguage: String = "system",
 ) {
     fun validate() {
         require(theme in listOf("system","light","dark") && palette in listOf("neutral","arctic","ruby","emerald","indigo"))
@@ -36,7 +49,15 @@ data class AppPreferences(
         require(lastExpenseCategory.length<=1000 && lastIncomeCategory.length<=1000)
         require(incomeColor in 0xFF000000..0xFFFFFFFF && expenseColor in 0xFF000000..0xFFFFFFFF && defaultWalletId.length <= 1000)
         require((language == "system" || com.logikawan.finflow.core.i18n.appLanguages.any { it.tag == language }) && addButtonMode in listOf("quick","all"))
-        require(cardGradient in cardGradientPresets.map{it.id} && menuTheme in menuThemePresets.map{it.id})
+        require(isValidCardGradient(cardGradient) && isValidMenuTheme(menuTheme))
+        require(defaultTransactionCurrency.isEmpty() || defaultTransactionCurrency.matches(Regex("[A-Z]{3}")))
+        require(transferColor in 0xFF000000..0xFFFFFFFF && maskCharacter in maskCharacters && datePickerStyle in listOf("calendar","wheel"))
+        require(dashboardWalletIds.size <= 50 && dashboardWalletIds.distinct().size == dashboardWalletIds.size && dashboardWalletIds.all { it.length in 1..100 } && dashboardWalletCount in 0..20)
+        require(walletPickerLayout in listOf("grid","list") && walletPickerOrder in listOf("my_wallets","most_used","name","balance"))
+        require(walletGroupOrder.size == 8 && walletGroupOrder.toSet() == setOf("cash","bank","ewallet","savings","credit","investment","loan","other"))
+        require(walletOrder.size <= 500 && walletOrder.distinct().size == walletOrder.size && walletOrder.all { it.length in 1..100 })
+        require(categoryOrder.size <= 1000 && categoryOrder.distinct().size == categoryOrder.size && categoryOrder.all { it.length in 1..100 })
+        require(voiceLanguage == "system" || voiceLanguage.matches(Regex("[a-z]{2,3}-[A-Z]{2}")))
     }
 }
 

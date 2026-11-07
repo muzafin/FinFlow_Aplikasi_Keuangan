@@ -30,6 +30,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.logikawan.finflow.core.model.*
 import com.logikawan.finflow.core.util.compactDisplayMoney
 import com.logikawan.finflow.core.util.formatBalance
+import com.logikawan.finflow.core.util.pickerOrder
 import com.logikawan.finflow.i18n.*
 import com.logikawan.finflow.core.i18n.text
 
@@ -64,9 +65,11 @@ private fun matchesType(account: Account, type: String): Boolean = when (type) {
 fun WalletPicker(data: FinanceData, accounts: List<Account>, selected: String, dismiss: () -> Unit, select: (String) -> Unit) {
     var query by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("all") }
-    var list by remember { mutableStateOf(false) }
     val preferences = LocalPreferences.current
-    val visible = accounts.filter { account ->
+    // Tata letak awal mengikuti Pengaturan Dompet → Tata Letak Pemilih; tombol di dialog tetap bisa mengganti sementara.
+    var list by remember(preferences.walletPickerLayout) { mutableStateOf(preferences.walletPickerLayout == "list") }
+    val ordered = accounts.pickerOrder(data, preferences)
+    val visible = ordered.filter { account ->
         (query.isBlank() || "${account.name} ${account.currency}".contains(query.trim(), true)) && matchesType(account, type)
     }
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -124,17 +127,25 @@ fun WalletPicker(data: FinanceData, accounts: List<Account>, selected: String, d
                                 }
                             }
                         }
-                        items(visible.chunked(if (list) 1 else 4)) { row ->
+                        if (list) items(visible, key = { it.id }) { account ->
+                            WalletListRow(
+                                account = account,
+                                balance = if (preferences.hideBalances) maskedBalance(data.balance(account), account.currency, preferences)
+                                    else formatBalance(data.balance(account), account.currency, preferences),
+                                selected = account.id == selected,
+                            ) { select(account.id) }
+                        } else items(visible.chunked(4)) { row ->
                             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 row.forEach { account ->
                                     WalletGridCard(
                                         account = account,
-                                        balance = if (preferences.hideBalances) "••••••" else compactDisplayMoney(data.balance(account), account.currency),
+                                        balance = if (preferences.hideBalances) maskedBalance(data.balance(account), account.currency, preferences)
+                                            else compactDisplayMoney(data.balance(account), account.currency),
                                         selected = account.id == selected,
                                         modifier = Modifier.weight(1f),
                                     ) { select(account.id) }
                                 }
-                                if (!list) repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
                     }
@@ -191,6 +202,35 @@ private fun WalletFilterChip(label: String, selected: Boolean, onClick: () -> Un
     }
 }
 
+/** Baris pemilih dompet mode daftar: ikon, nama, dan saldo. */
+@Composable
+private fun WalletListRow(account: Account, balance: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 8.dp).heightIn(min = 60.dp)
+            .clip(shape)
+            .background(if (selected) FFColors.surfaceContainerHigh else FFColors.surfaceLow)
+            .then(if (selected) Modifier.border(1.dp, FFColors.outline, shape) else Modifier)
+            .clickable(onClick = onClick)
+            .testTag("wallet-picker-row-${account.id}")
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(38.dp).clip(CircleShape).background(FFColors.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+            AccountIconContent(account, account.icon, FFColors.onSurface, 22.dp)
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(account.name, Modifier.weight(1f), style = FFType.bodyMain, fontWeight = FontWeight.SemiBold,
+            color = FFColors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.widthIn(max = 150.dp)) { FitMoneyText(balance, FFType.metaData, FFColors.onSurfaceVariant, TextAlign.End) }
+        if (selected) {
+            Spacer(Modifier.width(8.dp))
+            FFIcon("check_rounded", FFColors.onSurface, 18.dp)
+        }
+    }
+}
+
 @Composable
 private fun WalletGridCard(account: Account, balance: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(modifier.height(88.dp)) {
@@ -242,7 +282,7 @@ fun WalletChoice(label: String, value: String, data: FinanceData, accounts: List
                     style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), fontWeight = FontWeight.SemiBold, color = FFColors.onSurface)
                 account?.let {
                     FitMoneyText(
-                        if (LocalPreferences.current.hideBalances) "••••••" else formatBalance(data.balance(it), it.currency, LocalPreferences.current),
+                        if (LocalPreferences.current.hideBalances) maskedBalance(data.balance(it), it.currency, LocalPreferences.current) else formatBalance(data.balance(it), it.currency, LocalPreferences.current),
                         FFType.bodyMain, FFColors.outline,
                     )
                 }

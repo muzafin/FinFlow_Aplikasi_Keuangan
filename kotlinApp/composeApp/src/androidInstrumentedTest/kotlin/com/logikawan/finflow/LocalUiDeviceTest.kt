@@ -142,30 +142,32 @@ class LocalUiDeviceTest {
         ui.onNodeWithText("Masukan & Peta Jalan").performClick()
         ui.onNodeWithTag("product-roadmap").assertIsDisplayed()
         ui.onNodeWithText("Direncanakan").assertIsSelected()
-        ui.onNodeWithTag("roadmap-list").performScrollToNode(hasTestTag("roadmap-FF-042"))
-        ui.onNodeWithTag("roadmap-FF-042").performClick()
+        ui.onNodeWithTag("roadmap-list").performScrollToNode(hasTestTag("roadmap-FF-044"))
+        ui.onNodeWithTag("roadmap-FF-044").performClick()
         ui.onNodeWithText("Salin Prompt").performClick()
         ui.runOnIdle {
             val manager = InstrumentationRegistry.getInstrumentation().targetContext.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            assertTrue(manager.primaryClip!!.getItemAt(0).text.toString().contains("Fitur FinFlow FF-042"))
+            assertTrue(manager.primaryClip!!.getItemAt(0).text.toString().contains("Fitur FinFlow FF-044"))
         }
         ui.onNodeWithText("Sedang Dikerjakan").performClick()
         ui.onNodeWithTag("roadmap-list").performScrollToNode(hasTestTag("roadmap-FF-035"))
         ui.onNodeWithTag("roadmap-FF-035").assertIsDisplayed()
         ui.onNodeWithText("Selesai").performClick()
-        ui.onNodeWithTag("roadmap-list").performScrollToNode(hasContentDescription("Cari fitur / ID"))
+        ui.onNodeWithTag("roadmap-search-toggle").performClick()
         ui.onNodeWithContentDescription("Cari fitur / ID").performTextReplacement("FF-022")
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
         ui.onNodeWithTag("roadmap-FF-022").assertIsDisplayed()
         ui.onNodeWithTag("roadmap-FF-001").assertDoesNotExist()
-        ui.onNodeWithText("Salin Semua").performClick()
+        ui.onNodeWithTag("roadmap-menu").performClick()
+        ui.onNodeWithTag("roadmap-copy-all").performClick()
         ui.runOnIdle {
             val manager = InstrumentationRegistry.getInstrumentation().targetContext.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val content = manager.primaryClip!!.getItemAt(0).text.toString()
             assertTrue(content.contains("FF-001")); assertTrue(content.contains("FF-060"))
         }
         screenshot("product-roadmap-dark")
-        ui.onNodeWithText("Kirim Masukan").performClick()
+        ui.onNodeWithTag("roadmap-menu").performClick()
+        ui.onNodeWithTag("roadmap-send-feedback").performClick()
         ui.onNodeWithContentDescription("Saran").assertIsDisplayed()
         ui.onNodeWithText("Buka Draf Email").assertIsNotEnabled()
         ui.runOnIdle { lifecycle.back() }

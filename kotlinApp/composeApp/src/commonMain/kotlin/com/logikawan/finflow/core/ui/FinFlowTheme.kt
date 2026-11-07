@@ -42,6 +42,7 @@ object FFColors {
     val surfaceContainerHighest: Color @Composable get() = MaterialTheme.colorScheme.surfaceContainerHighest
     val income: Color @Composable get() = Color(LocalPreferences.current.incomeColor)
     val expense: Color @Composable get() = Color(LocalPreferences.current.expenseColor)
+    val transfer: Color @Composable get() = Color(LocalPreferences.current.transferColor)
     val navFab: Color @Composable get() = primary
     // Token Ollo yang berbalik di mode terang (diukur dari Ollo 1.7.9 gelap & terang).
     val isDark: Boolean @Composable get() = MaterialTheme.colorScheme.background.luminance() < .5f

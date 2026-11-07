@@ -12,8 +12,11 @@ import com.logikawan.finflow.core.util.today
 import com.logikawan.finflow.i18n.*
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.functions.FirebaseFunctionsException
+import dev.gitlive.firebase.functions.FunctionsExceptionCode
+import dev.gitlive.firebase.functions.code
 import dev.gitlive.firebase.functions.functions
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.io.encoding.Base64
@@ -55,25 +58,46 @@ enum class AiFeature(val id: String, val title: String) {
 @Serializable data class PremiumState(val active: Boolean = false, val expiresAt: Long? = null, val productId: String? = null,
     val store: String? = null, val manualUntil: Long? = null)
 
-private fun FirebaseFunctionsException.friendly(fallback: String): String {
+/** Layanan AI belum ter-deploy/aktif di server (NOT_FOUND) atau sementara tidak dapat dijangkau (UNAVAILABLE). */
+class AiUnavailableException(message: String, val notDeployed: Boolean, cause: Throwable? = null) : IllegalStateException(message, cause)
+
+/**
+ * Menerjemahkan error Cloud Functions menjadi pesan berbahasa aplikasi. Kode dibaca dari `code` (bukan teks pesan),
+ * sehingga function yang belum di-deploy (NOT_FOUND) atau server yang tidak terjangkau (UNAVAILABLE) selalu
+ * menghasilkan keadaan "layanan AI belum tersedia" yang diterjemahkan, bukan pesan teknis.
+ */
+private fun FirebaseFunctionsException.toClientError(fallback: String): Exception {
     val text = message.orEmpty()
-    // Kode mentah (NOT_FOUND, INTERNAL, …) berarti function belum aktif atau server bermasalah.
-    return if (text.isBlank() || text.matches(Regex("[A-Z_]+"))) when (text) {
-        "NOT_FOUND" -> MR.strings.ai_err_service_not_active.text()
-        "UNAVAILABLE", "DEADLINE_EXCEEDED" -> MR.strings.ai_err_server_unreachable.text()
-        "UNAUTHENTICATED" -> MR.strings.ai_err_session_expired.text()
-        else -> fallback
-    } else text
+    val raw = text.isBlank() || text.matches(Regex("[A-Z_]+"))
+    return when (code) {
+        FunctionsExceptionCode.NOT_FOUND, FunctionsExceptionCode.UNIMPLEMENTED ->
+            AiUnavailableException(MR.strings.pd_ai_service_not_available.text(), notDeployed = true, cause = this)
+        FunctionsExceptionCode.UNAVAILABLE, FunctionsExceptionCode.DEADLINE_EXCEEDED ->
+            AiUnavailableException(MR.strings.pd_ai_service_busy.text(), notDeployed = false, cause = this)
+        FunctionsExceptionCode.UNAUTHENTICATED -> IllegalStateException(MR.strings.ai_err_session_expired.text(), this)
+        // Server mengirim "belum dikonfigurasi" bila secret/kunci AI belum diisi (functions/ai.js).
+        FunctionsExceptionCode.INTERNAL -> if (text.contains("dikonfigurasi")) AiUnavailableException(MR.strings.pd_ai_service_not_available.text(), notDeployed = true, cause = this)
+            else IllegalStateException(if (raw) fallback else text, this)
+        // Penyedia AI saat ini (DeepSeek) tidak menerima gambar; server menolak AI Scan dengan failed-precondition (functions/deepseek.js).
+        FunctionsExceptionCode.FAILED_PRECONDITION -> when {
+            text.startsWith("AI Scan belum didukung") -> IllegalStateException(MR.strings.pd_ai_scan_not_supported.text(), this)
+            text.startsWith("Setujui pemrosesan AI") -> IllegalStateException(MR.strings.pd_ai_consent_required.text(), this)
+            else -> IllegalStateException(if (raw) fallback else text, this)
+        }
+        else ->IllegalStateException(if (raw) fallback else text, this)
+    }
 }
 
 class AiService {
     private val functions get() = Firebase.functions("asia-southeast2")
     private suspend inline fun <reified T, reified R> call(name: String, data: T, timeoutSeconds: Int = 120): R = try {
         functions.httpsCallable(name, timeoutSeconds.seconds)(data).data<R>()
-    } catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly(MR.strings.ai_err_service_unavailable.text()), e) }
+    } catch (e: FirebaseFunctionsException) { throw e.toClientError(MR.strings.ai_err_generic.text()) }
+    catch (e: SerializationException) { throw IllegalStateException(MR.strings.ai_err_generic.text(), e) }
 
     suspend fun status(): AiStatus = try { functions.httpsCallable("aiStatus", 30.seconds)().data<AiStatus>() }
-        catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly(MR.strings.ai_err_status_unavailable.text()), e) }
+        catch (e: FirebaseFunctionsException) { throw e.toClientError(MR.strings.ai_err_status_unavailable.text()) }
+        catch (e: SerializationException) { throw IllegalStateException(MR.strings.ai_err_status_unavailable.text(), e) }
     suspend fun setConsent(feature: AiFeature, granted: Boolean) { call<ConsentRequest, Map<String, String?>>("aiConsent", ConsentRequest(feature.id, granted), 30) }
     suspend fun parse(feature: AiFeature, text: String, context: AiContext): ParseResult =
         call("aiParseText", ParseRequest(feature.id, text.take(2000), context))
@@ -84,7 +108,7 @@ class AiService {
         call<AssistantRequest, AssistantReply>("aiAssistant", AssistantRequest(turns.takeLast(19).let { if (it.first().role != "user") it.drop(1) else it },
             summary.take(12000), settings.personality, settings.nickname.take(40), settings.preference.take(200), language)).reply
     suspend fun refreshPremium(): PremiumState = try { functions.httpsCallable("refreshPremium", 60.seconds)().data<PremiumState>() }
-        catch (e: FirebaseFunctionsException) { throw IllegalStateException(e.friendly(MR.strings.ai_err_premium_check.text()), e) }
+        catch (e: FirebaseFunctionsException) { throw e.toClientError(MR.strings.ai_err_premium_check.text()) }
 }
 
 fun aiContext(data: FinanceData, language: String): AiContext {

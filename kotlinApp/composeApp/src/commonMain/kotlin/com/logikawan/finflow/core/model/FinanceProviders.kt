@@ -3,7 +3,7 @@ package com.logikawan.finflow.core.model
 /**
  * Katalog bank dan e-wallet untuk dompet. Disimpan di `Account.icon` sebagai `provider:<id>` sehingga
  * tidak perlu kolom/aturan Firestore baru. Badge memakai warna merek + singkatan; berkas logo resmi
- * dapat ditambahkan nanti per id (lihat [providerLogoAssets]) setelah izin pemakaian merek tersedia.
+ * Logo resmi ada di composeResources/drawable/provider_<id>.png (lihat core/ui/ProviderBadge.kt).
  */
 data class FinanceProvider(val id: String, val name: String, val type: String, val color: Long, val short: String, val dark: Boolean = false)
 
@@ -45,8 +45,40 @@ val financeProviders = listOf(
     FinanceProvider("paypal", "PayPal", "ewallet", 0xFF003087, "PP"),
 )
 
-/** Id penyedia yang sudah punya berkas logo resmi (kosong: semua memakai badge warna). */
-val providerLogoAssets: Map<String, String> = emptyMap()
 
 fun providerOf(icon: String?): FinanceProvider? =
     icon?.takeIf { it.startsWith(PROVIDER_PREFIX) }?.removePrefix(PROVIDER_PREFIX)?.let { id -> financeProviders.firstOrNull { it.id == id } }
+
+/** Nama mata uang (Inggris, seperti Ollo) untuk baris "Mata Uang Dompet"; kode dipakai bila tidak tercatat. */
+private val walletCurrencyNames = mapOf(
+    "AED" to "UAE Dirham", "AUD" to "Australian Dollar", "BDT" to "Bangladeshi Taka", "BHD" to "Bahraini Dinar",
+    "BRL" to "Brazilian Real", "CAD" to "Canadian Dollar", "CHF" to "Swiss Franc", "CNY" to "Chinese Yuan",
+    "CZK" to "Czech Koruna", "DKK" to "Danish Krone", "EGP" to "Egyptian Pound", "EUR" to "Euro",
+    "GBP" to "British Pound", "HKD" to "Hong Kong Dollar", "HUF" to "Hungarian Forint", "IDR" to "Indonesian Rupiah",
+    "ILS" to "Israeli New Shekel", "INR" to "Indian Rupee", "ISK" to "Icelandic Krona", "JPY" to "Japanese Yen",
+    "KRW" to "South Korean Won", "KWD" to "Kuwaiti Dinar", "LKR" to "Sri Lankan Rupee", "MAD" to "Moroccan Dirham",
+    "MXN" to "Mexican Peso", "MYR" to "Malaysian Ringgit", "NOK" to "Norwegian Krone", "NZD" to "New Zealand Dollar",
+    "OMR" to "Omani Rial", "PHP" to "Philippine Peso", "PKR" to "Pakistani Rupee", "PLN" to "Polish Zloty",
+    "QAR" to "Qatari Riyal", "RON" to "Romanian Leu", "RUB" to "Russian Ruble", "SAR" to "Saudi Riyal",
+    "SEK" to "Swedish Krona", "SGD" to "Singapore Dollar", "THB" to "Thai Baht", "TRY" to "Turkish Lira",
+    "TWD" to "New Taiwan Dollar", "UAH" to "Ukrainian Hryvnia", "USD" to "US Dollar", "VND" to "Vietnamese Dong",
+    "ZAR" to "South African Rand",
+)
+
+fun walletCurrencyName(code: String): String = walletCurrencyNames[code] ?: code
+
+/**
+ * Templat dompet untuk "Impor Templat Dompet": jenis + penyedia (atau ikon umum). Nama tampil diambil dari penyedia;
+ * templat tanpa penyedia memakai label jenis yang diterjemahkan di layar.
+ */
+data class WalletTemplate(val id: String, val type: String, val providerId: String? = null, val icon: String = "account_balance_wallet")
+
+val walletTemplates = listOf(
+    WalletTemplate("cash", "cash", icon = "hi_wallet"),
+    WalletTemplate("bca", "bank", "bca"), WalletTemplate("mandiri", "bank", "mandiri"), WalletTemplate("bri", "bank", "bri"),
+    WalletTemplate("bni", "bank", "bni"), WalletTemplate("bsi", "bank", "bsi"), WalletTemplate("jago", "bank", "jago"),
+    WalletTemplate("seabank", "bank", "seabank"), WalletTemplate("blu", "bank", "blu"),
+    WalletTemplate("gopay", "ewallet", "gopay"), WalletTemplate("ovo", "ewallet", "ovo"), WalletTemplate("dana", "ewallet", "dana"),
+    WalletTemplate("shopeepay", "ewallet", "shopeepay"), WalletTemplate("linkaja", "ewallet", "linkaja"),
+    WalletTemplate("credit", "credit", icon = "hi_card"), WalletTemplate("investment", "investment", icon = "hi_invest"),
+)

@@ -329,7 +329,7 @@ class FinFlowDesignDeviceTest {
         ui.onNodeWithText("Geser horizontal",false).performClick()
         ui.onNodeWithText("Grid",false).performClick()
         ui.runOnIdle { assertEquals("grid",store.value.menuAppearance);screen="Susunan Menu" }
-        ui.onAllNodes(isToggleable())[0].performClick()
+        ui.onNodeWithTag("menu-visible-Anggaran").performClick()
         ui.onNodeWithContentDescription("Turun Anggaran").performClick()
         ui.runOnIdle {
             assertTrue("Anggaran" in store.value.hiddenMenus)
@@ -337,7 +337,7 @@ class FinFlowDesignDeviceTest {
             screen="Format Saldo"
         }
         ui.onNodeWithTag("preferences-list").performScrollToNode(hasText("Sembunyikan saldo saat dibuka"))
-        ui.onAllNodes(isToggleable())[2].performClick()
+        ui.onNodeWithTag("pref-hide-balance").performClick()
         ui.runOnIdle {
             assertTrue(store.value.hideBalances)
             val saved=store.value
@@ -365,6 +365,8 @@ class FinFlowDesignDeviceTest {
             if(selected==null)CategoryScreen(data,false,{selected=it})
             else CategoryEditor(false,{selected=null},{saved=it},old=selected,data=data)
         } }
+        // Kategori Ollo dimulai tertutup: buka "food" dulu agar subkategori terlihat.
+        ui.onNodeWithTag("category-expand-food").performScrollTo().performClick()
         ui.onNodeWithText("Sarapan Uji",false).performScrollTo().performClick()
         ui.onNodeWithContentDescription("Nama kategori").performTextReplacement("Sarapan Kantor")
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)

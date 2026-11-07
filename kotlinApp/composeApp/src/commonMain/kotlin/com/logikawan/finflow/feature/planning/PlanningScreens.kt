@@ -650,5 +650,5 @@ internal fun OlloEmptyState(icon: String, title: String, message: String, tip: S
 @Composable
 private fun moneyLabel(value: Long, currency: String): String {
     val preferences = LocalPreferences.current
-    return if (preferences.hideBalances) "••••" else formatBalance(value, currency, preferences)
+    return if (preferences.hideBalances) maskedBalance(value, currency, preferences) else formatBalance(value, currency, preferences)
 }

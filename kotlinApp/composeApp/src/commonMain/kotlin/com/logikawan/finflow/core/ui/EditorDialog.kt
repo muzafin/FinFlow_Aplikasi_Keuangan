@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -28,7 +30,16 @@ fun EditorDialog(title: String, busy: Boolean, dismiss: () -> Unit, save: () -> 
     }
     Dialog(onDismissRequest = { if (!busy) dismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Column(Modifier.fillMaxSize().background(designBackground).safeDrawingPadding().imePadding().testTag("editor-page")) {
-            DesignHeader(title, back = { if (!busy) dismiss() })
+            // Ollo: editor dompet memakai judul di tengah dan tombol ✓ di kanan atas (tanpa tombol bawah).
+            val headerSave = kind == EditorKind.Wallet
+            if (headerSave) Box(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 8.dp)) {
+                IconButton(onClick = { if (!busy) dismiss() }, Modifier.align(Alignment.CenterStart)) { FFIcon("chevron_left_rounded", FFColors.onSurface, 24.dp, MR.strings.common_back.text()) }
+                Text(title, Modifier.align(Alignment.Center), style = FFType.appTitle.copy(fontSize = 20.sp, lineHeight = 26.sp), color = FFColors.onSurface)
+                IconButton(onClick = save, enabled = !busy, modifier = Modifier.align(Alignment.CenterEnd).testTag("editor-save")) {
+                    if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else FFIcon("hi_check", FFColors.onSurface, 24.dp, MR.strings.app_save_wallet.text())
+                }
+            } else DesignHeader(title, back = { if (!busy) dismiss() })
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 content()
@@ -36,7 +47,7 @@ fun EditorDialog(title: String, busy: Boolean, dismiss: () -> Unit, save: () -> 
                 Spacer(Modifier.height(8.dp))
             }
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(enabled = !busy, onClick = save, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(24.dp)) {
+                if (!headerSave) Button(enabled = !busy, onClick = save, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(24.dp)) {
                     if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                     else Text(when (kind) { EditorKind.Budget -> MR.strings.app_save_budget.text(); EditorKind.Goal -> MR.strings.app_save_savings_goal.text(); EditorKind.Wallet -> MR.strings.app_save_wallet.text(); EditorKind.Generic -> MR.strings.common_save.text() })
                 }

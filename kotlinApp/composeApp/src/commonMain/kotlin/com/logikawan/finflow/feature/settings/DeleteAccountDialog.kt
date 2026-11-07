@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.platform.NativeServices
 import com.logikawan.finflow.core.ui.Field
@@ -21,14 +22,16 @@ fun DeleteAccountDialog(native: NativeServices, google: Boolean, busy: Boolean, 
     var choosingAccount by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val waiting = busy || choosingAccount
-    AlertDialog(onDismissRequest = { if (!waiting) dismiss() }, title = { Text(if(dataOnly)MR.strings.auth_delete_data_title.text() else MR.strings.auth_delete_account_title.text()) }, text = {
+    AlertDialog(onDismissRequest = { if (!waiting) dismiss() }, containerColor = com.logikawan.finflow.core.ui.FFColors.canvas, shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        icon = { com.logikawan.finflow.core.ui.FFIcon(AdIcons.alert, AdTone.danger, 28.dp) },
+        title = { Text(if(dataOnly)MR.strings.auth_delete_data_title.text() else MR.strings.auth_delete_account_title.text(), style = adText(18.sp, androidx.compose.ui.text.font.FontWeight.SemiBold, 24.sp)) }, text = {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(if(dataOnly)MR.strings.auth_delete_data_description.text() else MR.strings.auth_delete_account_description.text())
+            AdBody(if(dataOnly)MR.strings.auth_delete_data_description.text() else MR.strings.auth_delete_account_description.text())
             Field(MR.strings.auth_delete_type_phrase.text(phrase),confirmation,{confirmation=it},enabled=!waiting)
             if (!google && !localMode) OutlinedTextField(password,{password=it},label={Text(MR.strings.auth_delete_account_password.text())},singleLine=true,
                 visualTransformation=PasswordVisualTransformation(),enabled=!waiting,modifier=Modifier.fillMaxWidth())
-            if(!localMode)Text(if (google) MR.strings.auth_delete_google_note.text() else MR.strings.auth_delete_password_note.text())
-            error?.let { Text(it,color=MaterialTheme.colorScheme.error) }
+            if(!localMode)AdBody(if (google) MR.strings.auth_delete_google_note.text() else MR.strings.auth_delete_password_note.text(), size = 13.sp)
+            error?.let { Text(it,color=AdTone.danger) }
             if (waiting) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
     }, confirmButton = { TextButton(enabled=!waiting && confirmation==phrase && (localMode || google || password.isNotEmpty()),onClick={
@@ -40,6 +43,6 @@ fun DeleteAccountDialog(native: NativeServices, google: Boolean, busy: Boolean, 
                 if (token!=null) confirm(null,token) else error=failure ?: MR.strings.auth_delete_cancelled.text()
             }
         } else confirm(password,null)
-    }) { Text(if (google && !localMode) MR.strings.auth_delete_confirm_google.text() else MR.strings.auth_delete_permanently.text(),color=MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(enabled=!waiting,onClick=dismiss) { Text(MR.strings.common_cancel.text()) } })
+    }) { Text(if (google && !localMode) MR.strings.auth_delete_confirm_google.text() else MR.strings.auth_delete_permanently.text(),color=if(!waiting && confirmation==phrase && (localMode || google || password.isNotEmpty())) AdTone.danger else AdTone.danger.copy(alpha=.4f)) } },
+        dismissButton = { TextButton(enabled=!waiting,onClick=dismiss) { Text(MR.strings.common_cancel.text(),color=com.logikawan.finflow.core.ui.FFColors.onSurfaceVariant) } })
 }

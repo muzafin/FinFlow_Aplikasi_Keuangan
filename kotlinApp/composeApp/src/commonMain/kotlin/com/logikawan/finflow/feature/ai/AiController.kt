@@ -20,6 +20,8 @@ class AiController(private val native: NativeServices, val uid: String?, private
     val available get() = uid != null
     var status by mutableStateOf<AiStatus?>(null)
     var statusUnavailable by mutableStateOf(false)
+    /** true bila server menjawab bahwa Cloud Functions AI belum di-deploy/dikonfigurasi (NOT_FOUND). */
+    var serviceNotDeployed by mutableStateOf(false)
     var premium by mutableStateOf(PremiumState())
     var working by mutableStateOf<String?>(null)
     var error by mutableStateOf<String?>(null)
@@ -43,9 +45,9 @@ class AiController(private val native: NativeServices, val uid: String?, private
         if (!available) return
         scope.launch {
             // Pemeriksaan latar belakang tidak memunculkan dialog; error baru ditampilkan saat pengguna memakai AI.
-            try { status = service.status(); statusUnavailable = false }
+            try { status = service.status(); statusUnavailable = false; serviceNotDeployed = false }
             catch (e: CancellationException) { throw e }
-            catch (_: Exception) { statusUnavailable = true }
+            catch (e: Exception) { statusUnavailable = true; note(e) }
         }
     }
 
@@ -54,10 +56,10 @@ class AiController(private val native: NativeServices, val uid: String?, private
         if (!available) { error = MR.strings.ai_err_login_required.text(); return }
         scope.launch {
             try {
-                val current = status ?: service.status().also { status = it }
+                val current = status ?: service.status().also { status = it; statusUnavailable = false; serviceNotDeployed = false }
                 if (current.consent[feature.id] == true) onReady() else pendingConsent = feature to onReady
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: MR.strings.ai_err_status_unavailable.text() }
+            catch (e: Exception) { note(e); error = e.message ?: MR.strings.ai_err_status_unavailable.text() }
         }
     }
 
@@ -72,11 +74,16 @@ class AiController(private val native: NativeServices, val uid: String?, private
         working = label
         error = null
         scope.launch {
-            try { block() }
+            try { block(); serviceNotDeployed = false; statusUnavailable = false }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: MR.strings.ai_err_generic.text() }
+            catch (e: Exception) { note(e); error = e.message ?: MR.strings.ai_err_generic.text() }
             finally { working = null; if (available) runCatching { status = service.status() } }
         }
+    }
+
+    /** Mencatat keadaan "layanan AI belum tersedia" agar layar AI menampilkan banner, bukan hanya dialog sekali lewat. */
+    private fun note(e: Exception) {
+        if (e is AiUnavailableException) { statusUnavailable = true; if (e.notDeployed) serviceNotDeployed = true }
     }
 
     fun parse(feature: AiFeature, text: String, data: FinanceData, fallbackWallet: String, language: String, done: () -> Unit = {}) =

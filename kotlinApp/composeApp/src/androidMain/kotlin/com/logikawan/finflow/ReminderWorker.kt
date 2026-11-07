@@ -16,6 +16,10 @@ import androidx.work.*
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
+import com.logikawan.finflow.feature.settings.NOTIFICATION_HISTORY_KEY
+import com.logikawan.finflow.feature.settings.NotificationRecord
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
@@ -26,10 +30,17 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val allowed = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (allowed) {
             val intent = PendingIntent.getActivity(applicationContext, 0, Intent(applicationContext, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            manager.notify(1001, NotificationCompat.Builder(applicationContext, "daily")
-                .setSmallIcon(android.R.drawable.ic_menu_edit).setContentTitle(MR.strings.core_reminder_title.text())
-                .setContentText(MR.strings.core_reminder_body.text())
-                .setContentIntent(intent).setAutoCancel(true).build())
+            val title = MR.strings.core_reminder_title.text()
+            val body = MR.strings.core_reminder_body.text()
+            try {
+                manager.notify(1001, NotificationCompat.Builder(applicationContext, "daily")
+                    .setSmallIcon(android.R.drawable.ic_menu_edit).setContentTitle(title)
+                    .setContentText(body)
+                    .setContentIntent(intent).setAutoCancel(true).build())
+                NotificationHistory.append(applicationContext, title, body, "reminder")
+            } catch (_: SecurityException) {
+                // Izin notifikasi dicabut di antara pemeriksaan dan pengiriman.
+            }
         }
         schedule(applicationContext, replace = false)
         return Result.success()
@@ -46,5 +57,23 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 .setInitialDelay(Duration.between(now, next).seconds, TimeUnit.SECONDS).build()
             work.enqueueUniqueWork("finflow-daily", if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.APPEND_OR_REPLACE, request)
         }
+    }
+}
+
+/**
+ * Riwayat notifikasi yang benar-benar dikirim (dibaca layar Riwayat Notifikasi lewat setting
+ * [NOTIFICATION_HISTORY_KEY]): JSON array [NotificationRecord], terbaru di akhir, maksimal 200 entri.
+ */
+internal object NotificationHistory {
+    private const val LIMIT = 200
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    @Synchronized
+    fun append(context: Context, title: String, body: String, kind: String) {
+        val prefs = context.getSharedPreferences("finflow", Context.MODE_PRIVATE)
+        val current = runCatching { json.decodeFromString<List<NotificationRecord>>(prefs.getString(NOTIFICATION_HISTORY_KEY, null) ?: "[]") }
+            .getOrDefault(emptyList())
+        val next = (current + NotificationRecord(title.take(300), body.take(1000), System.currentTimeMillis(), kind)).sortedBy { it.at }.takeLast(LIMIT)
+        prefs.edit().putString(NOTIFICATION_HISTORY_KEY, json.encodeToString(next)).apply()
     }
 }

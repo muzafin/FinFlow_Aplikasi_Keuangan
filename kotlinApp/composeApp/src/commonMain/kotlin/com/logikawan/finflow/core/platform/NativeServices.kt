@@ -20,6 +20,21 @@ interface NativeServices {
     fun pickProfilePhoto(result: (ByteArray?, String?) -> Unit) { result(null, MR.strings.core_native_photo_picker_unavailable.text()) }
     fun uploadProfilePhoto(userId: String, bytes: ByteArray, result: (String?, String?) -> Unit) { result(null, MR.strings.core_native_photo_upload_unavailable.text()) }
     fun loadProfilePhoto(path: String, result: (ByteArray?, String?) -> Unit) { result(null, MR.strings.core_native_photo_unavailable.text()) }
+    /**
+     * Pilih gambar dari galeri dan kembalikan thumbnail JPEG persegi (dipotong di tengah) berukuran ≤ [maxBytes].
+     * (null, null) bila pengguna membatalkan.
+     */
+    fun pickImage(maxBytes: Int, result: (ByteArray?, String?) -> Unit) { result(null, MR.strings.r3_native_image_picker_unavailable.text()) }
+    /**
+     * Simpan ikon dompet kustom [accountId] milik [ownerId] ("local" = mode lokal, selain itu UID cloud):
+     * mode cloud mengunggah ke Storage `users/{uid}/wallet-icons/{accountId}.jpg` lalu menyimpan salinan cache;
+     * mode lokal hanya menyimpan di perangkat. Callback menerima null bila berhasil, selain itu pesan galat.
+     */
+    fun saveWalletIcon(ownerId: String, accountId: String, bytes: ByteArray, result: (String?) -> Unit) { result(MR.strings.r3_native_wallet_icon_unavailable.text()) }
+    /** Muat ikon dompet kustom; dapat memanggil [result] dua kali (cache lalu versi terbaru dari cloud). */
+    fun loadWalletIcon(ownerId: String, accountId: String, result: (ByteArray?, String?) -> Unit) { result(null, MR.strings.r3_native_wallet_icon_unavailable.text()) }
+    /** Platform untuk daftar Perangkat Terhubung: android | ios | desktop | web | other. */
+    fun devicePlatform(): String = "other"
     fun readSetting(key: String): String? = null
     fun writeSetting(key: String, value: String) {}
     fun onboardingComplete(): Boolean
@@ -28,6 +43,8 @@ interface NativeServices {
     fun pickCsv(result: (String?, String?) -> Unit)
     fun shareCsv(name: String, content: String)
     fun shareTextFile(name: String, content: String, mimeType: String) = shareCsv(name, content)
+    /** Simpan teks ke folder Unduhan; null bila berhasil, selain itu pesan galat. */
+    fun saveToDownloads(name: String, content: String, mimeType: String): String? = MR.strings.pf_downloads_unavailable.text()
     fun sharePdf(name: String, title: String, lines: List<String>) {}
     fun deviceDescription(): String = MR.strings.core_native_this_device.text()
     fun deviceDiagnostics(): String = deviceDescription()

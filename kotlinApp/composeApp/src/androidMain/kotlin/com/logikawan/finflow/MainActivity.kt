@@ -58,7 +58,9 @@ class MainActivity : FragmentActivity(), NativeServices {
     override fun appVersion():String = packageManager.getPackageInfo(packageName,0).versionName ?: "1.0.0"
     override fun deleteLocalProfilePhoto():String? {
         val file=File(noBackupFilesDir,"finflow-local/avatar.jpg")
-        return if(!file.exists() || file.delete())null else MR.strings.core_main_local_photo_not_cleaned.text()
+        // Ikon dompet kustom mode lokal ikut dibersihkan bersama data lokal.
+        val iconsCleared=walletIcons.clearLocal()
+        return if((!file.exists() || file.delete()) && iconsCleared)null else MR.strings.core_main_local_photo_not_cleaned.text()
     }
     override fun composeSupport(subject:String,body:String):String? = try {
         val uri=android.net.Uri.parse("mailto:muzafinarifin.dev@gmail.com?subject="+android.net.Uri.encode(subject)+"&body="+android.net.Uri.encode(body))
@@ -73,6 +75,11 @@ class MainActivity : FragmentActivity(), NativeServices {
     override fun pickProfilePhoto(result: (ByteArray?, String?) -> Unit) = profilePhotos.pick(result)
     override fun uploadProfilePhoto(userId: String, bytes: ByteArray, result: (String?, String?) -> Unit) = profilePhotos.upload(userId, bytes, result)
     override fun loadProfilePhoto(path: String, result: (ByteArray?, String?) -> Unit) = profilePhotos.load(path, result)
+    private val walletIcons = WalletIcons(this)
+    override fun pickImage(maxBytes: Int, result: (ByteArray?, String?) -> Unit) = walletIcons.pick(maxBytes, result)
+    override fun saveWalletIcon(ownerId: String, accountId: String, bytes: ByteArray, result: (String?) -> Unit) = walletIcons.save(ownerId, accountId, bytes, result)
+    override fun loadWalletIcon(ownerId: String, accountId: String, result: (ByteArray?, String?) -> Unit) = walletIcons.load(ownerId, accountId, result)
+    override fun devicePlatform(): String = "android"
     private val aiDevice = AiDevice(this)
     override fun recognizeSpeech(languageTag: String, result: (String?, String?) -> Unit) = aiDevice.recognizeSpeech(languageTag, result)
     override fun captureReceiptPhoto(result: (ByteArray?, String?) -> Unit) = aiDevice.captureReceipt(result)
@@ -188,6 +195,21 @@ class MainActivity : FragmentActivity(), NativeServices {
         openCsv.launch(arrayOf("text/*", "application/csv", "application/json", "application/vnd.ms-excel", "application/octet-stream"))
     }
     override fun shareCsv(name: String, content: String) = shareTextFile(name, content, "text/csv")
+    override fun saveToDownloads(name: String, content: String, mimeType: String): String? = try {
+        if (Build.VERSION.SDK_INT < 29) MR.strings.pf_downloads_unavailable.text()
+        else {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val uri = requireNotNull(contentResolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
+            requireNotNull(contentResolver.openOutputStream(uri)).use { it.write(content.toByteArray(Charsets.UTF_8)) }
+            values.clear(); values.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+            contentResolver.update(uri, values, null, null)
+            null
+        }
+    } catch (e: Exception) { e.message ?: MR.strings.pf_downloads_unavailable.text() }
     override fun shareTextFile(name: String, content: String, mimeType: String) {
         require(mimeType.matches(Regex("[a-zA-Z0-9.+-]+/[a-zA-Z0-9.+-]+"))) { "Jenis file tidak valid" }
         require(content.toByteArray(Charsets.UTF_8).size <= CsvImport.MAX_FILE_BYTES) { MR.strings.core_export_max_5mb.text() }
@@ -362,6 +384,7 @@ class MainActivity : FragmentActivity(), NativeServices {
                 .setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(title).setContentText(message)
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setContentIntent(intent).setAutoCancel(true).build())
             prefs.edit().putBoolean(key, true).apply()
+            NotificationHistory.append(this, title, message, "budget")
         } catch (_: SecurityException) {
             // Izin dapat dicabut ketika aplikasi sedang terbuka; coba lagi setelah diaktifkan.
         }

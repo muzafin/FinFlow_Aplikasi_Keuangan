@@ -93,6 +93,25 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Perangkat terhubung: satu dokumen per instalasi aplikasi. `revoked` dipasang perangkat lain untuk
+      // mengeluarkan perangkat itu; setelah dicabut dokumen hanya boleh dihapus (ID baru dibuat saat masuk lagi).
+      match /devices/{id} {
+        function valid() {
+          let d = request.resource.data;
+          return id.matches('^[A-Za-z0-9_-]{16,64}$')
+            && d.keys().hasAll(['name', 'platform', 'appVersion', 'createdAt', 'lastActiveAt'])
+            && d.keys().hasOnly(['name', 'platform', 'appVersion', 'createdAt', 'lastActiveAt', 'revoked'])
+            && text(d.name, 100) && d.platform in ['android', 'ios', 'desktop', 'web', 'other'] && text(d.appVersion, 40)
+            && d.createdAt is int && d.createdAt >= 0 && d.lastActiveAt is int && d.lastActiveAt >= d.createdAt
+            && d.get('revoked', false) is bool;
+        }
+        allow read: if owner(uid);
+        allow create: if owner(uid) && valid() && request.resource.data.get('revoked', false) == false;
+        allow update: if owner(uid) && valid() && request.resource.data.createdAt == resource.data.createdAt
+          && resource.data.get('revoked', false) == false;
+        allow delete: if owner(uid);
+      }
+
       match /settings/{id} {
         allow read: if owner(uid) && id == 'appearance';
         allow create, update: if owner(uid) && id == 'appearance'

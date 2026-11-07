@@ -101,7 +101,7 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
             }
         }
     }
-    fun shown(amount: Long) = if (preferences.hideBalances) "••••••" else formatBalance(amount, currency, preferences)
+    fun shown(amount: Long) = if (preferences.hideBalances) maskedBalance(amount, currency, preferences) else formatBalance(amount, currency, preferences)
     fun percent(value: Long, of: Long) = if (of > 0) "${(value.toDouble() / of * 100).roundToInt()}%" else "0%"
     val eligible = all.filter { it.currency == currency && (selectedWallet.isEmpty() || it.accountId == selectedWallet) }
     val relevant = eligible.filter { it.date in period }
@@ -450,18 +450,18 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
                     if (rows.isEmpty()) Text(MR.strings.dash_no_transactions.text(), Modifier.padding(vertical = 20.dp), style = FFType.metaData, color = FFColors.onSurfaceVariant)
                     rows.take(logLimit).forEach { tx ->
                         val category = data.categories.find { it.id == tx.categoryId }
-                        val color = if (tx.type == "income") FFColors.income else category?.color?.let { Color(it) } ?: categoryColor(tx.categoryId)
+                        val color = if (tx.type == "income") FFColors.income else if (tx.type == "transfer") FFColors.transfer else category?.color?.let { Color(it) } ?: categoryColor(tx.categoryId)
                         Row(Modifier.fillMaxWidth().clickable { edit(tx) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(runCatching { LocalDate.parse(tx.date).let { "${it.dayOfMonth.toString().padStart(2, '0')}/${it.monthNumber.toString().padStart(2, '0')}" } }.getOrDefault(tx.date),
                                 Modifier.width(52.dp), style = FFType.metaData.copy(fontSize = 10.5.sp), color = FFColors.onSurfaceVariant)
                             Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(color.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
-                                FFIcon(category?.icon?.takeIf { it.isNotBlank() } ?: categoryIcon(tx.categoryId), color, 16.dp)
+                                FFIcon(if (tx.type == "transfer") "hi_swap" else category?.icon?.takeIf { it.isNotBlank() } ?: categoryIcon(tx.categoryId), color, 16.dp)
                             }
                             Spacer(Modifier.width(14.dp))
                             Text(tx.title, Modifier.weight(1f), style = FFType.metaData, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val sign = when (tx.type) { "expense" -> "−"; "income" -> "+"; else -> "" }
-                            Text(sign + if (preferences.hideBalances) "••••••" else compactDisplayMoney(tx.amountMinor, tx.currency), style = FFType.metaData,
-                                color = when (tx.type) { "income" -> FFColors.onSurface; "expense" -> FFColors.expense; else -> FFColors.onSurfaceVariant })
+                            Text(sign + if (preferences.hideBalances) maskedBalance(tx.amountMinor, tx.currency, preferences) else compactDisplayMoney(tx.amountMinor, tx.currency), style = FFType.metaData,
+                                color = when (tx.type) { "income" -> FFColors.onSurface; "expense" -> FFColors.expense; "transfer" -> FFColors.transfer; else -> FFColors.onSurfaceVariant })
                         }
                     }
                     if (rows.size > logLimit) TextButton(onClick = { logLimit += 20 }, modifier = Modifier.fillMaxWidth()) { Text(MR.strings.dash_stats_show_more.text(), style = FFType.metaData) }
@@ -806,7 +806,7 @@ private fun AdvancedAnalysis(data: FinanceData, eligible: List<Transaction>, cur
         val inc = rows.filter { it.type == "income" }.fold(0L) { s, t -> checkedAdd(s, t.amountMinor) }
         val exp = rows.filter { it.type == "expense" }.fold(0L) { s, t -> checkedAdd(s, t.amountMinor) }
         val net = checkedAdd(inc, -exp)
-        fun c(v: Long) = if (preferences.hideBalances) "•••" else compactDisplayMoney(v, currency)
+        fun c(v: Long) = if (preferences.hideBalances) preferences.maskCharacter.ifEmpty { "•" }.repeat(3) else compactDisplayMoney(v, currency)
         Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
             Text(MR.strings.dash_month_short_year.text(shortMonthName(m.substring(5, 7).toInt()), m.substring(2, 4)), Modifier.weight(1f), style = small, color = FFColors.onSurfaceVariant)
             Text(c(inc), Modifier.weight(1.3f), style = small, color = FFColors.income, textAlign = TextAlign.End)

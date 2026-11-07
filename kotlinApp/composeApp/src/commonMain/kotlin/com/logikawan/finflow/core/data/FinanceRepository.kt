@@ -46,6 +46,12 @@ private data class InitialWallet(
 @Serializable
 private data class CloudPreferences(val version: Int = 1, val payload: String)
 
+/** Dokumen `users/{uid}/devices/{deviceId}` (lihat firestore.rules). */
+@Serializable
+data class DeviceRecord(val name: String, val platform: String, val appVersion: String, val createdAt: Long, val lastActiveAt: Long, val revoked: Boolean = false)
+
+data class ConnectedDevice(val id: String, val record: DeviceRecord)
+
 class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=null) {
     val isLocal = local != null
     private val auth by lazy { if(app==null)Firebase.auth else Firebase.auth(app) }
@@ -122,6 +128,88 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         Firebase.functions("asia-southeast2").httpsCallable("resetFinancialData",kotlin.time.Duration.parse("9m"))(mapOf("confirmation" to "HAPUS DATA","requestId" to requestId))
         native.writeSetting(key,"")
     }
+    /**
+     * "Hapus Transaksi Saja": menghapus semua jurnal, event keuangan, dan klaim reimburse, lalu menyetel ulang
+     * status pembayaran tagihan/utang/target/bundle/jadwal agar data yang tersisa tetap memenuhi invarian rules.
+     * Dompet, kategori, anggaran, keinginan, kartu, investasi, dan catatan teks tetap. Cloud memakai Cloud Function
+     * `deleteTransactions` (Admin SDK, batch); lokal memakai satu transaksi penyimpanan. Aman diulang.
+     */
+    suspend fun deleteAllTransactions() {
+        if (!isLocal) {
+            checkNotNull(currentUser) { MR.strings.core_error_please_login_again.text() }
+            Firebase.functions("asia-southeast2").httpsCallable("deleteTransactions", kotlin.time.Duration.parse("5m"))(mapOf("confirmation" to "HAPUS TRANSAKSI"))
+            return
+        }
+        val base = root()
+        db.runTransaction {
+            val prefix = "${base.path}/"
+            fun ids(name: String) = requireNotNull(draft).keys.filter { it.startsWith("$prefix$name/") }.map { it.substringAfterLast('/') }
+            for (name in listOf("reimbursements", "financialEvents", "transactions")) ids(name).forEach { delete(base.collection(name).document(it)) }
+            ids("bills").forEach { id ->
+                val ref = base.collection("bills").document(id); val bill = get(ref).data<com.logikawan.finflow.core.model.Bill>()
+                if (bill.paidAt != 0L || bill.lastPaymentId != null) set(ref, bill.copy(paidAt = 0, lastPaymentId = null, revision = bill.revision + 1))
+            }
+            ids("debts").forEach { id ->
+                val ref = base.collection("debts").document(id); val debt = get(ref).data<com.logikawan.finflow.core.model.Debt>()
+                if (debt.paidMinor != 0L || debt.lastEventId != null) set(ref, debt.copy(paidMinor = 0, lastEventId = null, revision = debt.revision + 1))
+            }
+            ids("goals").forEach { id ->
+                val ref = base.collection("goals").document(id); val goal = get(ref).data<Goal>()
+                val holding = goal.holdingAccountId != null
+                if (goal.lastEventId != null || holding && goal.savedMinor != goal.legacySavedMinor)
+                    set(ref, goal.copy(savedMinor = if (holding) goal.legacySavedMinor else goal.savedMinor, lastEventId = null, revision = goal.revision + 1))
+            }
+            ids("notes").forEach { id ->
+                val ref = base.collection("notes").document(id); val note = get(ref).data<com.logikawan.finflow.core.model.FinanceNote>()
+                if (note.lastPaymentId != null || note.items.any { it.paymentId != null })
+                    set(ref, note.copy(items = note.items.map { if (it.paymentId == null) it else it.copy(checked = false, paymentId = null) },
+                        lastPaymentId = null, revision = note.revision + 1))
+            }
+            ids("recurring").forEach { id ->
+                val ref = base.collection("recurring").document(id); val rule = get(ref).data<com.logikawan.finflow.core.model.RecurringTransaction>()
+                if (rule.lastEventId != null) set(ref, rule.copy(lastEventId = null, revision = rule.revision + 1))
+            }
+        }
+    }
+
+    // ---------- Perangkat terhubung (cloud) ----------
+
+    /** Daftar perangkat yang masuk ke akun ini (tidak termasuk yang sudah dicabut). Mode lokal: kosong. */
+    fun observeDevices(): Flow<List<ConnectedDevice>> = if (isLocal) flowOf(emptyList()) else collection("devices").snapshots.map { snapshot ->
+        snapshot.documents.mapNotNull { doc -> runCatching { ConnectedDevice(doc.id, doc.data<DeviceRecord>()) }.getOrNull() }
+            .filterNot { it.record.revoked }.sortedByDescending { it.record.lastActiveAt }
+    }
+    /**
+     * Daftarkan/perbarui perangkat ini. Mengembalikan false bila perangkat ini sudah dicabut dari perangkat lain
+     * (pemanggil harus keluar dan melupakan ID-nya).
+     */
+    suspend fun registerDevice(deviceId: String, name: String, platform: String, appVersion: String): Boolean {
+        require(!isLocal && deviceId.matches(DEVICE_ID))
+        val ref = collection("devices").document(deviceId)
+        val cleanName = name.trim().take(100).ifBlank { "Android" }
+        val cleanPlatform = platform.takeIf { it in DEVICE_PLATFORMS } ?: "other"
+        val cleanVersion = appVersion.trim().take(40).ifBlank { "1.0.0" }
+        return db.runTransaction {
+            val snapshot = get(ref)
+            val now = nowMillis()
+            if (snapshot.exists) {
+                val old = snapshot.data<DeviceRecord>()
+                if (old.revoked) false
+                else { set(ref, old.copy(name = cleanName, platform = cleanPlatform, appVersion = cleanVersion, lastActiveAt = maxOf(now, old.createdAt))); true }
+            } else { set(ref, DeviceRecord(cleanName, cleanPlatform, cleanVersion, now, now, false)); true }
+        }
+    }
+    /** true saat dokumen perangkat ini ditandai dicabut oleh perangkat lain. */
+    fun deviceRevocations(deviceId: String): Flow<Boolean> = if (isLocal) flowOf(false) else collection("devices").document(deviceId).snapshots
+        .map { it.exists && runCatching { it.data<DeviceRecord>().revoked }.getOrDefault(false) }.distinctUntilChanged()
+    /** Keluarkan perangkat lain: perangkat itu keluar dari akun saat aplikasinya terbuka berikutnya. */
+    suspend fun revokeDevice(deviceId: String) {
+        require(!isLocal && deviceId.matches(DEVICE_ID))
+        val ref = collection("devices").document(deviceId)
+        db.runTransaction { val snapshot = get(ref); if (snapshot.exists) { val old = snapshot.data<DeviceRecord>(); if (!old.revoked) set(ref, old.copy(revoked = true)) } }
+    }
+    suspend fun forgetDevice(deviceId: String) { if (!isLocal && deviceId.matches(DEVICE_ID)) collection("devices").document(deviceId).delete() }
+
     suspend fun requestAccountDeletion(password: String?, googleToken: String?) {
         val user = checkNotNull(auth.currentUser) { MR.strings.core_error_please_login_again.text() }
         val credential = if (googleToken != null) GoogleAuthProvider.credential(googleToken, null)
@@ -374,6 +462,8 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
     }
 
     companion object {
+        val DEVICE_ID = Regex("[A-Za-z0-9_-]{16,64}")
+        val DEVICE_PLATFORMS = setOf("android", "ios", "desktop", "web", "other")
         const val MAX_MONEY = 9_000_000_000_000_000L
         fun validateTransaction(tx: Transaction) {
             require(tx.type in listOf("income", "expense", "transfer") && tx.amountMinor in 1..MAX_MONEY) { MR.strings.core_error_tx_type_amount_invalid.text() }

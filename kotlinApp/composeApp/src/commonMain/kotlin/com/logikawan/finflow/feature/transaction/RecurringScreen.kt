@@ -188,7 +188,7 @@ private fun RecurringCalendarCard(
                     FitMoneyText(formatBalance(0L, baseCurrency, preferences), FFType.amountMd.copy(fontSize = 15.sp), FFColors.onSurface, TextAlign.End)
                 } else {
                     totalByCurrency.forEach { (currency, total) ->
-                        FitMoneyText(if (preferences.hideBalances) "••••••" else formatBalance(total, currency, preferences), FFType.amountMd.copy(fontSize = 15.sp), FFColors.onSurface, TextAlign.End)
+                        FitMoneyText(if (preferences.hideBalances) maskedBalance(total, currency, preferences) else formatBalance(total, currency, preferences), FFType.amountMd.copy(fontSize = 15.sp), FFColors.onSurface, TextAlign.End)
                     }
                 }
             }
@@ -245,7 +245,7 @@ private fun RecurringItemCard(rule: RecurringTransaction, data: FinanceData, pre
             Spacer(Modifier.width(8.dp))
             Column(Modifier.width(112.dp), horizontalAlignment = Alignment.End) {
                 FitMoneyText(
-                    if (preferences.hideBalances) "••••••" else formatBalance(rule.amountMinor, rule.currency, preferences),
+                    if (preferences.hideBalances) maskedBalance(rule.amountMinor, rule.currency, preferences) else formatBalance(rule.amountMinor, rule.currency, preferences),
                     FFType.amountMd, if (rule.type == "income") FFColors.income else FFColors.expense, TextAlign.End,
                 )
                 Text(if (rule.type == "income") MR.strings.tx_in.text() else MR.strings.tx_out.text(), style = FFType.metaData, color = FFColors.outline)

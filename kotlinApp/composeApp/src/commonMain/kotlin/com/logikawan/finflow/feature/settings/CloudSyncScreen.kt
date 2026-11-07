@@ -7,6 +7,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.testTag
 import com.logikawan.finflow.core.data.FinanceRepository
 import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.i18n.*
@@ -66,20 +68,30 @@ fun CloudSyncScreen(local:FinanceRepository,cloud:FinanceRepository,native:Nativ
             finally{if(!began)native.writeSetting("local.sync.frozen","");busy=false}
         }
     }
-    Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp).verticalScroll(rememberScrollState()),verticalArrangement=Arrangement.spacedBy(20.dp)) {
+    Column(Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).testTag("cloud-sync-screen")) {
         DesignHeader(MR.strings.auth_sync_title.text(),back={if(!busy)cancel()})
-        DesignCard {
-            FFIcon("sync_alt",size=40.dp)
-            Text(cloud.currentUser?.email.orEmpty(),style=FFType.sectionTitle)
-            Text(MR.strings.auth_sync_description.text(),style=FFType.bodyMain)
-            Text(MR.strings.auth_sync_target_note.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
+        Column(Modifier.padding(horizontal=24.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            AdCard(padding=20.dp) {
+                Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+                    AdIconCircle(AdIcons.cloudSync,AdTone.blueBg,AdTone.blue,52.dp,24.dp)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(MR.strings.ai_cloud_sync.text(),style=adText(17.sp,androidx.compose.ui.text.font.FontWeight.Medium,23.sp),color=FFColors.onSurface)
+                        Text(cloud.currentUser?.email.orEmpty(),style=adText(14.sp,line=19.sp),color=FFColors.onSurfaceVariant)
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                AdBody(MR.strings.auth_sync_description.text(),color=FFColors.onSurface)
+                Spacer(Modifier.height(8.dp))
+                AdBody(MR.strings.auth_sync_target_note.text(),size=13.sp)
+            }
+            if(checkpoint!=null)AdBanner("hi_info",MR.strings.auth_sync_pending_note.text(),AdTone.infoBg,AdTone.infoFg)
+            if(busy){LinearProgressIndicator(Modifier.fillMaxWidth(),color=FFColors.pill,trackColor=FFColors.iconCircle);AdBody(progress)}
+            error?.let{AdBody(it,color=AdTone.danger)}
+            AdPrimaryButton(if(checkpoint==null)MR.strings.auth_sync_start.text() else MR.strings.auth_sync_resume.text(),AdIcons.cloudSync,::synchronize,enabled=!busy,tag="cloud-sync-start")
+            if(checkpoint==null)AdOutlineButton(MR.strings.auth_sync_open_account.text(),null,finish,enabled=!busy,tag="cloud-sync-open-account")
+            AdPillButton(MR.strings.auth_sync_other_account.text(),"hi_user",{scope.launch{busy=true;try{cloud.logout()}finally{busy=false}}},Modifier.fillMaxWidth(),enabled=!busy,height=48.dp,tag="cloud-sync-other")
+            AdPillButton(MR.strings.auth_back_to_local.text(),null,cancel,Modifier.fillMaxWidth(),enabled=!busy,height=48.dp,border=false,tint=FFColors.onSurfaceVariant,tag="cloud-sync-local")
         }
-        if(checkpoint!=null)Text(MR.strings.auth_sync_pending_note.text(),style=FFType.bodyMain)
-        if(busy){LinearProgressIndicator(Modifier.fillMaxWidth());Text(progress)}
-        error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
-        Button(onClick=::synchronize,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(if(checkpoint==null)MR.strings.auth_sync_start.text() else MR.strings.auth_sync_resume.text())}
-        if(checkpoint==null)OutlinedButton(onClick=finish,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(MR.strings.auth_sync_open_account.text())}
-        OutlinedButton(onClick={scope.launch{busy=true;try{cloud.logout()}finally{busy=false}}},enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(MR.strings.auth_sync_other_account.text())}
-        TextButton(onClick=cancel,enabled=!busy,modifier=Modifier.fillMaxWidth()){Text(MR.strings.auth_back_to_local.text())}
     }
 }

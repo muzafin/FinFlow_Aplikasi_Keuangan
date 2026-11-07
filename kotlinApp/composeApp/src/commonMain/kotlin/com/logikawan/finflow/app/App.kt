@@ -1,5 +1,11 @@
 package com.logikawan.finflow.app
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -17,6 +23,10 @@ import com.logikawan.finflow.app.navigation.MainNavigation
 import com.logikawan.finflow.app.navigation.mainPages
 import com.logikawan.finflow.app.navigation.aiPages
 import com.logikawan.finflow.core.data.FinanceRepository
+import com.logikawan.finflow.core.data.ConnectedDevice
+import com.logikawan.finflow.core.ui.LocalWalletIcons
+import com.logikawan.finflow.core.ui.WalletIconStore
+import com.logikawan.finflow.core.ui.WALLET_ICON_MAX_BYTES
 import com.logikawan.finflow.core.model.FinanceData
 import com.logikawan.finflow.core.model.PreferenceState
 import com.logikawan.finflow.core.model.LocalPreferenceState
@@ -104,6 +114,23 @@ fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycl
     var previewSetup by remember { mutableStateOf(false) }
     var previewFinished by remember { mutableStateOf(false) }
     var locked by remember { mutableStateOf(native.lockEnabled()) }
+    var deviceRevoked by remember { mutableStateOf(false) }
+    // Perangkat Terhubung: daftarkan instalasi ini di users/{uid}/devices saat aplikasi dibuka (mode cloud), lalu
+    // keluar bila perangkat lain mencabutnya. Kegagalan jaringan/rules tidak mengganggu pemakaian aplikasi.
+    LaunchedEffect(user?.uid, localMode) {
+        if (localMode || user == null) return@LaunchedEffect
+        val deviceId = native.readSetting(DEVICE_ID_KEY)?.takeIf { it.matches(FinanceRepository.DEVICE_ID) }
+            ?: ("dev-" + com.logikawan.finflow.core.util.newId()).also { native.writeSetting(DEVICE_ID_KEY, it) }
+        try {
+            val active = repository.registerDevice(deviceId, native.deviceDescription(), native.devicePlatform(), native.appVersion())
+            if (active) repository.deviceRevocations(deviceId).first { it }
+            try { repository.forgetDevice(deviceId) } catch (e: CancellationException) { throw e } catch (_: Exception) {}
+            native.writeSetting(DEVICE_ID_KEY, "")
+            deviceRevoked = true
+            repository.logout()
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) {}
+    }
     var starting by rememberSaveable { mutableStateOf(true) }
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(800); starting = false }
     DisposableEffect(lifecycle) {
@@ -195,6 +222,9 @@ fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycl
                 ) }
             }
         }
+        if (deviceRevoked) AlertDialog(onDismissRequest = { deviceRevoked = false },
+            title = { Text(MR.strings.r3_device_revoked_title.text()) }, text = { Text(MR.strings.r3_device_revoked_body.text()) },
+            confirmButton = { TextButton(onClick = { deviceRevoked = false }) { Text(MR.strings.common_close.text()) } })
         localFailure?.let{AlertDialog(onDismissRequest={localFailure=null},title={Text(MR.strings.app_local_open_failed_title.text())},text={Text(it)},confirmButton={TextButton(onClick={localFailure=null}){Text(MR.strings.common_close.text())}})}
         googleError?.let { message -> AlertDialog(onDismissRequest = { googleError = null }, title = { Text(MR.strings.app_google_login_title.text()) }, text = { Text(message) }, confirmButton = { TextButton(onClick = { googleError = null }) { Text(MR.strings.common_close.text()) } }) }
         preferenceError?.let { message -> AlertDialog(onDismissRequest = { preferenceError = null },
@@ -205,6 +235,9 @@ fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycl
     }
     }
 }
+
+/** Setting lokal berisi ID perangkat ini untuk users/{uid}/devices. */
+private const val DEVICE_ID_KEY = "device.id"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -222,6 +255,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     var busy by remember { mutableStateOf(false) }
     var deleteAccount by remember { mutableStateOf(false) }
     var resetData by remember { mutableStateOf(false) }
+    var automationDialog by remember { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf("Beranda") }
     var previousPage by rememberSaveable { mutableStateOf("Beranda") }
     var selectedInvestmentId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -249,9 +283,9 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     var aiScan by remember { mutableStateOf(false) }
     var premiumGate by remember { mutableStateOf<String?>(null) }
     var aiParent by rememberSaveable { mutableStateOf("Beranda") }
-    val speechLanguage = speechLocales[com.logikawan.finflow.core.i18n.AppLocale.current] ?: "id-ID"
-    // Backend AI baru mendukung id/en; bahasa lain memakai English.
-    val aiLanguage = if (com.logikawan.finflow.core.i18n.AppLocale.current == "id") "id" else "en"
+    val speechLanguage = com.logikawan.finflow.feature.ai.resolveSpeechLocale(appearance.voiceLanguage, com.logikawan.finflow.core.i18n.AppLocale.current)
+    // Backend AI (DeepSeek) menjawab dalam 9 bahasa aplikasi.
+    val aiLanguage = com.logikawan.finflow.core.i18n.AppLocale.current.ifBlank { "id" }
     var walletDetailMenu by remember { mutableStateOf(false) }
     var addIntro by remember { mutableStateOf(false) }
     LaunchedEffect(askAddButton) { if (askAddButton) { addIntro = true; onAskAddButtonShown() } }
@@ -312,7 +346,8 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         if(destination.startsWith("Transaksi:")){transactionFilter=destination.substringAfter(':');previousPage=page;page="Transaksi";return}
         if(destination=="Transaksi")transactionFilter="all"
         when (destination) {
-            "Hapus Data" -> resetData=true
+            "Otomasi" -> automationDialog = true
+            "Keluar Aplikasi" -> { if (!native.closeApp()) notice = MR.strings.app_close_via_switcher.text() }
             "Bagikan" -> { native.shareApp()?.let{error=it} }
             "Tambah transaksi" -> editor = Editor.Tx()
             "Profil akun" -> editor = Editor.Person
@@ -347,6 +382,24 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         onDispose { lifecycle.onBack = null }
     }
     val topBarSlot = remember { mutableStateOf<(@Composable RowScope.() -> Unit)?>(null) }
+    // Ikon dompet kustom milik pemilik data ini (cloud: Storage + cache; lokal: berkas di perangkat).
+    val walletIcons = remember(repo) {
+        val owner = requireNotNull(repo.ownerId)
+        WalletIconStore(
+            pickImage = { result -> native.pickImage(WALLET_ICON_MAX_BYTES, result) },
+            saveIcon = { accountId, bytes, result -> native.saveWalletIcon(owner, accountId, bytes, result) },
+            loadIcon = { accountId, result -> native.loadWalletIcon(owner, accountId) { bytes, _ -> if (bytes != null) result(bytes) } },
+        )
+    }
+    // Perangkat Terhubung: daftar perangkat hanya didengarkan selama halamannya terbuka.
+    var devices by remember(repo) { mutableStateOf<List<ConnectedDevice>>(emptyList()) }
+    val devicesOpen = page == "Perangkat Terhubung"
+    LaunchedEffect(repo, devicesOpen) {
+        if (devicesOpen && !repo.isLocal) try { repo.observeDevices().collect { devices = it } }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) { error = e.message ?: MR.strings.app_data_load_failed.text() }
+    }
+    CompositionLocalProvider(LocalWalletIcons provides walletIcons) {
     CompositionLocalProvider(LocalTopBarActions provides topBarSlot) {
     Scaffold(
         containerColor = Color.Transparent,
@@ -420,14 +473,15 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                         TextButton(enabled = !busy, onClick = { action { repo.logout() } }) { Text(MR.strings.app_sign_out_switch_account.text()) }
                     }
                 }
-            } else savedPages.SaveableStateProvider(page) { when (page) {
+            } else {
+            val pageContent: @Composable (String) -> Unit = { shown -> savedPages.SaveableStateProvider(shown) { when (shown) {
                 "Beranda" -> Dashboard(data, month, { month = it }, ::openTransaction, displayName, ::navigate)
                 "Transaksi" -> Transactions(data, month, { month = it }, ::openTransaction, ::back, initialType=transactionFilter)
                 "Dompet" -> WalletScreen(data, { editor = Editor.Wallet(it) }, { editor = Editor.Wallet() }, { navigate("Dompet:${it.id}") })
                 "Detail dompet" -> data.accounts.find{it.id==selectedAccountId}?.let{account->WalletDetail(account,data,{editor=Editor.Tx(accountId=account.id,type=it)},::openTransaction)}
-                in preferencePages -> PreferenceScreen(page,data)
+                in preferencePages -> PreferenceScreen(shown,data,::navigate)
                 "Masukan & Peta Jalan" -> com.logikawan.finflow.feature.settings.RoadmapScreen { navigate("Masukan") }
-                in accountDataPages -> AccountDataScreen(page,data,native,repo.currentUser?.email.orEmpty(),::navigate,{retry++},back=::back,
+                in accountDataPages -> AccountDataScreen(shown,data,native,repo.currentUser?.email.orEmpty(),::navigate,{retry++},back=::back,
                     backup={native.shareTextFile("finflow-backup-${today()}.json",BackupCodec.encode(FinanceBackup(ownerId=requireNotNull(repo.ownerId),data=data,preferences=appearance)),"application/json")},
                     chooseRestore=::chooseBackup,busy=busy,changePhoto={
                         val uid=repo.ownerId
@@ -436,8 +490,16 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                             else if (bytes!=null && uid==repo.ownerId) action { repo.saveProfilePhoto(native,bytes);notice=MR.strings.app_profile_photo_updated.text() }
                         }
                     },deleteAccount={deleteAccount=true},localMode=repo.isLocal,connect=onConnect,useLocal=onLocal,
-                    accountExtras={ aiAccountSection(ai, !repo.isLocal) { navigate("Premium") } })
-                "Kategori" -> com.logikawan.finflow.feature.settings.CategoryScreen(data,busy,edit={editor=Editor.Cat(it)})
+                    ai=ai,signOut=if(repo.isLocal) null else ({ action { repo.logout() } }),factoryReset={resetData=true},
+                    saveToDownloads=native::saveToDownloads,
+                    deleteTransactions={ action {
+                        repo.deleteAllTransactions()
+                        notice=MR.strings.r3_delete_tx_done.text()
+                    } },
+                    devices=devices,currentDeviceId=native.readSetting(DEVICE_ID_KEY)?.takeIf{it.isNotBlank()},
+                    removeDevice=if(repo.isLocal) null else ({ id -> action { repo.revokeDevice(id); notice=MR.strings.r3_devices_removed.text() } }))
+                "Kategori" -> com.logikawan.finflow.feature.settings.CategoryScreen(data,busy,edit={editor=Editor.Cat(it)},
+                    addSub={root->editor=Editor.Cat(null,root.id)},saveCategory={category->action{repo.saveCategory(category)}})
                 "Profil" -> ProfileScreen(native, displayName, if(repo.isLocal)MR.strings.app_local_mode.text() else repo.currentUser?.email.orEmpty(), data, ::navigate, {
                     if(repo.isLocal){if(!native.closeApp())notice=MR.strings.app_close_via_switcher.text()}else action { repo.logout() }
                 },localMode=repo.isLocal,premiumCard={ com.logikawan.finflow.feature.ai.UpgradePremiumCard(ai) { navigate("Premium") } })
@@ -490,7 +552,10 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 "Koneksi bank" -> BankConnectionScreen({ navigate("Impor data") }, { navigate("Impor notifikasi") })
                 "Pengaturan" -> Settings(native, repo.currentUser?.email ?: MR.strings.app_local_mode.text(), data, { editor = Editor.Cat() }, {
                     if(repo.isLocal){if(!native.closeApp())notice=MR.strings.app_close_via_switcher.text()}else action { repo.logout() }
-                })
+                }, navigate = ::navigate, localMode = repo.isLocal)
+                "Pengaturan Dompet" -> com.logikawan.finflow.feature.account.WalletSettingsScreen(data, busy, importWallets = { list -> action { list.forEach { repo.saveAccount(it) } } })
+                "Bahasa Input Suara" -> com.logikawan.finflow.feature.ai.VoiceLanguageScreen()
+                "Kurs" -> com.logikawan.finflow.feature.settings.ExchangeRatesScreen(data)
                 "Terjadwal" -> com.logikawan.finflow.feature.transaction.RecurringListScreen(
                     data = data, busy = busy,
                     onAdd = { editor = Editor.RepeatForm(null) },
@@ -499,8 +564,14 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                     onProcess = planningActions.processRecurring,
                     onCalendar = planningActions.manualScheduled,
                 )
-                "Tagihan", "Utang", "Keinginan", "Kartu", "Catatan", "Reimburse" -> PlanningScreen(page, data, busy, planningActions)
-            } }
+                "Tagihan", "Utang", "Keinginan", "Kartu", "Catatan", "Reimburse" -> PlanningScreen(shown, data, busy, planningActions)
+            } } }
+            // Preferensi "Transisi halaman": geser + pudar singkat; mati = berpindah seketika.
+            if (appearance.pageTransitions) AnimatedContent(page, transitionSpec = {
+                (fadeIn(tween(200, delayMillis = 40)) + slideInHorizontally(tween(240)) { it / 14 }) togetherWith fadeOut(tween(120))
+            }, label = "page") { shown -> pageContent(shown) }
+            else pageContent(page)
+            }
         }
     }
     }
@@ -598,6 +669,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     }){Text(MR.strings.app_restore.text())}},dismissButton={TextButton(enabled=!busy,onClick={restorePreview=null}){Text(MR.strings.common_cancel.text())}})}
     if (deleteAccount) DeleteAccountDialog(native,repo.currentUser?.providerData?.any{it.providerId=="google.com"}==true,busy,
         dismiss={deleteAccount=false},confirm={password,token->action{repo.requestAccountDeletion(password,token)}})
+    if (automationDialog) com.logikawan.finflow.feature.settings.AutomationComingSoonDialog(native) { automationDialog = false }
     if(resetData)DeleteAccountDialog(native,repo.currentUser?.providerData?.any{it.providerId=="google.com"}==true,busy,
         dismiss={resetData=false},confirm={password,token->action{
             if(repo.isLocal){repo.clearLocalData();notice=native.deleteLocalProfilePhoto() ?: MR.strings.app_local_data_deleted.text()}
@@ -619,6 +691,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         text = { Text(error.orEmpty()) },
         confirmButton = { TextButton(onClick = { error = null }) { Text(MR.strings.app_back_to_form.text()) } },
     )
+    }
 }
 
 /** Kata benda pada dialog konfirmasi hapus/arsip/batal. Label pengenal (mis. "arsip:tagihan") tetap berbahasa Indonesia. */
@@ -666,6 +739,10 @@ fun pageTitle(page: String): String = when (page) {
     "Pengaturan Asisten" -> MR.strings.app_page_assistant_settings.text()
     "Pengaturan AI Scan" -> MR.strings.app_page_ai_scan_settings.text()
     "Bahasa" -> MR.strings.set_page_language.text()
+    "Hapus Data" -> MR.strings.set_profile_delete_data.text()
+    "Pengaturan Dompet" -> MR.strings.set_profile_wallet_settings.text()
+    "Bahasa Input Suara" -> MR.strings.pd_voice_page_title.text()
+    "Kurs" -> MR.strings.pf_page_exchange_rates.text()
     "Tema" -> MR.strings.app_page_theme.text()
     "Tampilan Kartu" -> MR.strings.app_page_card_display.text()
     "Tampilan Menu" -> MR.strings.app_page_menu_display.text()
@@ -691,4 +768,3 @@ fun pageTitle(page: String): String = when (page) {
 }
 
 
-private val speechLocales = mapOf("id" to "id-ID", "en" to "en-US", "ms" to "ms-MY", "de" to "de-DE", "fr" to "fr-FR", "ja" to "ja-JP", "es" to "es-ES", "hi" to "hi-IN", "zh" to "zh-CN")

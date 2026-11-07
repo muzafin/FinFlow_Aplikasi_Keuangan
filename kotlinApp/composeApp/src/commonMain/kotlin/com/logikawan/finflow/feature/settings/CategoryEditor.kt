@@ -106,7 +106,7 @@ private val categoryEditorIcons = listOf(
     "store" to MR.strings.set_cat_icon_business, "sports_esports" to MR.strings.set_cat_icon_games, "category" to MR.strings.set_cat_icon_other,
 )
 // Nama Indonesia di tengah dipakai sebagai testTag (stabil); label tampilan diterjemahkan.
-private val categoryEditorColors = listOf(
+internal val categoryEditorColors = listOf(
     Triple(0xFFFF6B00L, "Oranye", MR.strings.set_color_orange), Triple(0xFFEF4444L, "Merah", MR.strings.set_color_red), Triple(0xFFEC4899L, "Merah muda", MR.strings.set_color_pink),
     Triple(0xFF8B5CF6L, "Ungu", MR.strings.set_color_purple), Triple(0xFF3B82F6L, "Biru", MR.strings.set_color_blue), Triple(0xFF06B6D4L, "Sian", MR.strings.set_color_cyan),
     Triple(0xFF10B981L, "Hijau", MR.strings.set_color_green), Triple(0xFFEAB308L, "Kuning", MR.strings.set_color_yellow), Triple(0xFF64748BL, "Abu-abu", MR.strings.set_color_gray),

@@ -47,6 +47,10 @@ import com.logikawan.finflow.core.util.newId
 import com.logikawan.finflow.core.util.nowMillis
 import com.logikawan.finflow.core.util.today
 import com.logikawan.finflow.core.util.calculateAmount
+import com.logikawan.finflow.core.util.orderedBy
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
 import com.logikawan.finflow.core.i18n.text
@@ -62,12 +66,16 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
     var type by remember { mutableStateOf(old?.type ?: startingType) }
     var accountId by remember { mutableStateOf(old?.accountId
         ?: listOfNotNull(startingAccountId,preferences.defaultWalletId).firstOrNull{id->data.accounts.any{it.id==id && !it.archived && it.type!="savings"}}
+        // Mata uang transaksi bawaan: transaksi FinFlow selalu memakai mata uang dompetnya (aturan Firestore:
+        // currency transaksi == currency dompet), jadi preferensi ini diterapkan dengan memilih dompet aktif pertama
+        // bermata uang tersebut saat tidak ada dompet bawaan. Tanpa dompet yang cocok, perilaku lama dipakai.
+        ?: preferences.defaultTransactionCurrency.takeIf{it.isNotEmpty()}?.let{code->data.accounts.firstOrNull{!it.archived && it.type!="savings" && it.currency==code}?.id}
         ?: data.accounts.firstOrNull { !it.archived && it.type!="savings" }?.id.orEmpty()) }
     var toId by remember { mutableStateOf(old?.toAccountId.orEmpty()) }
     fun initialCategory(kind:String):String {
         val last=if(kind=="income")preferences.lastIncomeCategory else preferences.lastExpenseCategory
         return data.categories.find{preferences.rememberCategory && it.id==last && it.type==kind && it.parentId==null}?.id
-            ?:data.categories.firstOrNull{it.type==kind && it.parentId==null}?.id.orEmpty()
+            ?:data.categories.filter{it.type==kind && it.parentId==null}.orderedBy(preferences.categoryOrder){it.id}.firstOrNull()?.id.orEmpty()
     }
     var categoryId by remember { mutableStateOf(old?.categoryId ?: initialCategory(type)) }
     var subcategoryId by remember { mutableStateOf(old?.subcategoryId) }
@@ -88,6 +96,8 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
     var scheduled by remember { mutableStateOf(old?.scheduled ?: startingScheduled) }
     var error by remember { mutableStateOf<String?>(null) }
     var pickingDate by remember { mutableStateOf(false) }
+    // Waktu pilihan roda (hanya transaksi baru): createdAt tidak boleh berubah saat edit (aturan Firestore).
+    var pickedCreatedAt by remember { mutableStateOf<Long?>(null) }
     var pickingAccount by remember { mutableStateOf(false) }
     val currentBusy by rememberUpdatedState(busy)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
@@ -109,7 +119,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                 title = title.trim().ifBlank{data.categories.find{it.id==(subcategoryId ?: categoryId)}?.name ?: typeLabel}, description = description.trim(), date = date.trim(),
                 toAccountId = if (type == "transfer") target?.id else null,
                 receivedAmountMinor = if (type == "transfer") minorAmount(received.ifBlank { amount }, target?.currency ?: source.currency) else null,
-                createdAt = old?.createdAt ?: nowMillis(), source = old?.source ?: "manual", sourceId = old?.sourceId, scheduled = scheduled,
+                createdAt = old?.createdAt ?: pickedCreatedAt ?: nowMillis(), source = old?.source ?: "manual", sourceId = old?.sourceId, scheduled = scheduled,
                 subcategoryId=if(type=="transfer")null else subcategoryId,tags=tags)
             FinanceRepository.validateTransaction(tx)
             error = null
@@ -170,7 +180,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                 }
                 if (type != "transfer") {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        data.categories.filter { it.type == type && it.parentId==null }.forEach { category ->
+                        data.categories.filter { it.type == type && it.parentId==null }.orderedBy(preferences.categoryOrder) { it.id }.forEach { category ->
                             val selected = categoryId == category.id
                             val color = category.color?.let{Color(it)} ?: categoryColor(category.id)
                             Column(Modifier.width(if(compact)62.dp else 72.dp).clickable(enabled = !busy, role = Role.RadioButton) { categoryId = category.id;subcategoryId=null }
@@ -240,6 +250,30 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                             }
                         }
                     }
+                    // Isi cepat: judul transaksi sebelumnya (jenis sama) yang memuat teks ketikan, terbaru dulu.
+                    val quickFillSuggestions = remember(preferences.quickFill, title, type, data.transactions) {
+                        val query = title.trim()
+                        if (!preferences.quickFill || query.isEmpty()) emptyList()
+                        else data.transactions.asSequence()
+                            .filter { it.type == type && it.id != id && it.title.isNotBlank() && it.title.contains(query, true) && !it.title.trim().equals(query, true) }
+                            .sortedWith(compareByDescending<Transaction> { it.date }.thenByDescending { it.createdAt })
+                            .distinctBy { it.title.trim().lowercase() }.take(5).toList()
+                    }
+                    if (quickFillSuggestions.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("quick-fill"),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        quickFillSuggestions.forEachIndexed { index, suggestion ->
+                            Box(Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(FFColors.chip)
+                                .clickable(enabled = !busy, role = Role.Button) {
+                                    title = suggestion.title.trim()
+                                    if (suggestion.type != "transfer" && data.categories.any { it.id == suggestion.categoryId && it.type == type && it.parentId == null }) {
+                                        categoryId = suggestion.categoryId
+                                        subcategoryId = suggestion.subcategoryId?.takeIf { sub -> data.categories.any { it.id == sub && it.parentId == suggestion.categoryId && it.type == type } }
+                                    }
+                                }.padding(horizontal = 14.dp).testTag("quick-fill-$index"), contentAlignment = Alignment.Center) {
+                                Text(suggestion.title.trim(), style = FFType.metaData, color = FFColors.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         TextField(description, { description = it }, modifier = Modifier.weight(1f), enabled = !busy,
                             placeholder = { Text(MR.strings.tx_add_note.text(), style = FFType.bodyMain, color = FFColors.onSurfaceVariant) },
@@ -262,11 +296,25 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                     error?.let { Text(it, style = FFType.bodyMain, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("transaction-error")) }
                 }
             }
-            TransactionKeypad(busy, date, old?.createdAt ?: nowMillis(), typeLabel, ::press) { expression = amount; calculationError = null; calculator = true }
+            TransactionKeypad(busy, date, old?.createdAt ?: pickedCreatedAt ?: nowMillis(), typeLabel, ::press) { expression = amount; calculationError = null; calculator = true }
         }
     }
 
-    if (pickingDate) {
+    if (pickingDate && preferences.datePickerStyle == "wheel") {
+        val zone = TimeZone.currentSystemDefault()
+        val moment = kotlinx.datetime.Instant.fromEpochMilliseconds(old?.createdAt ?: pickedCreatedAt ?: nowMillis()).toLocalDateTime(zone)
+        WheelDateTimeDialog(
+            initialDate = runCatching { LocalDate.parse(date) }.getOrDefault(today()),
+            initialHour = moment.hour, initialMinute = moment.minute,
+            // Jam/menit hanya untuk transaksi baru; waktu transaksi lama (createdAt) tidak bisa diubah.
+            showTime = old == null,
+            dismiss = { pickingDate = false },
+        ) { picked, hour, minute ->
+            date = picked.toString()
+            if (old == null) pickedCreatedAt = LocalDateTime(picked.year, picked.monthNumber, picked.dayOfMonth, hour, minute).toInstant(zone).toEpochMilliseconds()
+            pickingDate = false
+        }
+    } else if (pickingDate) {
         val picker = rememberDatePickerState(initialSelectedDateMillis = runCatching { LocalDate.parse(date).toEpochDays().toLong() * 86_400_000L }.getOrNull())
         DatePickerDialog(onDismissRequest = { pickingDate = false }, confirmButton = {
             TextButton(enabled = picker.selectedDateMillis != null, onClick = {

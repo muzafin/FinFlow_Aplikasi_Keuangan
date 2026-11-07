@@ -156,14 +156,35 @@ class ProfileParityDeviceTest {
         // Setiap menu Profil membuka rutenya masing-masing.
         val expected = listOf("Manajemen Akun" to "Manajemen Akun", "Cadangan & Pemulihan" to "Cadangan & Pemulihan", "Perangkat Terhubung" to "Perangkat Terhubung",
             "Ekspor Data" to "Ekspor Data", "Impor Data" to "Impor data", "Periode Pencatatan" to "Periode Pencatatan", "Kategori" to "Kategori",
-            "Pengaturan Dompet" to "Dompet", "Tema" to "Tema", "Tampilan Kartu" to "Tampilan Kartu", "Tampilan Menu" to "Tampilan Menu",
-            "Palet Transaksi" to "Palet Transaksi", "Urutan Statistik" to "Urutan Statistik", "Format Saldo" to "Format Saldo",
-            "Keamanan" to "Pengaturan", "Bantuan" to "Bantuan", "Laporkan Bug" to "Laporkan Bug", "Tentang" to "Tentang")
+            "Pengaturan Dompet" to "Pengaturan Dompet", "Notifikasi" to "Notifikasi", "Tema" to "Tema", "Tampilan Kartu" to "Tampilan Kartu", "Tampilan Menu" to "Tampilan Menu",
+            "Palet Transaksi" to "Palet Transaksi", "Urutan Statistik" to "Urutan Statistik", "Tampilan Beranda" to "Tampilan Beranda",
+            "Paket Ikon" to "Paket Ikon", "Format Saldo" to "Format Saldo",
+            "Asisten FinFlow (Beta)" to "Asisten", "Pengaturan Asisten" to "Pengaturan Asisten", "Pengaturan AI Scan" to "Pengaturan AI Scan",
+            "Memori Pencatatan" to "Memori Pencatatan", "Bahasa Input Suara" to "Bahasa Input Suara",
+            "Otomasi & Integrasi" to "Otomasi", "Masukan & Peta Jalan" to "Masukan & Peta Jalan",
+            "Pengaturan" to "Pengaturan", "Bantuan & Dukungan" to "Bantuan", "Kirim Masukan" to "Masukan", "Bagikan FinFlow ke Teman" to "Bagikan",
+            "Laporkan Bug" to "Laporkan Bug", "Tentang FinFlow" to "Tentang", "Catatan Pembaruan" to "Catatan Pembaruan",
+            "Hapus Data" to "Hapus Data", "Keluar Aplikasi" to "Keluar Aplikasi")
         expected.forEach { (title, route) ->
             ui.onNodeWithTag("profile-list").performScrollToNode(hasText(title))
             ui.onNodeWithText(title).performClick()
             ui.runOnIdle { assertEquals("$title -> $route", route, routes.last()) }
         }
+        // Urutan bagian mengikuti Ollo dan versi tampil di paling bawah.
+        listOf("Akun & Data", "Preferensi", "AI", "Fitur Masa Mendatang", "Umum", "Lainnya").forEach {
+            ui.onNodeWithTag("profile-list").performScrollToNode(hasText(it))
+            ui.onNodeWithText(it).assertExists()
+        }
+        ui.onNodeWithTag("profile-list").performScrollToNode(hasTestTag("profile-version"))
+        ui.onNodeWithText("FinFlow v1.0.0").assertExists()
+        // Avatar membuka editor profil, statistik membuka halaman level.
+        ui.onNodeWithTag("profile-list").performScrollToIndex(0)
+        ui.onNodeWithTag("profile-avatar").performClick()
+        ui.runOnIdle { assertEquals("Profil akun", routes.last()) }
+        ui.onNodeWithTag("profile-level-link").performClick()
+        ui.runOnIdle { assertEquals("Aktivitas", routes.last()) }
+        ui.onNodeWithTag("profile-settings").performClick()
+        ui.runOnIdle { assertEquals("Pengaturan", routes.last()) }
         // Palet: pratinjau mini-layar mengubah preferensi.
         ui.onNodeWithTag("profile-list").performScrollToNode(hasTestTag("palette-ruby"))
         ui.onNodeWithTag("palette-ruby").performClick()
@@ -177,6 +198,11 @@ class ProfileParityDeviceTest {
         ui.waitForIdle()
         ui.onNodeWithText("Laporkan Bug").assertExists()
         ui.onNodeWithText("Manajemen Akun").assertDoesNotExist()
+        ui.onNodeWithTag("profile-search-field").performTextClearance()
+        ui.onNodeWithTag("profile-search-field").performTextInput("Bahasa")
+        ui.waitForIdle()
+        ui.onNodeWithTag("profile-item-bahasa").performClick()
+        ui.runOnIdle { assertEquals("Bahasa", routes.last()) }
     }
 
     @Test fun bugReportShowsDeviceInformationBeforeSending() {

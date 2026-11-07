@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.logikawan.finflow.core.i18n.menuLabel
+import com.logikawan.finflow.core.util.orderedWallets
 import com.logikawan.finflow.core.i18n.tabLabel
 import com.logikawan.finflow.core.i18n.text
 import com.logikawan.finflow.core.i18n.transactionTypeLabel
@@ -112,6 +113,12 @@ fun Dashboard(data:FinanceData,month:String,monthChange:(String)->Unit,edit:(Tra
     val motion=rememberInfiniteTransition(label="balance-neon")
     val angle by motion.animateFloat(0f,(2*kotlin.math.PI).toFloat(),infiniteRepeatable(tween(14000,easing=LinearEasing)),label="balance-gradient-angle")
     fun amount(value:Long,currency:String)=if(privacy)"••••••" else formatBalance(value,currency,preferences)
+    // Saldo dompet di "Dompet Saya" memakai masker dari Format Saldo (karakter & format) saat disembunyikan.
+    fun walletAmount(value:Long,currency:String)=if(privacy)maskedBalance(value,currency,preferences) else formatBalance(value,currency,preferences)
+    // Pengaturan Dompet → Dompet di Beranda: daftar pilihan (urut sesuai pilihan) lalu batas jumlah (0 = semua).
+    val dashboardWallets=(if(preferences.dashboardWalletIds.isEmpty())active.orderedWallets(preferences)
+        else preferences.dashboardWalletIds.mapNotNull{id->active.find{it.id==id}}.ifEmpty{active.orderedWallets(preferences)})
+        .let{if(preferences.dashboardWalletCount>0)it.take(preferences.dashboardWalletCount) else it}
     val visibleMenus=preferences.menuOrder.filter{it !in preferences.hiddenMenus}
     val menuPages=visibleMenus.chunked(4)
     val level=recordingProgress(data).level
@@ -160,7 +167,7 @@ fun Dashboard(data:FinanceData,month:String,monthChange:(String)->Unit,edit:(Tra
             item(key="wallets") {
                 Column(Modifier.fillMaxWidth()) {
                     Spacer(Modifier.height(24.dp))
-                    WalletsSection(accounts=active,data=data,amount=::amount,navigate=onNavigate)
+                    WalletsSection(accounts=dashboardWallets,data=data,amount=::walletAmount,navigate=onNavigate)
                 }
             }
         }

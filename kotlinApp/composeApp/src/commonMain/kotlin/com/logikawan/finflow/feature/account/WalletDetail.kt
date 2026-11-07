@@ -61,6 +61,7 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
     var kind by rememberSaveable{mutableStateOf("month")}
     var anchor by rememberSaveable{mutableStateOf(today().toString())}
     val p=LocalPreferences.current
+    fun money(v:Long)=if(p.hideBalances)maskedBalance(v,account.currency,p) else formatBalance(v,account.currency,p)
     val date=LocalDate.parse(anchor)
     val range=financePeriod(kind,date,activeRecordingMonth(date,p.recordingDay),p.recordingDay,p.weekStart)
     val all=data.transactions.filter{!it.scheduled && (it.accountId==account.id || it.toAccountId==account.id)}
@@ -83,7 +84,7 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
         item{Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally){
             Text(MR.strings.acc_current_balance.text(),style=FFType.bodyMain.copy(fontSize=15.sp),color=FFColors.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))
-            FitMoneyText(formatBalance(data.balance(account),account.currency,p),FFType.amountXl.copy(fontSize=36.sp),FFColors.onSurface,TextAlign.Center)
+            FitMoneyText(money(data.balance(account)),FFType.amountXl.copy(fontSize=36.sp),FFColors.onSurface,TextAlign.Center)
         }}
         item {
             val start=if(kind=="all")all.minOfOrNull{LocalDate.parse(it.date)} ?: today() else range.start
@@ -100,14 +101,14 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
                 Text(summaryRange,style=FFType.metaData,color=FFColors.onSurfaceVariant)
             }
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric(MR.strings.acc_inflow.text(),formatBalance(inflow,account.currency,p),Modifier.weight(1f));WalletMetric(MR.strings.acc_outflow.text(),formatBalance(outflow,account.currency,p),Modifier.weight(1f))}
+            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric(MR.strings.acc_inflow.text(),money(inflow),Modifier.weight(1f));WalletMetric(MR.strings.acc_outflow.text(),money(outflow),Modifier.weight(1f))}
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric(MR.strings.acc_net_flow.text(),formatBalance(checkedAdd(inflow,-outflow),account.currency,p),Modifier.weight(1f));WalletMetric(MR.strings.acc_transaction_count.text(),entries.size.toString(),Modifier.weight(1f))}
+            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)){WalletMetric(MR.strings.acc_net_flow.text(),money(checkedAdd(inflow,-outflow)),Modifier.weight(1f));WalletMetric(MR.strings.acc_transaction_count.text(),entries.size.toString(),Modifier.weight(1f))}
         }
         if(!account.archived)item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)){
             WalletAction(transactionTypeLabel("expense"),"hi_arrow_up_right",FFColors.expense,Modifier.weight(1f)){add("expense")}
             WalletAction(transactionTypeLabel("income"),"hi_arrow_down_left",FFColors.income,Modifier.weight(1f)){add("income")}
-            WalletAction(transactionTypeLabel("transfer"),"hi_sort",Color(0xFF2196F3),Modifier.weight(1f)){add("transfer")}
+            WalletAction(transactionTypeLabel("transfer"),"hi_sort",FFColors.transfer,Modifier.weight(1f)){add("transfer")}
         }}
         item{Text(MR.strings.acc_recent_transactions.text(),Modifier.padding(top=8.dp),style=FFType.sectionTitle)}
         if(entries.isEmpty())item{Column(Modifier.fillMaxWidth().padding(vertical=24.dp),horizontalAlignment=Alignment.CenterHorizontally){Box(Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(FFColors.surface),contentAlignment=Alignment.Center){FFIcon("receipt_long",FFColors.outline,30.dp)};Spacer(Modifier.height(12.dp));Text(MR.strings.acc_no_transactions.text(),style=FFType.bodyMain,fontWeight=FontWeight.SemiBold);Spacer(Modifier.height(6.dp));Text(MR.strings.acc_no_transactions_hint.text(),style=FFType.metaData,color=FFColors.outline,textAlign=TextAlign.Center)}}
@@ -116,12 +117,12 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
                 val net=rows.fold(0L){sum,t->checkedAdd(sum,accountDelta(t,account.id))}
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
                     Text(fullDateLabel(date),Modifier.weight(1f),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
-                    if(net!=0L)Text((if(net>0)"+" else "")+formatBalance(net,account.currency,p),style=FFType.bodyMain.copy(fontSize=17.sp,lineHeight=22.sp),color=if(net>0)FFColors.income else FFColors.expense)
+                    if(net!=0L)Text((if(net>0)"+" else "")+money(net),style=FFType.bodyMain.copy(fontSize=17.sp,lineHeight=22.sp),color=if(net>0)FFColors.income else FFColors.expense)
                 }
             }
             items(rows,key={it.id}){tx->
                 val delta=accountDelta(tx,account.id)
-                DashboardTransactionRow(tx,data,(if(delta>0)"+" else if(delta<0)"−" else "")+formatBalance(kotlin.math.abs(delta),account.currency,p),openTransaction,topPadding=0.dp)
+                DashboardTransactionRow(tx,data,(if(delta>0)"+" else if(delta<0)"−" else "")+money(kotlin.math.abs(delta)),openTransaction,topPadding=0.dp)
             }
         }
     }
@@ -133,6 +134,8 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
     val axis=FFColors.onSurfaceVariant
     val measurer=androidx.compose.ui.text.rememberTextMeasurer()
     val labelStyle=FFType.metaData.copy(fontSize=8.sp,color=axis)
+    val prefs=LocalPreferences.current
+    val hiddenLabel=prefs.maskCharacter.ifEmpty{"•"}.repeat(3)
     val maximum=maxOf(points.maxOrNull() ?: 0L,1L)
     val minimum=minOf(points.minOrNull() ?: 0L,0L)
     val top=maximum+(maximum-minimum)/10
@@ -143,7 +146,7 @@ fun WalletDetail(account:Account,data:FinanceData,add:(String)->Unit,openTransac
         fun x(i:Int)=left+i.toFloat()/(points.size-1).coerceAtLeast(1)*(size.width-left)
         repeat(4){i->val gx=left+(size.width-left)*(i+1)/5;drawLine(grid.copy(alpha=.5f),Offset(gx,chartTop),Offset(gx,bottom),1.dp.toPx())}
         listOf(minimum,(minimum+top)/2,top).forEach{v->
-            val label=measurer.measure(compactDisplayMoney(v,currency).removePrefix("Rp"),labelStyle)
+            val label=measurer.measure(if(prefs.hideBalances)hiddenLabel else compactDisplayMoney(v,currency).removePrefix("Rp"),labelStyle)
             drawText(label,topLeft=Offset(0f,(y(v)-label.size.height/2f).coerceIn(0f,size.height-label.size.height)))
         }
         val end=lastIndex.coerceIn(0,points.size-1)

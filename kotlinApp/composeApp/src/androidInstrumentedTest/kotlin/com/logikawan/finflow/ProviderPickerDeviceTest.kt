@@ -18,7 +18,7 @@ class ProviderPickerDeviceTest {
         val old = Account(id = "p-bank", name = "", type = "bank", currency = "IDR")
         ui.setContent { FinFlowTheme { AccountEditor(old, FinanceData(accounts = listOf(old)), false, {}, { saved = it }) } }
         ui.onNodeWithTag("provider-bca").performScrollTo().performClick()
-        ui.onNodeWithText("Simpan Dompet").performClick()
+        ui.onNodeWithTag("editor-save").performClick()
         ui.runOnIdle {
             val account = requireNotNull(saved)
             assertEquals("provider:bca", account.icon)
@@ -32,7 +32,7 @@ class ProviderPickerDeviceTest {
         val old = Account(id = "p-ew", name = "Dompet lain", type = "ewallet", currency = "IDR", icon = "provider:ovo")
         ui.setContent { FinFlowTheme { AccountEditor(old, FinanceData(accounts = listOf(old)), false, {}, { saved = it }) } }
         ui.onNodeWithTag("provider-other").performScrollTo().performClick()
-        ui.onNodeWithText("Simpan Dompet").performClick()
+        ui.onNodeWithTag("editor-save").performClick()
         ui.runOnIdle { assertEquals("account_balance_wallet", saved?.icon); assertEquals("Dompet lain", saved?.name) }
     }
 }
