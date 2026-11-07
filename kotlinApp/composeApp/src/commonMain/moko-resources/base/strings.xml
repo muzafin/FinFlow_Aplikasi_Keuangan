@@ -258,7 +258,7 @@
     <string name="ai_consent_assistant_advice">Jawaban AI bisa keliru dan bukan nasihat keuangan profesional.</string>
     <string name="ai_consent_assistant_summary">Asisten melihat ringkasan angkamu (total bulanan, kategori teratas, anggaran, saldo, tagihan) — bukan transaksi satu per satu.</string>
     <string name="ai_consent_chat_text">Teks yang kamu ketik dikirim ke server Kasiva dan penyedia model AI untuk mengambil data transaksi.</string>
-    <string name="ai_consent_provider">Saat ini AI memakai penyedia model AI (Anthropic Claude) melalui server Kasiva. Pemrosesan oleh penyedia mengikuti kebijakannya.</string>
+    <string name="ai_consent_provider">Saat ini AI memakai penyedia model AI (DeepSeek) melalui server Kasiva. Pemrosesan oleh penyedia mengikuti kebijakannya.</string>
     <string name="ai_consent_review">Hasil AI bisa salah dan wajib ditinjau sebelum disimpan.</string>
     <string name="ai_consent_revoke">Kamu bisa mencabut persetujuan di Manajemen Akun; Kasiva akan bertanya lagi sebelum pemrosesan AI berikutnya.</string>
     <string name="ai_consent_scan_credit">Setiap foto memakai satu kredit AI Scan.</string>

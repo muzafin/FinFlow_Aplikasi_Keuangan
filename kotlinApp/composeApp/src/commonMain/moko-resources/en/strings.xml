@@ -258,7 +258,7 @@
     <string name="ai_consent_assistant_advice">AI answers can be wrong and are not professional financial advice.</string>
     <string name="ai_consent_assistant_summary">The assistant sees a summary of your numbers (monthly totals, top categories, budgets, balances, bills) — not individual transactions.</string>
     <string name="ai_consent_chat_text">The text you type is sent to the Kasiva server and the AI model provider to extract transaction data.</string>
-    <string name="ai_consent_provider">AI currently uses an AI model provider (Anthropic Claude) via the Kasiva server. Processing by the provider follows its policies.</string>
+    <string name="ai_consent_provider">AI currently uses an AI model provider (DeepSeek) via the Kasiva server. Processing by the provider follows its policies.</string>
     <string name="ai_consent_review">AI results can be wrong and must be reviewed before saving.</string>
     <string name="ai_consent_revoke">You can revoke consent in Account Management; Kasiva will ask again before the next AI processing.</string>
     <string name="ai_consent_scan_credit">Each photo uses one AI Scan credit.</string>

@@ -258,7 +258,7 @@
     <string name="ai_consent_assistant_advice">AI 的回答可能有误，不构成专业理财建议。</string>
     <string name="ai_consent_assistant_summary">助手只查看你的数字摘要（月度合计、主要类别、预算、余额、账单），而非逐笔交易。</string>
     <string name="ai_consent_chat_text">你输入的文字会发送到 Kasiva 服务器和 AI 模型提供方以提取交易数据。</string>
-    <string name="ai_consent_provider">目前 AI 通过 Kasiva 服务器使用 AI 模型提供方（Anthropic Claude）。提供方的处理遵循其政策。</string>
+    <string name="ai_consent_provider">目前 AI 通过 Kasiva 服务器使用 AI 模型提供方（DeepSeek）。提供方的处理遵循其政策。</string>
     <string name="ai_consent_review">AI 结果可能有误，保存前必须审核。</string>
     <string name="ai_consent_revoke">你可以在账户管理中撤销同意；下次 AI 处理前 Kasiva 会再次询问。</string>
     <string name="ai_consent_scan_credit">每张照片消耗一次 AI Scan 额度。</string>

@@ -258,7 +258,7 @@
     <string name="ai_consent_assistant_advice">AI के जवाब गलत हो सकते हैं और ये पेशेवर वित्तीय सलाह नहीं हैं।</string>
     <string name="ai_consent_assistant_summary">सहायक आपके आँकड़ों का सारांश देखता है (मासिक कुल, शीर्ष श्रेणियाँ, बजट, शेष राशि, बिल) — एक-एक लेन-देन नहीं।</string>
     <string name="ai_consent_chat_text">आपका टाइप किया टेक्स्ट लेन-देन डेटा निकालने के लिए Kasiva सर्वर और AI मॉडल प्रदाता को भेजा जाता है।</string>
-    <string name="ai_consent_provider">फ़िलहाल AI, Kasiva सर्वर के ज़रिए AI मॉडल प्रदाता (Anthropic Claude) का उपयोग करता है। प्रदाता द्वारा प्रोसेसिंग उसकी नीतियों के अनुसार होती है।</string>
+    <string name="ai_consent_provider">फ़िलहाल AI, Kasiva सर्वर के ज़रिए AI मॉडल प्रदाता (DeepSeek) का उपयोग करता है। प्रदाता द्वारा प्रोसेसिंग उसकी नीतियों के अनुसार होती है।</string>
     <string name="ai_consent_review">AI के नतीजे गलत हो सकते हैं और सहेजने से पहले उनकी जाँच ज़रूरी है।</string>
     <string name="ai_consent_revoke">आप खाता प्रबंधन में सहमति वापस ले सकते हैं; अगली AI प्रोसेसिंग से पहले Kasiva फिर पूछेगा।</string>
     <string name="ai_consent_scan_credit">हर फ़ोटो एक AI Scan क्रेडिट लेती है।</string>

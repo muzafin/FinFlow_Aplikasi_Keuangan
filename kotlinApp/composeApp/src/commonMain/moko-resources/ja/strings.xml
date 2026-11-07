@@ -258,7 +258,7 @@
     <string name="ai_consent_assistant_advice">AIの回答は誤っている場合があり、専門的な金融アドバイスではありません。</string>
     <string name="ai_consent_assistant_summary">アシスタントが見るのは数字の要約（月の合計、上位カテゴリ、予算、残高、請求書）で、個々の取引ではありません。</string>
     <string name="ai_consent_chat_text">入力したテキストは取引データを抽出するためにKasivaサーバーとAIモデル提供元に送信されます。</string>
-    <string name="ai_consent_provider">現在、AIはKasivaサーバー経由でAIモデル提供元（Anthropic Claude）を使用しています。提供元での処理はその規約に従います。</string>
+    <string name="ai_consent_provider">現在、AIはKasivaサーバー経由でAIモデル提供元（DeepSeek）を使用しています。提供元での処理はその規約に従います。</string>
     <string name="ai_consent_review">AIの結果は誤っている場合があるため、保存前に必ず確認してください。</string>
     <string name="ai_consent_revoke">同意はアカウント管理で取り消せます。次回のAI処理前にKasivaが再度確認します。</string>
     <string name="ai_consent_scan_credit">写真1枚につきAI Scanを1回分使います。</string>
