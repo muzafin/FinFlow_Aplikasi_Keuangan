@@ -33,7 +33,7 @@ fun GoalEditor(old:Goal?,busy:Boolean,dismiss:()->Unit,save:(Goal)->Unit,delete:
         require(amount in 1..com.logikawan.finflow.core.data.FinanceRepository.MAX_MONEY){MR.strings.acc_err_goal_target_range.text()}
         val base=old ?: Goal(id,name.trim(),amount,currency=code)
         save(base.copy(name=name.trim(),targetMinor=amount,currency=code,targetDate=if(hasDate)date else "",bucketType=type,protection=protection,archived=archived))
-    }catch(e:Exception){error=e.message}},delete,error){
+    }catch(e:Exception){error=e.message}},delete,error,EditorKind.Goal){
         OlloFormSection(MR.strings.acc_goal_details.text())
         Field(MR.strings.acc_goal_amount.text(),target,{target=it},enabled=!busy)
         Field(MR.strings.acc_bucket_name.text(),name,{name=it},enabled=!busy)

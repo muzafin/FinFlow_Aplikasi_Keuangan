@@ -204,7 +204,7 @@ private fun WalletGridCard(account: Account, balance: String, selected: Boolean,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(Modifier.size(38.dp).clip(CircleShape).background(FFColors.surfaceContainerHighest), contentAlignment = Alignment.Center) {
-                FFIcon(account.icon, FFColors.onSurface, 22.dp)
+                AccountIconContent(account, account.icon, FFColors.onSurface, 22.dp)
             }
             Spacer(Modifier.height(4.dp))
             Text(account.name, style = FFType.metaData.copy(fontSize = 12.sp, lineHeight = 16.sp), fontWeight = FontWeight.SemiBold,
@@ -235,7 +235,7 @@ fun WalletChoice(label: String, value: String, data: FinanceData, accounts: List
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val account = accounts.find { it.id == value }
-            FFIcon(account?.icon ?: "account_balance_wallet_outlined", if (account == null) FFColors.outline else FFColors.onSurface, 24.dp)
+            AccountIcon(account, "account_balance_wallet_outlined", if (account == null) FFColors.outline else FFColors.onSurface, 24.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(account?.name ?: if (allowNone && value.isBlank()) MR.strings.app_no_link.text() else MR.strings.app_choose_wallet.text(),

@@ -29,6 +29,8 @@
     <string name="acc_bucket_name">Nombre del fondo</string>
     <string name="acc_bucket_standard">Meta estándar</string>
     <string name="acc_bucket_type">Tipo de fondo</string>
+    <string name="acc_choose_bank">Elegir banco</string>
+    <string name="acc_choose_ewallet">Elegir billetera</string>
     <string name="acc_collected">Ahorrado</string>
     <string name="acc_color">Color</string>
     <string name="acc_color_blue">Azul</string>
@@ -174,6 +176,7 @@
     <string name="acc_protection_flexible">Flexible</string>
     <string name="acc_protection_hard">Confirmación en dos pasos</string>
     <string name="acc_protection_soft">Avisar antes de retirar</string>
+    <string name="acc_provider_other">Otro</string>
     <string name="acc_recent_transactions">Transacciones recientes</string>
     <string name="acc_remaining_amount">Faltan %1$s</string>
     <string name="acc_remaining_target">Restante</string>

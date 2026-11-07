@@ -250,7 +250,7 @@ private fun WalletAccountCard(account:Account,data:FinanceData,preferences:AppPr
         .clickable(role=Role.Button,onClick=onClick).padding(horizontal=16.dp,vertical=16.dp).testTag("wallet-${account.id}")) {
         Row(verticalAlignment=Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(if(dark)FFColors.iconCircle else FFColors.surfaceContainerHigh),contentAlignment=Alignment.Center){
-                FFIcon(if(account.icon.isBlank()||account.icon.startsWith("account_balance_wallet")) walletGroupIcon(account.type) else account.icon,FFColors.onSurface,20.dp)
+                AccountIconContent(account,if(account.icon.isBlank()||account.icon.startsWith("account_balance_wallet")) walletGroupIcon(account.type) else account.icon,FFColors.onSurface,20.dp)
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {

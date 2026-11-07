@@ -29,6 +29,8 @@
     <string name="acc_bucket_name">存钱罐名称</string>
     <string name="acc_bucket_standard">标准目标</string>
     <string name="acc_bucket_type">存钱罐类型</string>
+    <string name="acc_choose_bank">选择银行</string>
+    <string name="acc_choose_ewallet">选择电子钱包</string>
     <string name="acc_collected">已存</string>
     <string name="acc_color">颜色</string>
     <string name="acc_color_blue">蓝色</string>
@@ -174,6 +176,7 @@
     <string name="acc_protection_flexible">灵活</string>
     <string name="acc_protection_hard">两步确认</string>
     <string name="acc_protection_soft">取款前提醒</string>
+    <string name="acc_provider_other">其他</string>
     <string name="acc_recent_transactions">最近交易</string>
     <string name="acc_remaining_amount">剩余 %1$s</string>
     <string name="acc_remaining_target">剩余目标</string>

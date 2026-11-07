@@ -29,6 +29,8 @@
     <string name="acc_bucket_name">Bucket Name</string>
     <string name="acc_bucket_standard">Standard Goal</string>
     <string name="acc_bucket_type">Bucket Type</string>
+    <string name="acc_choose_bank">Choose bank</string>
+    <string name="acc_choose_ewallet">Choose e-wallet</string>
     <string name="acc_collected">Saved</string>
     <string name="acc_color">Color</string>
     <string name="acc_color_blue">Blue</string>
@@ -174,6 +176,7 @@
     <string name="acc_protection_flexible">Flexible</string>
     <string name="acc_protection_hard">Two-step confirmation</string>
     <string name="acc_protection_soft">Warn before withdrawing</string>
+    <string name="acc_provider_other">Other</string>
     <string name="acc_recent_transactions">Recent Transactions</string>
     <string name="acc_remaining_amount">%1$s left</string>
     <string name="acc_remaining_target">Remaining</string>

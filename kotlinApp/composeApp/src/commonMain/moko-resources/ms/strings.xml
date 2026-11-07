@@ -29,6 +29,8 @@
     <string name="acc_bucket_name">Nama Bucket</string>
     <string name="acc_bucket_standard">Sasaran Standard</string>
     <string name="acc_bucket_type">Jenis Bucket</string>
+    <string name="acc_choose_bank">Pilih bank</string>
+    <string name="acc_choose_ewallet">Pilih e-dompet</string>
     <string name="acc_collected">Terkumpul</string>
     <string name="acc_color">Warna</string>
     <string name="acc_color_blue">Biru</string>
@@ -174,6 +176,7 @@
     <string name="acc_protection_flexible">Fleksibel</string>
     <string name="acc_protection_hard">Pengesahan dua langkah</string>
     <string name="acc_protection_soft">Amaran sebelum mengeluarkan</string>
+    <string name="acc_provider_other">Lain-lain</string>
     <string name="acc_recent_transactions">Transaksi Terkini</string>
     <string name="acc_remaining_amount">Baki %1$s</string>
     <string name="acc_remaining_target">Baki Sasaran</string>

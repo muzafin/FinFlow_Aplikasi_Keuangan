@@ -29,6 +29,8 @@
     <string name="acc_bucket_name">バケット名</string>
     <string name="acc_bucket_standard">標準目標</string>
     <string name="acc_bucket_type">バケットの種類</string>
+    <string name="acc_choose_bank">銀行を選択</string>
+    <string name="acc_choose_ewallet">電子マネーを選択</string>
     <string name="acc_collected">貯まった額</string>
     <string name="acc_color">色</string>
     <string name="acc_color_blue">青</string>
@@ -174,6 +176,7 @@
     <string name="acc_protection_flexible">柔軟</string>
     <string name="acc_protection_hard">2段階の確認</string>
     <string name="acc_protection_soft">引き出し前に警告</string>
+    <string name="acc_provider_other">その他</string>
     <string name="acc_recent_transactions">最近の取引</string>
     <string name="acc_remaining_amount">残り %1$s</string>
     <string name="acc_remaining_target">残り</string>

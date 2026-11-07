@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.logikawan.finflow.app.navigation.Editor
+import com.logikawan.finflow.core.i18n.withLocalizedDefaults
 import com.logikawan.finflow.app.navigation.EntityEditor
 import com.logikawan.finflow.app.navigation.MainNavigation
 import com.logikawan.finflow.app.navigation.mainPages
@@ -210,7 +211,10 @@ fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycl
 private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name: String, lifecycle: AppLifecycle,onConnect:()->Unit={},onLocal:()->Unit={},initialRestore:Pair<FinanceBackup,String>?=null,onRestoreOpened:()->Unit={},askAddButton:Boolean=false,onAskAddButtonShown:()->Unit={}) {
     val scope = rememberCoroutineScope()
     val navigationBackdrop = rememberLayerBackdrop()
-    var data by remember { mutableStateOf(FinanceData()) }
+    var rawData by remember { mutableStateOf(FinanceData()) }
+    // Nama kategori bawaan & dompet "Kas" yang belum diganti pengguna tampil dalam bahasa aktif.
+    val activeLocale = com.logikawan.finflow.core.i18n.AppLocale.current
+    val data = remember(rawData, activeLocale) { rawData.withLocalizedDefaults() }
     var ready by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -261,7 +265,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         error = null
         try {
             repo.initializeProfile()
-            repo.observe().collect { data = it; ready = true }
+            repo.observe().collect { rawData = it; ready = true }
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = e.message ?: MR.strings.app_data_load_failed.text() }
     }

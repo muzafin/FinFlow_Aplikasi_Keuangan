@@ -29,6 +29,8 @@
     <string name="acc_bucket_name">बकेट का नाम</string>
     <string name="acc_bucket_standard">मानक लक्ष्य</string>
     <string name="acc_bucket_type">बकेट का प्रकार</string>
+    <string name="acc_choose_bank">बैंक चुनें</string>
+    <string name="acc_choose_ewallet">ई-वॉलेट चुनें</string>
     <string name="acc_collected">जमा</string>
     <string name="acc_color">रंग</string>
     <string name="acc_color_blue">नीला</string>
@@ -174,6 +176,7 @@
     <string name="acc_protection_flexible">लचीला</string>
     <string name="acc_protection_hard">दो-चरणीय पुष्टि</string>
     <string name="acc_protection_soft">निकासी से पहले चेतावनी</string>
+    <string name="acc_provider_other">अन्य</string>
     <string name="acc_recent_transactions">हाल के लेन-देन</string>
     <string name="acc_remaining_amount">शेष %1$s</string>
     <string name="acc_remaining_target">शेष लक्ष्य</string>

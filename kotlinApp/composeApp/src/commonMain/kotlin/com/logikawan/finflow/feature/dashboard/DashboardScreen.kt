@@ -450,7 +450,7 @@ private fun DashboardWalletTile(account:Account,formatted:String,modifier:Modifi
         .testTag("dashboard-wallet-${account.id}")) {
         Row(verticalAlignment=Alignment.CenterVertically) {
             Box(Modifier.size(33.dp).clip(CircleShape).background(FFColors.surfaceContainerHigh),contentAlignment=Alignment.Center){
-                FFIcon(if(account.type=="cash")"hi_wallet" else account.icon,FFColors.onSurface,18.dp)
+                AccountIconContent(account,if(account.type=="cash")"hi_wallet" else account.icon,FFColors.onSurface,18.dp)
             }
             Spacer(Modifier.width(9.dp))
             Text(account.name,style=FFType.bodyMain.copy(fontSize=14.5.sp,lineHeight=20.sp),color=FFColors.onSurface.copy(alpha=.85f),maxLines=1,overflow=TextOverflow.Ellipsis)

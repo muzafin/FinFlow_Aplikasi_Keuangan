@@ -29,6 +29,8 @@
     <string name="acc_bucket_name">Nom de l'enveloppe</string>
     <string name="acc_bucket_standard">Objectif standard</string>
     <string name="acc_bucket_type">Type d'enveloppe</string>
+    <string name="acc_choose_bank">Choisir la banque</string>
+    <string name="acc_choose_ewallet">Choisir le portefeuille</string>
     <string name="acc_collected">Épargné</string>
     <string name="acc_color">Couleur</string>
     <string name="acc_color_blue">Bleu</string>
@@ -174,6 +176,7 @@
     <string name="acc_protection_flexible">Flexible</string>
     <string name="acc_protection_hard">Confirmation en deux étapes</string>
     <string name="acc_protection_soft">Avertir avant de retirer</string>
+    <string name="acc_provider_other">Autre</string>
     <string name="acc_recent_transactions">Transactions récentes</string>
     <string name="acc_remaining_amount">Reste %1$s</string>
     <string name="acc_remaining_target">Restant</string>

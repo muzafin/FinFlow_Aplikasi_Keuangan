@@ -29,6 +29,8 @@
     <string name="acc_bucket_name">Name des Topfs</string>
     <string name="acc_bucket_standard">Standardziel</string>
     <string name="acc_bucket_type">Art des Topfs</string>
+    <string name="acc_choose_bank">Bank wählen</string>
+    <string name="acc_choose_ewallet">E-Wallet wählen</string>
     <string name="acc_collected">Gespart</string>
     <string name="acc_color">Farbe</string>
     <string name="acc_color_blue">Blau</string>
@@ -174,6 +176,7 @@
     <string name="acc_protection_flexible">Flexibel</string>
     <string name="acc_protection_hard">Zweistufige Bestätigung</string>
     <string name="acc_protection_soft">Vor Entnahme warnen</string>
+    <string name="acc_provider_other">Andere</string>
     <string name="acc_recent_transactions">Letzte Transaktionen</string>
     <string name="acc_remaining_amount">Noch %1$s</string>
     <string name="acc_remaining_target">Verbleibend</string>
