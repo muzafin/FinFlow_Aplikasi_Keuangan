@@ -12,6 +12,7 @@ import com.clonical.kasiva.core.model.Investment
 import com.clonical.kasiva.core.model.Profile
 import com.clonical.kasiva.core.model.Transaction
 import com.clonical.kasiva.core.model.defaultCategories
+import com.clonical.kasiva.core.model.defaultCategoryTree
 import com.clonical.kasiva.core.model.managedTransactionSources
 import com.clonical.kasiva.core.util.nowMillis
 import dev.gitlive.firebase.Firebase
@@ -114,7 +115,7 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
             val profile=get(root).data<Profile>()
             requireNotNull(draft).keys.toList().forEach{delete(db.document(it))}
             set(root,profile.copy(photoPath="",photoUpdatedAt=0))
-            defaultCategories.forEach{set(root.collection("categories").document(it.id),it)}
+            defaultCategoryTree.forEach{set(root.collection("categories").document(it.id),it)}
             set(root.collection("accounts").document("acc_cash"),Account("acc_cash",MR.strings.core_default_wallet_name.text(),currency=profile.baseCurrency))
         }
     }
@@ -258,18 +259,31 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
                 val name = (displayName ?: user?.displayName).orEmpty().trim().take(100).ifBlank { MR.strings.core_default_user_name.text() }
                 set(ref, InitialProfile(ref.id, name, user?.email ?: "", baseCurrency, 2))
                 // Akun baru memakai schema inti agar tetap kompatibel saat rules metadata belum diterbitkan.
-                defaultCategories.forEach {
-                    set(ref.collection("categories").document(it.id), mapOf("id" to it.id, "name" to it.name, "type" to it.type))
+                defaultCategoryTree.forEach {
+                    set(ref.collection("categories").document(it.id), mapOf("id" to it.id, "name" to it.name, "type" to it.type, "parentId" to it.parentId))
                 }
                 set(ref.collection("accounts").document("acc_cash"), InitialWallet("acc_cash", initialWalletName.trim(), "cash", baseCurrency, openingBalanceMinor, false, nowMillis()))
             } else if (displayName != null) {
                 set(ref, snapshot.data<Profile>().copy(name = displayName))
             }
         }
+        seedDefaultCategories()
+    }
+
+    /**
+     * Tambahkan kategori dan subkategori bawaan yang belum ada (mis. akun lama tanpa subkategori).
+     * Idempoten: kategori buatan pengguna tidak disentuh dan tidak ada data yang diubah.
+     */
+    private suspend fun seedDefaultCategories() {
+        val existing = collection("categories").get().documents.map { it.id }.toSet()
+        defaultCategoryTree.filter { it.id !in existing }.forEach { category ->
+            collection("categories").document(category.id).set(mapOf(
+                "id" to category.id, "name" to category.name, "type" to category.type, "parentId" to category.parentId))
+        }
     }
 
     fun observe(): Flow<FinanceData> {
-        val categoryOrder = defaultCategories.mapIndexed { index, category -> category.id to index }.toMap()
+        val categoryOrder = defaultCategoryTree.mapIndexed { index, category -> category.id to index }.toMap()
         if(isLocal) return db.localSnapshots.map { snapshot ->
             val path="users/local"
             fun docs(name:String)=snapshot.collection("$path/$name").documents
@@ -473,6 +487,7 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
             LocalDate.parse(tx.date)
             require(tx.tags.size<=10 && tx.tags.distinct().size==tx.tags.size && tx.tags.all{it.isNotBlank() && it.length<=30}){MR.strings.core_error_tags_limit.text()}
             require(tx.subcategoryId==null || tx.subcategoryId.isNotBlank() && tx.subcategoryId.length<=1000)
+            require(tx.originalCurrency==null && tx.originalAmountMinor==null || tx.type!="transfer" && tx.originalCurrency!=tx.currency && tx.originalCurrency.orEmpty().matches(Regex("[A-Z]{3}")) && tx.originalAmountMinor in 1..MAX_MONEY)
             if (tx.type == "transfer") require(!tx.toAccountId.isNullOrBlank() && tx.toAccountId != tx.accountId && tx.receivedAmountMinor != null && tx.receivedAmountMinor in 1..MAX_MONEY) { MR.strings.core_error_transfer_requires.text() }
             else require(tx.toAccountId == null && tx.receivedAmountMinor == null)
         }

@@ -1517,6 +1517,14 @@
     <string name="pe_edit_profile">Edit profile</string>
     <string name="pe_exit">Exit App</string>
     <string name="pe_exit_caption">Close the app</string>
+    <string name="pe_group_ai_caption">Assistant, AI Scan, memory, voice input language</string>
+    <string name="pe_group_data">Data &amp; Wallets</string>
+    <string name="pe_group_data_caption">Import, period, categories, wallets, notifications</string>
+    <string name="pe_group_display">Display &amp; Format</string>
+    <string name="pe_group_display_caption">Home, statistics, add transaction, icons, balance format</string>
+    <string name="pe_group_future_caption">Automation, feedback, and roadmap</string>
+    <string name="pe_group_help">Help &amp; Info</string>
+    <string name="pe_group_help_caption">Help, feedback, share, report a bug, about</string>
     <string name="pe_help">Help &amp; Support</string>
     <string name="pe_help_caption">Guides and help</string>
     <string name="pe_home_view_caption">Which period home opens on</string>
@@ -1534,6 +1542,7 @@
     <string name="pe_search_placeholder">Search settings...</string>
     <string name="pe_section_ai">AI</string>
     <string name="pe_section_general">General</string>
+    <string name="pe_section_more">More</string>
     <string name="pe_section_other">Other</string>
     <string name="pe_send_feedback_caption">Tell us what you think</string>
     <string name="pe_set_currency">Currency</string>
@@ -2391,9 +2400,12 @@
     <string name="tx_calculator_example">Example: 10000+5000/2</string>
     <string name="tx_calculator_hint">Use + − * / and a dot for decimals.</string>
     <string name="tx_category">Category</string>
+    <string name="tx_converted_to_wallet">≈ %1$s in wallet %2$s (daily rate)</string>
     <string name="tx_create_budget">Create Budget</string>
     <string name="tx_create_budget_description">Create budget</string>
     <string name="tx_created_time">Time created</string>
+    <string name="tx_currency_default_badge">Default</string>
+    <string name="tx_currency_settings">Change default currency</string>
     <string name="tx_date">Date</string>
     <string name="tx_date_long">%1$s, %3$s %2$s, %4$s</string>
     <string name="tx_day_month">%2$s %1$s</string>
@@ -2425,6 +2437,7 @@
     <string name="tx_err_pick_expense_category">Choose an expense category</string>
     <string name="tx_err_pick_matching_category">Choose a matching category</string>
     <string name="tx_err_pick_payment_wallet">Choose a payment wallet</string>
+    <string name="tx_err_rate_unavailable">The %1$s to %2$s rate isn't available. Check your connection or pick a %1$s wallet.</string>
     <string name="tx_err_recurring_invalid">Invalid recurring schedule data</string>
     <string name="tx_err_recurring_title">Recurring transaction title is required</string>
     <string name="tx_err_transfer_received">Transfers between currencies require the received amount</string>
@@ -2494,6 +2507,7 @@
     <string name="tx_note">Note</string>
     <string name="tx_note_optional">Note (optional)</string>
     <string name="tx_option">Option</string>
+    <string name="tx_original_amount">Original amount</string>
     <string name="tx_out">Out</string>
     <string name="tx_paren_range">(%1$s - %2$s)</string>
     <string name="tx_pay_with_wallet">Pay with Wallet</string>
@@ -2507,6 +2521,7 @@
     <string name="tx_range_large">&gt; 1M</string>
     <string name="tx_range_mid">100K – 1M</string>
     <string name="tx_range_small">&lt; 100K</string>
+    <string name="tx_rate_loading">Loading exchange rate…</string>
     <string name="tx_received">Received (%1$s)</string>
     <string name="tx_record_methods_subtitle">Choose a recording method. Unavailable methods are marked.</string>
     <string name="tx_record_methods_title">Ways to record</string>
@@ -2532,6 +2547,7 @@
     <string name="tx_schedules_scheduled">%1$s scheduled items</string>
     <string name="tx_search_description">Search transactions</string>
     <string name="tx_search_placeholder">Search transactions...</string>
+    <string name="tx_select_currency">Select Currency</string>
     <string name="tx_soon">Soon</string>
     <string name="tx_sort_largest">Largest</string>
     <string name="tx_sort_newest">Newest</string>
@@ -2570,4 +2586,29 @@
     <string name="tx_weekday_short_6">Sat</string>
     <string name="tx_weekday_short_7">Sun</string>
     <string name="tx_you_can_spend">You can spend</string>
+    <string name="core_sub_breakfast">Breakfast</string>
+    <string name="core_sub_lunch">Lunch</string>
+    <string name="core_sub_dinner">Dinner</string>
+    <string name="core_sub_eat_out">Eating out</string>
+    <string name="core_sub_fuel">Fuel</string>
+    <string name="core_sub_public_transport">Public transport</string>
+    <string name="core_sub_parking">Parking</string>
+    <string name="core_sub_ride">Ride &amp; taxi</string>
+    <string name="core_sub_groceries">Groceries</string>
+    <string name="core_sub_clothing">Clothing</string>
+    <string name="core_sub_electronics">Electronics</string>
+    <string name="core_sub_medicine">Medicine</string>
+    <string name="core_sub_doctor">Doctor</string>
+    <string name="core_sub_sport">Sport</string>
+    <string name="core_sub_electricity">Electricity</string>
+    <string name="core_sub_water">Water</string>
+    <string name="core_sub_internet">Internet &amp; phone</string>
+    <string name="core_sub_rent">Rent</string>
+    <string name="core_sub_books">Books</string>
+    <string name="core_sub_course">Course</string>
+    <string name="core_sub_stationery">Stationery</string>
+    <string name="core_sub_streaming">Streaming</string>
+    <string name="core_sub_cinema">Cinema</string>
+    <string name="core_sub_games">Games</string>
+    <string name="core_sub_hobby">Hobby</string>
 </resources>

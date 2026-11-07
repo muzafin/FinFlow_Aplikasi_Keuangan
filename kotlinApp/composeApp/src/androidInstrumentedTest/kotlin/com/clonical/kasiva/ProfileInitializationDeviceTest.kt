@@ -4,7 +4,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.clonical.kasiva.core.data.FinanceRepository
 import com.clonical.kasiva.core.model.Account
 import com.clonical.kasiva.core.model.Profile
-import com.clonical.kasiva.core.model.defaultCategories
+import com.clonical.kasiva.core.model.defaultCategoryTree
 import dev.gitlive.firebase.*
 import dev.gitlive.firebase.auth.*
 import dev.gitlive.firebase.firestore.*
@@ -35,7 +35,7 @@ class ProfileInitializationDeviceTest {
                 val data=repo.observe().first { it.featuresReady }
                 assertEquals(user.uid,data.profile?.id)
                 assertEquals("Akun $index",data.profile?.name)
-                assertEquals(defaultCategories.size,data.categories.size)
+                assertEquals(defaultCategoryTree.size,data.categories.size)
                 assertEquals(0L,data.balance(data.accounts.single()))
                 assertTrue(data.transactions.isEmpty())
                 if (index==0) firstUid=user.uid else {

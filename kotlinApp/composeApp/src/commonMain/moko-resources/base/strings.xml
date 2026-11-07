@@ -1517,6 +1517,14 @@
     <string name="pe_edit_profile">Ubah profil</string>
     <string name="pe_exit">Keluar Aplikasi</string>
     <string name="pe_exit_caption">Tutup aplikasi</string>
+    <string name="pe_group_ai_caption">Asisten, AI Scan, memori, bahasa input suara</string>
+    <string name="pe_group_data">Data &amp; Dompet</string>
+    <string name="pe_group_data_caption">Impor, periode, kategori, dompet, notifikasi</string>
+    <string name="pe_group_display">Tampilan &amp; Format</string>
+    <string name="pe_group_display_caption">Beranda, statistik, tambah transaksi, ikon, format saldo</string>
+    <string name="pe_group_future_caption">Otomasi, masukan, dan peta jalan</string>
+    <string name="pe_group_help">Bantuan &amp; Info</string>
+    <string name="pe_group_help_caption">Bantuan, masukan, bagikan, laporkan bug, tentang</string>
     <string name="pe_help">Bantuan &amp; Dukungan</string>
     <string name="pe_help_caption">Panduan dan bantuan</string>
     <string name="pe_home_view_caption">Periode yang dibuka Beranda</string>
@@ -1534,6 +1542,7 @@
     <string name="pe_search_placeholder">Cari pengaturan...</string>
     <string name="pe_section_ai">AI</string>
     <string name="pe_section_general">Umum</string>
+    <string name="pe_section_more">Menu Lainnya</string>
     <string name="pe_section_other">Lainnya</string>
     <string name="pe_send_feedback_caption">Sampaikan pendapatmu</string>
     <string name="pe_set_currency">Mata Uang</string>
@@ -2391,9 +2400,12 @@
     <string name="tx_calculator_example">Contoh: 10000+5000/2</string>
     <string name="tx_calculator_hint">Gunakan + − * / dan titik untuk desimal.</string>
     <string name="tx_category">Kategori</string>
+    <string name="tx_converted_to_wallet">≈ %1$s di dompet %2$s (kurs harian)</string>
     <string name="tx_create_budget">Buat Anggaran</string>
     <string name="tx_create_budget_description">Buat anggaran</string>
     <string name="tx_created_time">Jam dibuat</string>
+    <string name="tx_currency_default_badge">Bawaan</string>
+    <string name="tx_currency_settings">Ubah mata uang bawaan</string>
     <string name="tx_date">Tanggal</string>
     <string name="tx_date_long">%1$s, %2$s %3$s %4$s</string>
     <string name="tx_day_month">%1$s %2$s</string>
@@ -2425,6 +2437,7 @@
     <string name="tx_err_pick_expense_category">Pilih kategori pengeluaran</string>
     <string name="tx_err_pick_matching_category">Pilih kategori yang sesuai</string>
     <string name="tx_err_pick_payment_wallet">Pilih dompet pembayaran</string>
+    <string name="tx_err_rate_unavailable">Kurs %1$s ke %2$s belum tersedia. Periksa koneksi internet atau pilih dompet bermata uang %1$s.</string>
     <string name="tx_err_recurring_invalid">Data jadwal berulang tidak valid</string>
     <string name="tx_err_recurring_title">Judul transaksi berulang wajib diisi</string>
     <string name="tx_err_transfer_received">Transfer beda mata uang wajib mengisi nominal yang diterima</string>
@@ -2494,6 +2507,7 @@
     <string name="tx_note">Catatan</string>
     <string name="tx_note_optional">Catatan (opsional)</string>
     <string name="tx_option">Pilihan</string>
+    <string name="tx_original_amount">Jumlah asli</string>
     <string name="tx_out">Keluar</string>
     <string name="tx_paren_range">(%1$s - %2$s)</string>
     <string name="tx_pay_with_wallet">Bayar dengan Dompet</string>
@@ -2507,6 +2521,7 @@
     <string name="tx_range_large">&gt; 1jt</string>
     <string name="tx_range_mid">100rb – 1jt</string>
     <string name="tx_range_small">&lt; 100rb</string>
+    <string name="tx_rate_loading">Memuat kurs…</string>
     <string name="tx_received">Diterima (%1$s)</string>
     <string name="tx_record_methods_subtitle">Pilih metode pencatatan. Metode yang belum tersedia ditandai.</string>
     <string name="tx_record_methods_title">Cara mencatat</string>
@@ -2532,6 +2547,7 @@
     <string name="tx_schedules_scheduled">%1$s jadwal terjadwal</string>
     <string name="tx_search_description">Cari transaksi</string>
     <string name="tx_search_placeholder">Cari transaksi...</string>
+    <string name="tx_select_currency">Pilih Mata Uang</string>
     <string name="tx_soon">Segera</string>
     <string name="tx_sort_largest">Terbesar</string>
     <string name="tx_sort_newest">Terbaru</string>
@@ -2570,4 +2586,29 @@
     <string name="tx_weekday_short_6">Sab</string>
     <string name="tx_weekday_short_7">Min</string>
     <string name="tx_you_can_spend">Anda bisa belanja</string>
+    <string name="core_sub_breakfast">Sarapan</string>
+    <string name="core_sub_lunch">Makan siang</string>
+    <string name="core_sub_dinner">Makan malam</string>
+    <string name="core_sub_eat_out">Makan di luar</string>
+    <string name="core_sub_fuel">Bensin</string>
+    <string name="core_sub_public_transport">Transportasi umum</string>
+    <string name="core_sub_parking">Parkir</string>
+    <string name="core_sub_ride">Ojek &amp; taksi</string>
+    <string name="core_sub_groceries">Belanja harian</string>
+    <string name="core_sub_clothing">Pakaian</string>
+    <string name="core_sub_electronics">Elektronik</string>
+    <string name="core_sub_medicine">Obat</string>
+    <string name="core_sub_doctor">Dokter</string>
+    <string name="core_sub_sport">Olahraga</string>
+    <string name="core_sub_electricity">Listrik</string>
+    <string name="core_sub_water">Air</string>
+    <string name="core_sub_internet">Internet &amp; pulsa</string>
+    <string name="core_sub_rent">Sewa</string>
+    <string name="core_sub_books">Buku</string>
+    <string name="core_sub_course">Kursus</string>
+    <string name="core_sub_stationery">Alat tulis</string>
+    <string name="core_sub_streaming">Streaming</string>
+    <string name="core_sub_cinema">Bioskop</string>
+    <string name="core_sub_games">Game</string>
+    <string name="core_sub_hobby">Hobi</string>
 </resources>

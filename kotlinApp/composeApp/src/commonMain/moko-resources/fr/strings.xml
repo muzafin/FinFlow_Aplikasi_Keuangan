@@ -1517,6 +1517,14 @@
     <string name="pe_edit_profile">Modifier le profil</string>
     <string name="pe_exit">Quitter l'app</string>
     <string name="pe_exit_caption">Fermer l'app</string>
+    <string name="pe_group_ai_caption">Assistant, AI Scan, mémoire, langue de la saisie vocale</string>
+    <string name="pe_group_data">Données et portefeuilles</string>
+    <string name="pe_group_data_caption">Import, période, catégories, portefeuilles, notifications</string>
+    <string name="pe_group_display">Affichage et format</string>
+    <string name="pe_group_display_caption">Accueil, statistiques, ajout de transaction, icônes, format du solde</string>
+    <string name="pe_group_future_caption">Automatisation, avis et feuille de route</string>
+    <string name="pe_group_help">Aide et infos</string>
+    <string name="pe_group_help_caption">Aide, avis, partager, signaler un bug, à propos</string>
     <string name="pe_help">Aide et assistance</string>
     <string name="pe_help_caption">Guides et aide</string>
     <string name="pe_home_view_caption">Période affichée à l'ouverture de l'accueil</string>
@@ -1534,6 +1542,7 @@
     <string name="pe_search_placeholder">Rechercher des réglages...</string>
     <string name="pe_section_ai">IA</string>
     <string name="pe_section_general">Général</string>
+    <string name="pe_section_more">Autres menus</string>
     <string name="pe_section_other">Autre</string>
     <string name="pe_send_feedback_caption">Dites-nous ce que vous en pensez</string>
     <string name="pe_set_currency">Devise</string>
@@ -2391,9 +2400,12 @@
     <string name="tx_calculator_example">Exemple : 10000+5000/2</string>
     <string name="tx_calculator_hint">Utilisez + − * / et un point pour les décimales.</string>
     <string name="tx_category">Catégorie</string>
+    <string name="tx_converted_to_wallet">≈ %1$s dans le portefeuille %2$s (taux du jour)</string>
     <string name="tx_create_budget">Créer un budget</string>
     <string name="tx_create_budget_description">Créer un budget</string>
     <string name="tx_created_time">Heure de création</string>
+    <string name="tx_currency_default_badge">Par défaut</string>
+    <string name="tx_currency_settings">Modifier la devise par défaut</string>
     <string name="tx_date">Date</string>
     <string name="tx_date_long">%1$s %2$s %3$s %4$s</string>
     <string name="tx_day_month">%1$s %2$s</string>
@@ -2425,6 +2437,7 @@
     <string name="tx_err_pick_expense_category">Choisissez une catégorie de dépense</string>
     <string name="tx_err_pick_matching_category">Choisissez une catégorie adaptée</string>
     <string name="tx_err_pick_payment_wallet">Choisissez un portefeuille de paiement</string>
+    <string name="tx_err_rate_unavailable">Le taux %1$s vers %2$s n'est pas disponible. Vérifiez la connexion ou choisissez un portefeuille en %1$s.</string>
     <string name="tx_err_recurring_invalid">Données de planification récurrente invalides</string>
     <string name="tx_err_recurring_title">Le titre de la transaction récurrente est requis</string>
     <string name="tx_err_transfer_received">Un transfert entre devises exige le montant reçu</string>
@@ -2494,6 +2507,7 @@
     <string name="tx_note">Note</string>
     <string name="tx_note_optional">Note (facultatif)</string>
     <string name="tx_option">Option</string>
+    <string name="tx_original_amount">Montant d'origine</string>
     <string name="tx_out">Sortie</string>
     <string name="tx_paren_range">(%1$s - %2$s)</string>
     <string name="tx_pay_with_wallet">Payer avec le portefeuille</string>
@@ -2507,6 +2521,7 @@
     <string name="tx_range_large">&gt; 1 M</string>
     <string name="tx_range_mid">100 k – 1 M</string>
     <string name="tx_range_small">&lt; 100 k</string>
+    <string name="tx_rate_loading">Chargement du taux de change…</string>
     <string name="tx_received">Reçu (%1$s)</string>
     <string name="tx_record_methods_subtitle">Choisissez un mode de saisie. Les modes indisponibles sont signalés.</string>
     <string name="tx_record_methods_title">Modes de saisie</string>
@@ -2532,6 +2547,7 @@
     <string name="tx_schedules_scheduled">%1$s planifications</string>
     <string name="tx_search_description">Rechercher des transactions</string>
     <string name="tx_search_placeholder">Rechercher des transactions...</string>
+    <string name="tx_select_currency">Choisir la devise</string>
     <string name="tx_soon">Bientôt</string>
     <string name="tx_sort_largest">Plus élevées</string>
     <string name="tx_sort_newest">Plus récentes</string>
@@ -2570,4 +2586,29 @@
     <string name="tx_weekday_short_6">sam.</string>
     <string name="tx_weekday_short_7">dim.</string>
     <string name="tx_you_can_spend">Vous pouvez dépenser</string>
+    <string name="core_sub_breakfast">Petit-déjeuner</string>
+    <string name="core_sub_lunch">Déjeuner</string>
+    <string name="core_sub_dinner">Dîner</string>
+    <string name="core_sub_eat_out">Manger dehors</string>
+    <string name="core_sub_fuel">Carburant</string>
+    <string name="core_sub_public_transport">Transports publics</string>
+    <string name="core_sub_parking">Stationnement</string>
+    <string name="core_sub_ride">VTC &amp; taxi</string>
+    <string name="core_sub_groceries">Courses</string>
+    <string name="core_sub_clothing">Vêtements</string>
+    <string name="core_sub_electronics">Électronique</string>
+    <string name="core_sub_medicine">Médicaments</string>
+    <string name="core_sub_doctor">Médecin</string>
+    <string name="core_sub_sport">Sport</string>
+    <string name="core_sub_electricity">Électricité</string>
+    <string name="core_sub_water">Eau</string>
+    <string name="core_sub_internet">Internet &amp; téléphone</string>
+    <string name="core_sub_rent">Loyer</string>
+    <string name="core_sub_books">Livres</string>
+    <string name="core_sub_course">Cours</string>
+    <string name="core_sub_stationery">Papeterie</string>
+    <string name="core_sub_streaming">Streaming</string>
+    <string name="core_sub_cinema">Cinéma</string>
+    <string name="core_sub_games">Jeux</string>
+    <string name="core_sub_hobby">Loisir</string>
 </resources>

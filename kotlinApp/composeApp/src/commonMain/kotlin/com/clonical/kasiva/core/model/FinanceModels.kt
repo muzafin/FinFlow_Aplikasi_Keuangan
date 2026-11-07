@@ -35,6 +35,8 @@ data class Transaction(
     val source: String = "manual", val sourceId: String? = null,
     val scheduled: Boolean = false,
     val subcategoryId: String? = null, val tags: List<String> = emptyList(),
+    /** Diisi bila jumlah diketik dalam mata uang lain lalu dikonversi ke mata uang dompet ([currency]). */
+    val originalCurrency: String? = null, val originalAmountMinor: Long? = null,
 )
 
 @Serializable
@@ -97,3 +99,35 @@ val defaultCategories: List<Category> get() = listOf(
     Category("salary", MR.strings.core_category_salary.text(), "income"), Category("business", MR.strings.core_category_business.text(), "income"),
     Category("other_income", MR.strings.core_category_other.text(), "income"),
 )
+
+// Subkategori bawaan seperti Ollo (Sarapan/Makan siang/Makan malam/...). Id tetap agar migrasi aman dan urutan stabil.
+val defaultSubcategories: List<Category> get() = listOf(
+    Category("food-breakfast", MR.strings.core_sub_breakfast.text(), "expense", parentId = "food"),
+    Category("food-lunch", MR.strings.core_sub_lunch.text(), "expense", parentId = "food"),
+    Category("food-dinner", MR.strings.core_sub_dinner.text(), "expense", parentId = "food"),
+    Category("food-eat-out", MR.strings.core_sub_eat_out.text(), "expense", parentId = "food"),
+    Category("transport-fuel", MR.strings.core_sub_fuel.text(), "expense", parentId = "transport"),
+    Category("transport-public", MR.strings.core_sub_public_transport.text(), "expense", parentId = "transport"),
+    Category("transport-parking", MR.strings.core_sub_parking.text(), "expense", parentId = "transport"),
+    Category("transport-ride", MR.strings.core_sub_ride.text(), "expense", parentId = "transport"),
+    Category("shopping-groceries", MR.strings.core_sub_groceries.text(), "expense", parentId = "shopping"),
+    Category("shopping-clothing", MR.strings.core_sub_clothing.text(), "expense", parentId = "shopping"),
+    Category("shopping-electronics", MR.strings.core_sub_electronics.text(), "expense", parentId = "shopping"),
+    Category("health-medicine", MR.strings.core_sub_medicine.text(), "expense", parentId = "health"),
+    Category("health-doctor", MR.strings.core_sub_doctor.text(), "expense", parentId = "health"),
+    Category("health-sport", MR.strings.core_sub_sport.text(), "expense", parentId = "health"),
+    Category("bills-electricity", MR.strings.core_sub_electricity.text(), "expense", parentId = "bills"),
+    Category("bills-water", MR.strings.core_sub_water.text(), "expense", parentId = "bills"),
+    Category("bills-internet", MR.strings.core_sub_internet.text(), "expense", parentId = "bills"),
+    Category("bills-rent", MR.strings.core_sub_rent.text(), "expense", parentId = "bills"),
+    Category("education-books", MR.strings.core_sub_books.text(), "expense", parentId = "education"),
+    Category("education-course", MR.strings.core_sub_course.text(), "expense", parentId = "education"),
+    Category("education-stationery", MR.strings.core_sub_stationery.text(), "expense", parentId = "education"),
+    Category("entertainment-streaming", MR.strings.core_sub_streaming.text(), "expense", parentId = "entertainment"),
+    Category("entertainment-cinema", MR.strings.core_sub_cinema.text(), "expense", parentId = "entertainment"),
+    Category("entertainment-games", MR.strings.core_sub_games.text(), "expense", parentId = "entertainment"),
+    Category("entertainment-hobby", MR.strings.core_sub_hobby.text(), "expense", parentId = "entertainment"),
+)
+
+/** Kategori utama + subkategori bawaan; urutan list dipakai untuk chip transaksi dan migrasi. */
+val defaultCategoryTree: List<Category> get() = defaultCategories + defaultSubcategories

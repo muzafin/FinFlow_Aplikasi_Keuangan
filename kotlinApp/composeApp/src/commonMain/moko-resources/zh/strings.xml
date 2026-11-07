@@ -1517,6 +1517,14 @@
     <string name="pe_edit_profile">编辑个人资料</string>
     <string name="pe_exit">退出应用</string>
     <string name="pe_exit_caption">关闭应用</string>
+    <string name="pe_group_ai_caption">助手、AI Scan、记忆、语音输入语言</string>
+    <string name="pe_group_data">数据与钱包</string>
+    <string name="pe_group_data_caption">导入、周期、分类、钱包、通知</string>
+    <string name="pe_group_display">显示与格式</string>
+    <string name="pe_group_display_caption">首页、统计、添加交易、图标、余额格式</string>
+    <string name="pe_group_future_caption">自动化、反馈与路线图</string>
+    <string name="pe_group_help">帮助与信息</string>
+    <string name="pe_group_help_caption">帮助、反馈、分享、报告问题、关于</string>
     <string name="pe_help">帮助与支持</string>
     <string name="pe_help_caption">指南和帮助</string>
     <string name="pe_home_view_caption">首页打开时显示的周期</string>
@@ -1534,6 +1542,7 @@
     <string name="pe_search_placeholder">搜索设置...</string>
     <string name="pe_section_ai">AI</string>
     <string name="pe_section_general">通用</string>
+    <string name="pe_section_more">更多菜单</string>
     <string name="pe_section_other">其他</string>
     <string name="pe_send_feedback_caption">告诉我们你的想法</string>
     <string name="pe_set_currency">货币</string>
@@ -2391,9 +2400,12 @@
     <string name="tx_calculator_example">示例：10000+5000/2</string>
     <string name="tx_calculator_hint">可使用 + − * / ，小数用点号。</string>
     <string name="tx_category">类别</string>
+    <string name="tx_converted_to_wallet">≈ %1$s 记入钱包 %2$s（当日汇率）</string>
     <string name="tx_create_budget">创建预算</string>
     <string name="tx_create_budget_description">创建预算</string>
     <string name="tx_created_time">创建时间</string>
+    <string name="tx_currency_default_badge">默认</string>
+    <string name="tx_currency_settings">更改默认货币</string>
     <string name="tx_date">日期</string>
     <string name="tx_date_long">%4$s年%3$s%2$s日 %1$s</string>
     <string name="tx_day_month">%2$s%1$s日</string>
@@ -2425,6 +2437,7 @@
     <string name="tx_err_pick_expense_category">请选择支出类别</string>
     <string name="tx_err_pick_matching_category">请选择匹配的类别</string>
     <string name="tx_err_pick_payment_wallet">请选择付款钱包</string>
+    <string name="tx_err_rate_unavailable">暂无 %1$s 兑 %2$s 的汇率。请检查网络或选择 %1$s 钱包。</string>
     <string name="tx_err_recurring_invalid">定期计划数据无效</string>
     <string name="tx_err_recurring_title">定期交易标题为必填项</string>
     <string name="tx_err_transfer_received">跨币种转账须填写到账金额</string>
@@ -2494,6 +2507,7 @@
     <string name="tx_note">备注</string>
     <string name="tx_note_optional">备注（可选）</string>
     <string name="tx_option">选项</string>
+    <string name="tx_original_amount">原始金额</string>
     <string name="tx_out">支出</string>
     <string name="tx_paren_range">（%1$s - %2$s）</string>
     <string name="tx_pay_with_wallet">付款钱包</string>
@@ -2507,6 +2521,7 @@
     <string name="tx_range_large">&gt; 100万</string>
     <string name="tx_range_mid">10万 – 100万</string>
     <string name="tx_range_small">&lt; 10万</string>
+    <string name="tx_rate_loading">正在加载汇率…</string>
     <string name="tx_received">到账（%1$s）</string>
     <string name="tx_record_methods_subtitle">选择记账方式。尚不可用的方式已标注。</string>
     <string name="tx_record_methods_title">记账方式</string>
@@ -2532,6 +2547,7 @@
     <string name="tx_schedules_scheduled">共 %1$s 项计划</string>
     <string name="tx_search_description">搜索交易</string>
     <string name="tx_search_placeholder">搜索交易...</string>
+    <string name="tx_select_currency">选择货币</string>
     <string name="tx_soon">即将推出</string>
     <string name="tx_sort_largest">金额最大</string>
     <string name="tx_sort_newest">最新</string>
@@ -2570,4 +2586,29 @@
     <string name="tx_weekday_short_6">六</string>
     <string name="tx_weekday_short_7">日</string>
     <string name="tx_you_can_spend">可支出</string>
+    <string name="core_sub_breakfast">早餐</string>
+    <string name="core_sub_lunch">午餐</string>
+    <string name="core_sub_dinner">晚餐</string>
+    <string name="core_sub_eat_out">外出就餐</string>
+    <string name="core_sub_fuel">燃油</string>
+    <string name="core_sub_public_transport">公共交通</string>
+    <string name="core_sub_parking">停车</string>
+    <string name="core_sub_ride">网约车与出租车</string>
+    <string name="core_sub_groceries">日用品</string>
+    <string name="core_sub_clothing">服装</string>
+    <string name="core_sub_electronics">电子产品</string>
+    <string name="core_sub_medicine">药品</string>
+    <string name="core_sub_doctor">医生</string>
+    <string name="core_sub_sport">运动</string>
+    <string name="core_sub_electricity">电费</string>
+    <string name="core_sub_water">水费</string>
+    <string name="core_sub_internet">网络与话费</string>
+    <string name="core_sub_rent">房租</string>
+    <string name="core_sub_books">书籍</string>
+    <string name="core_sub_course">课程</string>
+    <string name="core_sub_stationery">文具</string>
+    <string name="core_sub_streaming">流媒体</string>
+    <string name="core_sub_cinema">电影院</string>
+    <string name="core_sub_games">游戏</string>
+    <string name="core_sub_hobby">爱好</string>
 </resources>

@@ -1517,6 +1517,14 @@
     <string name="pe_edit_profile">プロフィールを編集</string>
     <string name="pe_exit">アプリを終了</string>
     <string name="pe_exit_caption">アプリを閉じる</string>
+    <string name="pe_group_ai_caption">アシスタント・AI Scan・メモリ・音声入力言語</string>
+    <string name="pe_group_data">データとウォレット</string>
+    <string name="pe_group_data_caption">インポート・期間・カテゴリ・ウォレット・通知</string>
+    <string name="pe_group_display">表示と書式</string>
+    <string name="pe_group_display_caption">ホーム・統計・取引追加・アイコン・残高表示</string>
+    <string name="pe_group_future_caption">自動化・フィードバック・ロードマップ</string>
+    <string name="pe_group_help">ヘルプと情報</string>
+    <string name="pe_group_help_caption">ヘルプ・フィードバック・共有・不具合報告・情報</string>
     <string name="pe_help">ヘルプとサポート</string>
     <string name="pe_help_caption">ガイドとヘルプ</string>
     <string name="pe_home_view_caption">ホームを開いたときの期間</string>
@@ -1534,6 +1542,7 @@
     <string name="pe_search_placeholder">設定を検索...</string>
     <string name="pe_section_ai">AI</string>
     <string name="pe_section_general">一般</string>
+    <string name="pe_section_more">その他のメニュー</string>
     <string name="pe_section_other">その他</string>
     <string name="pe_send_feedback_caption">ご意見をお聞かせください</string>
     <string name="pe_set_currency">通貨</string>
@@ -2391,9 +2400,12 @@
     <string name="tx_calculator_example">例：10000+5000/2</string>
     <string name="tx_calculator_hint">+ − * / と小数点（.）を使えます。</string>
     <string name="tx_category">カテゴリ</string>
+    <string name="tx_converted_to_wallet">≈ %1$s（ウォレット %2$s・当日レート）</string>
     <string name="tx_create_budget">予算を作成</string>
     <string name="tx_create_budget_description">予算を作成</string>
     <string name="tx_created_time">作成時刻</string>
+    <string name="tx_currency_default_badge">デフォルト</string>
+    <string name="tx_currency_settings">デフォルト通貨を変更</string>
     <string name="tx_date">日付</string>
     <string name="tx_date_long">%4$s年%3$s%2$s日（%1$s）</string>
     <string name="tx_day_month">%2$s%1$s日</string>
@@ -2425,6 +2437,7 @@
     <string name="tx_err_pick_expense_category">支出カテゴリを選択してください</string>
     <string name="tx_err_pick_matching_category">適切なカテゴリを選択してください</string>
     <string name="tx_err_pick_payment_wallet">支払いウォレットを選択してください</string>
+    <string name="tx_err_rate_unavailable">%1$sから%2$sへのレートを取得できません。接続を確認するか、%1$sのウォレットを選んでください。</string>
     <string name="tx_err_recurring_invalid">定期の予定データが無効です</string>
     <string name="tx_err_recurring_title">定期取引のタイトルは必須です</string>
     <string name="tx_err_transfer_received">異なる通貨間の振替では受取金額の入力が必要です</string>
@@ -2494,6 +2507,7 @@
     <string name="tx_note">メモ</string>
     <string name="tx_note_optional">メモ（任意）</string>
     <string name="tx_option">選択肢</string>
+    <string name="tx_original_amount">元の金額</string>
     <string name="tx_out">出金</string>
     <string name="tx_paren_range">（%1$s〜%2$s）</string>
     <string name="tx_pay_with_wallet">支払いウォレット</string>
@@ -2507,6 +2521,7 @@
     <string name="tx_range_large">100万超</string>
     <string name="tx_range_mid">10万〜100万</string>
     <string name="tx_range_small">10万未満</string>
+    <string name="tx_rate_loading">為替レートを読み込み中…</string>
     <string name="tx_received">受取額（%1$s）</string>
     <string name="tx_record_methods_subtitle">記録方法を選択してください。未対応の方法には印が付いています。</string>
     <string name="tx_record_methods_title">記録方法</string>
@@ -2532,6 +2547,7 @@
     <string name="tx_schedules_scheduled">予定 %1$s 件</string>
     <string name="tx_search_description">取引を検索</string>
     <string name="tx_search_placeholder">取引を検索...</string>
+    <string name="tx_select_currency">通貨を選択</string>
     <string name="tx_soon">近日公開</string>
     <string name="tx_sort_largest">金額が大きい順</string>
     <string name="tx_sort_newest">新しい順</string>
@@ -2570,4 +2586,29 @@
     <string name="tx_weekday_short_6">土</string>
     <string name="tx_weekday_short_7">日</string>
     <string name="tx_you_can_spend">使える金額</string>
+    <string name="core_sub_breakfast">朝食</string>
+    <string name="core_sub_lunch">昼食</string>
+    <string name="core_sub_dinner">夕食</string>
+    <string name="core_sub_eat_out">外食</string>
+    <string name="core_sub_fuel">燃料</string>
+    <string name="core_sub_public_transport">公共交通</string>
+    <string name="core_sub_parking">駐車場</string>
+    <string name="core_sub_ride">配車・タクシー</string>
+    <string name="core_sub_groceries">食料品</string>
+    <string name="core_sub_clothing">衣類</string>
+    <string name="core_sub_electronics">家電</string>
+    <string name="core_sub_medicine">薬</string>
+    <string name="core_sub_doctor">医者</string>
+    <string name="core_sub_sport">スポーツ</string>
+    <string name="core_sub_electricity">電気</string>
+    <string name="core_sub_water">水道</string>
+    <string name="core_sub_internet">インターネット・電話</string>
+    <string name="core_sub_rent">家賃</string>
+    <string name="core_sub_books">本</string>
+    <string name="core_sub_course">講座</string>
+    <string name="core_sub_stationery">文房具</string>
+    <string name="core_sub_streaming">動画配信</string>
+    <string name="core_sub_cinema">映画館</string>
+    <string name="core_sub_games">ゲーム</string>
+    <string name="core_sub_hobby">趣味</string>
 </resources>

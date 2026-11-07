@@ -1517,6 +1517,14 @@
     <string name="pe_edit_profile">Profil bearbeiten</string>
     <string name="pe_exit">App beenden</string>
     <string name="pe_exit_caption">App schließen</string>
+    <string name="pe_group_ai_caption">Assistent, AI Scan, Gedächtnis, Spracheingabe</string>
+    <string name="pe_group_data">Daten &amp; Wallets</string>
+    <string name="pe_group_data_caption">Import, Zeitraum, Kategorien, Wallets, Benachrichtigungen</string>
+    <string name="pe_group_display">Anzeige &amp; Format</string>
+    <string name="pe_group_display_caption">Startseite, Statistik, Buchung hinzufügen, Symbole, Saldoformat</string>
+    <string name="pe_group_future_caption">Automatisierung, Feedback und Roadmap</string>
+    <string name="pe_group_help">Hilfe &amp; Info</string>
+    <string name="pe_group_help_caption">Hilfe, Feedback, Teilen, Fehler melden, Über</string>
     <string name="pe_help">Hilfe &amp; Support</string>
     <string name="pe_help_caption">Anleitungen und Hilfe</string>
     <string name="pe_home_view_caption">Zeitraum beim Öffnen der Startseite</string>
@@ -1534,6 +1542,7 @@
     <string name="pe_search_placeholder">Einstellungen suchen...</string>
     <string name="pe_section_ai">KI</string>
     <string name="pe_section_general">Allgemein</string>
+    <string name="pe_section_more">Weitere Menüs</string>
     <string name="pe_section_other">Sonstiges</string>
     <string name="pe_send_feedback_caption">Sag uns deine Meinung</string>
     <string name="pe_set_currency">Währung</string>
@@ -2391,9 +2400,12 @@
     <string name="tx_calculator_example">Beispiel: 10000+5000/2</string>
     <string name="tx_calculator_hint">Nutze + − * / und einen Punkt für Dezimalstellen.</string>
     <string name="tx_category">Kategorie</string>
+    <string name="tx_converted_to_wallet">≈ %1$s in Wallet %2$s (Tageskurs)</string>
     <string name="tx_create_budget">Budget erstellen</string>
     <string name="tx_create_budget_description">Budget erstellen</string>
     <string name="tx_created_time">Erstellt um</string>
+    <string name="tx_currency_default_badge">Standard</string>
+    <string name="tx_currency_settings">Standardwährung ändern</string>
     <string name="tx_date">Datum</string>
     <string name="tx_date_long">%1$s, %2$s. %3$s %4$s</string>
     <string name="tx_day_month">%1$s. %2$s</string>
@@ -2425,6 +2437,7 @@
     <string name="tx_err_pick_expense_category">Wähle eine Ausgabenkategorie</string>
     <string name="tx_err_pick_matching_category">Wähle eine passende Kategorie</string>
     <string name="tx_err_pick_payment_wallet">Wähle ein Zahlungskonto</string>
+    <string name="tx_err_rate_unavailable">Kurs %1$s zu %2$s nicht verfügbar. Prüfe die Verbindung oder wähle ein %1$s-Wallet.</string>
     <string name="tx_err_recurring_invalid">Ungültige Daten für wiederkehrenden Termin</string>
     <string name="tx_err_recurring_title">Titel der wiederkehrenden Transaktion ist erforderlich</string>
     <string name="tx_err_transfer_received">Bei Überweisungen in andere Währungen muss der erhaltene Betrag angegeben werden</string>
@@ -2494,6 +2507,7 @@
     <string name="tx_note">Notiz</string>
     <string name="tx_note_optional">Notiz (optional)</string>
     <string name="tx_option">Option</string>
+    <string name="tx_original_amount">Ursprünglicher Betrag</string>
     <string name="tx_out">Aus</string>
     <string name="tx_paren_range">(%1$s - %2$s)</string>
     <string name="tx_pay_with_wallet">Zahlen mit Konto</string>
@@ -2507,6 +2521,7 @@
     <string name="tx_range_large">&gt; 1 Mio.</string>
     <string name="tx_range_mid">100 Tsd. – 1 Mio.</string>
     <string name="tx_range_small">&lt; 100 Tsd.</string>
+    <string name="tx_rate_loading">Wechselkurs wird geladen…</string>
     <string name="tx_received">Erhalten (%1$s)</string>
     <string name="tx_record_methods_subtitle">Wähle eine Erfassungsmethode. Nicht verfügbare sind markiert.</string>
     <string name="tx_record_methods_title">Erfassungswege</string>
@@ -2532,6 +2547,7 @@
     <string name="tx_schedules_scheduled">%1$s geplante Termine</string>
     <string name="tx_search_description">Transaktionen suchen</string>
     <string name="tx_search_placeholder">Transaktionen suchen...</string>
+    <string name="tx_select_currency">Währung wählen</string>
     <string name="tx_soon">Bald</string>
     <string name="tx_sort_largest">Größte</string>
     <string name="tx_sort_newest">Neueste</string>
@@ -2570,4 +2586,29 @@
     <string name="tx_weekday_short_6">Sa</string>
     <string name="tx_weekday_short_7">So</string>
     <string name="tx_you_can_spend">Verfügbar</string>
+    <string name="core_sub_breakfast">Frühstück</string>
+    <string name="core_sub_lunch">Mittagessen</string>
+    <string name="core_sub_dinner">Abendessen</string>
+    <string name="core_sub_eat_out">Auswärts essen</string>
+    <string name="core_sub_fuel">Kraftstoff</string>
+    <string name="core_sub_public_transport">Öffentliche Verkehrsmittel</string>
+    <string name="core_sub_parking">Parken</string>
+    <string name="core_sub_ride">Fahrdienst &amp; Taxi</string>
+    <string name="core_sub_groceries">Lebensmittel</string>
+    <string name="core_sub_clothing">Kleidung</string>
+    <string name="core_sub_electronics">Elektronik</string>
+    <string name="core_sub_medicine">Medikamente</string>
+    <string name="core_sub_doctor">Arzt</string>
+    <string name="core_sub_sport">Sport</string>
+    <string name="core_sub_electricity">Strom</string>
+    <string name="core_sub_water">Wasser</string>
+    <string name="core_sub_internet">Internet &amp; Telefon</string>
+    <string name="core_sub_rent">Miete</string>
+    <string name="core_sub_books">Bücher</string>
+    <string name="core_sub_course">Kurs</string>
+    <string name="core_sub_stationery">Schreibwaren</string>
+    <string name="core_sub_streaming">Streaming</string>
+    <string name="core_sub_cinema">Kino</string>
+    <string name="core_sub_games">Spiele</string>
+    <string name="core_sub_hobby">Hobby</string>
 </resources>

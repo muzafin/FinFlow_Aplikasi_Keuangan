@@ -44,6 +44,20 @@ class LocalFinanceRepositoryTest {
         assertEquals(before,memory.content);assertEquals(20000L,repo.snapshot().balance(repo.snapshot().accounts.single()))
     }
 
+    @Test fun existingLocalAccountGetsMissingDefaultSubcategoriesOnInitialize()=runTest {
+        val memory=Memory();val repo=FinanceRepository(local=memory)
+        repo.initializeProfile("Lokal","IDR","Tunai",0)
+        assertEquals(defaultCategoryTree.size,repo.snapshot().categories.size)
+        // Simulasikan akun lama yang dibuat sebelum subkategori bawaan ada.
+        val db=FinanceDatabase(local=memory)
+        db.runTransaction { defaultSubcategories.forEach { sub -> delete(db.document("users/local/categories/" + sub.id)) } }
+        assertEquals(defaultCategories.size,repo.snapshot().categories.size)
+        repo.initializeProfile()
+        val restored=repo.snapshot().categories
+        assertEquals(defaultCategoryTree.size,restored.size)
+        defaultSubcategories.forEach{sub->assertEquals(sub.parentId,restored.single{it.id==sub.id}.parentId)}
+    }
+
     @Test fun corruptVersionAndForeignNamespacesAreRejectedWithoutOverwrite()=runTest {
         val memory=Memory().apply{content="{\"version\":99,\"records\":{}}"}
         val before=memory.content
@@ -96,6 +110,6 @@ class LocalFinanceRepositoryTest {
         assertEquals("Nama Tetap",data.profile?.name);assertEquals("USD",data.profile?.baseCurrency)
         assertTrue(data.transactions.isEmpty());assertTrue(data.notes.isEmpty())
         assertEquals("USD",data.accounts.single().currency);assertEquals(0L,data.balance(data.accounts.single()))
-        assertEquals(defaultCategories,data.categories.sortedBy{it.id}.let{sorted->defaultCategories.map{category->sorted.single{it.id==category.id}}})
+        assertEquals(defaultCategoryTree,data.categories.sortedBy{it.id}.let{sorted->defaultCategoryTree.map{category->sorted.single{it.id==category.id}}})
     }
 }
