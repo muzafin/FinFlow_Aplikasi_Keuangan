@@ -8,7 +8,7 @@ import html, io, os, re
 here = os.path.dirname(os.path.abspath(__file__))
 app = os.path.join(here, '..', '..', 'composeApp', 'src', 'commonMain')
 res = os.path.join(app, 'moko-resources')
-out = os.path.join(app, 'kotlin', 'com', 'logikawan', 'finflow', 'core', 'i18n', 'DefaultNames.kt')
+out = os.path.join(app, 'kotlin', 'com', 'clonical', 'kasiva', 'core', 'i18n', 'DefaultNames.kt')
 pat = re.compile(r'<string name="(core_category_[a-z_]+|core_default_wallet_name)">(.*?)</string>')
 names = {}
 for lang in sorted(os.listdir(res)):
@@ -20,7 +20,7 @@ for lang in sorted(os.listdir(res)):
 names['core_default_wallet_name'].update({'Kas', 'Cash'})
 def kt(s): return '"' + s.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$') + '"'
 lines = ['// Dibuat oleh tools/i18n/gen_default_names.py — jangan diedit manual.',
-         'package com.logikawan.finflow.core.i18n', '',
+         'package com.clonical.kasiva.core.i18n', '',
          '/** Semua terjemahan nama bawaan per kunci moko, untuk mengenali nama yang belum diganti pengguna. */',
          'internal val defaultNameVariants: Map<String, Set<String>> = mapOf(']
 for k in sorted(names):

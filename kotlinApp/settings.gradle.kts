@@ -7,5 +7,5 @@ plugins {
 dependencyResolutionManagement {
     repositories { google(); mavenCentral() }
 }
-rootProject.name = "FinFlow"
+rootProject.name = "Kasiva"
 include(":composeApp")

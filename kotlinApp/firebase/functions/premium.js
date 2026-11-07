@@ -38,7 +38,7 @@ function createPremium({ db, fetchSubscriber, webhookSecret, now = () => Date.no
 
   async function refresh(auth) {
     const uid = auth?.uid;
-    if (!validUid(uid)) throw new HttpsError('unauthenticated', 'Masuk ke akun FinFlow terlebih dahulu.');
+    if (!validUid(uid)) throw new HttpsError('unauthenticated', 'Masuk ke akun Kasiva terlebih dahulu.');
     try { return await sync(uid); }
     catch (error) { throw new HttpsError('unavailable', 'Status Premium belum dapat diperiksa. Coba lagi nanti.'); }
   }

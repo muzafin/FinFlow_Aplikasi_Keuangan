@@ -23,11 +23,11 @@ kotlin {
     iosSimulatorArm64()
     cocoapods {
         version = "1.0.0"
-        summary = "FinFlow shared application"
+        summary = "Kasiva shared application"
         homepage = "https://github.com/muzafin/FinFlow_Aplikasi_Keuangan"
         ios.deploymentTarget = "15.0"
         podfile = project.file("../iosApp/Podfile")
-        framework { baseName = "FinFlowShared"; isStatic = true }
+        framework { baseName = "KasivaShared"; isStatic = true }
         pod("FirebaseCore", "11.7.0")
         pod("FirebaseAuth", "11.7.0")
         pod("FirebaseFirestore", "11.7.0")
@@ -79,21 +79,21 @@ kotlin {
 
 // Teks multi-bahasa memakai moko-resources (commonMain/moko-resources/<bahasa>/strings.xml).
 multiplatformResources {
-    resourcesPackage.set("com.logikawan.finflow.i18n")
+    resourcesPackage.set("com.clonical.kasiva.i18n")
     resourcesClassName.set("MR")
 }
 
 compose.resources {
-    packageOfResClass = "com.logikawan.finflow.resources"
+    packageOfResClass = "com.clonical.kasiva.resources"
 }
 
 android {
     // Unit test JVM tidak punya Context: teks dasar moko dibaca dari classpath (lihat I18n.android.kt).
     sourceSets.getByName("test").resources.srcDir("src/commonMain/moko-resources")
-    namespace = "com.logikawan.finflow"
+    namespace = "com.clonical.kasiva"
     compileSdk = 37
     defaultConfig {
-        applicationId = "com.logikawan.finflow"
+        applicationId = "com.clonical.kasiva"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

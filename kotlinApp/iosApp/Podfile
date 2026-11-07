@@ -1,7 +1,7 @@
 platform :ios, '15.0'
 use_frameworks! :linkage => :static
 
-target 'FinFlow' do
+target 'Kasiva' do
   pod 'composeApp', :path => '../composeApp'
   pod 'GoogleSignIn', '~> 8.0'
 end

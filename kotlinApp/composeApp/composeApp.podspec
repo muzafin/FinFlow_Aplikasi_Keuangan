@@ -5,8 +5,8 @@ Pod::Spec.new do |spec|
     spec.source                   = { :http=> ''}
     spec.authors                  = ''
     spec.license                  = ''
-    spec.summary                  = 'FinFlow shared application'
-    spec.vendored_frameworks      = 'build/cocoapods/framework/FinFlowShared.framework'
+    spec.summary                  = 'Kasiva shared application'
+    spec.vendored_frameworks      = 'build/cocoapods/framework/KasivaShared.framework'
     spec.libraries                = 'c++'
     spec.ios.deployment_target    = '15.0'
     spec.dependency 'FirebaseAuth', '11.7.0'
@@ -14,9 +14,9 @@ Pod::Spec.new do |spec|
     spec.dependency 'FirebaseFirestore', '11.7.0'
     spec.dependency 'FirebaseFunctions', '11.7.0'
     spec.dependency 'FirebaseStorage', '11.7.0'
-    if !Dir.exist?('build/cocoapods/framework/FinFlowShared.framework') || Dir.empty?('build/cocoapods/framework/FinFlowShared.framework')
+    if !Dir.exist?('build/cocoapods/framework/KasivaShared.framework') || Dir.empty?('build/cocoapods/framework/KasivaShared.framework')
         raise "
-        Kotlin framework 'FinFlowShared' doesn't exist yet, so a proper Xcode project can't be generated.
+        Kotlin framework 'KasivaShared' doesn't exist yet, so a proper Xcode project can't be generated.
         'pod install' should be executed after running ':generateDummyFramework' Gradle task:
             ./gradlew :composeApp:generateDummyFramework
         Alternatively, proper pod installation is performed during Gradle sync in the IDE (if Podfile location is set)"
@@ -26,7 +26,7 @@ Pod::Spec.new do |spec|
     }
     spec.pod_target_xcconfig = {
         'KOTLIN_PROJECT_PATH' => ':composeApp',
-        'PRODUCT_MODULE_NAME' => 'FinFlowShared',
+        'PRODUCT_MODULE_NAME' => 'KasivaShared',
     }
     spec.script_phases = [
         {

@@ -40,7 +40,7 @@ Pendaftaran membuat profil, kategori standar dan Kas dengan Firestore transactio
 
 ID impor diturunkan secara deterministik dari jenis sumber dan ID transaksi pada CSV. Dompet impor dicocokkan berdasarkan nama persis + mata uang. Jika lebih dari satu dompet aktif cocok, pratinjau menolak baris dan meminta pengguna memperjelas nama. Impor tidak menimpa jurnal yang sudah memiliki ID sama.
 
-CSV ekspor FinFlow membawa `FinFlow ID`, `Source`, dan `Source ID` agar impor kembali mempertahankan ID jurnal yang sama, termasuk transaksi manual dan transaksi asal Ivy. Kolom metadata ini bukan field tambahan pada dokumen Firestore.
+CSV ekspor Kasiva membawa `Kasiva ID`, `Source`, dan `Source ID` agar impor kembali mempertahankan ID jurnal yang sama, termasuk transaksi manual dan transaksi asal Ivy. Kolom metadata ini bukan field tambahan pada dokumen Firestore.
 
 Collection Firestore tidak perlu dibuat dengan data palsu: collection tersedia saat dokumen pertama ditulis. Collection kosong lainnya muncul ketika pengguna membuat anggaran/target/investasi pertama. Tidak ada data transaksi finansial contoh yang disisipkan pada produksi.
 

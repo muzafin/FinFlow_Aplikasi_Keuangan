@@ -13,7 +13,7 @@ test('financial reset retains Auth, seeds defaults and old requests never delete
   try {
     const auth=getAuth(app);connectAuthEmulator(auth,'http://127.0.0.1:9098',{disableWarnings:true});
     const db=getFirestore(app);connectFirestoreEmulator(db,'127.0.0.1',8088);
-    const user=(await createUserWithEmailAndPassword(auth,`reset-${Date.now()}@example.test`,'FinFlow-test-123!')).user;
+    const user=(await createUserWithEmailAndPassword(auth,`reset-${Date.now()}@example.test`,'Kasiva-test-123!')).user;
     const uid=user.uid;const token=await user.getIdToken();const root=doc(db,`users/${uid}`);
     await setDoc(root,{id:uid,name:'Tetap ada',email:user.email,baseCurrency:'IDR',schemaVersion:2});
     const note=doc(db,`users/${uid}/notes/note`);

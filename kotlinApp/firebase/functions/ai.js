@@ -4,7 +4,7 @@ const { jsonOutputFormat: zodOutputFormat, mapDeepSeekError } = require('./deeps
 
 // Model diatur lewat parameter function. Penyedia: DeepSeek (lihat deepseek.js); deepseek-chat untuk parse dan asisten.
 const DEFAULT_MODELS = { parse: 'deepseek-chat', assistant: 'deepseek-chat' };
-// Bahasa jawaban asisten mengikuti bahasa aplikasi (9 bahasa FinFlow).
+// Bahasa jawaban asisten mengikuti bahasa aplikasi (9 bahasa Kasiva).
 const LANGUAGE_NAMES = { id: 'Indonesia', en: 'Inggris', ms: 'Melayu', de: 'Jerman', fr: 'Prancis', ja: 'Jepang', es: 'Spanyol', hi: 'Hindi', zh: 'Mandarin (Sederhana)' };
 const FEATURES = ['chat', 'voice', 'scan', 'assistant'];
 // Batas Free per bulan (asisten: seumur akun, seperti trial Ollo). Premium dibatasi wajar per hari untuk melindungi biaya.
@@ -32,7 +32,7 @@ const onlyKeys = (value, keys) => {
 
 function requireUser(auth) {
   const uid = auth?.uid;
-  if (typeof uid !== 'string' || !uid || uid.length > 128 || uid.includes('/')) fail('unauthenticated', 'Masuk ke akun FinFlow untuk memakai AI.');
+  if (typeof uid !== 'string' || !uid || uid.length > 128 || uid.includes('/')) fail('unauthenticated', 'Masuk ke akun Kasiva untuk memakai AI.');
   return uid;
 }
 
@@ -152,11 +152,11 @@ function contextPrompt(context, ownerName) {
   return lines.join('\n');
 }
 
-const PARSE_SYSTEM = `Anda mengekstrak transaksi keuangan dari teks pengguna aplikasi FinFlow (Indonesia).
+const PARSE_SYSTEM = `Anda mengekstrak transaksi keuangan dari teks pengguna aplikasi Kasiva (Indonesia).
 Pahami singkatan Indonesia: "rb"/"ribu"/"k" = ribu, "jt"/"juta" = juta, "m" pada "10m" = juta.
 Satu kalimat bisa berisi beberapa transaksi yang dipisah koma atau baris baru. Pilih categoryId dan walletId hanya dari daftar; bila ragu isi null.
 Jangan mengarang nominal. Bila tidak ada transaksi, kembalikan daftar kosong dan jelaskan singkat di message dalam bahasa pengguna.`;
-const SCAN_SYSTEM = `Anda membaca foto struk/bukti transfer untuk aplikasi FinFlow. Satu foto bisa berisi sampai 5 struk; buat satu entri per struk.
+const SCAN_SYSTEM = `Anda membaca foto struk/bukti transfer untuk aplikasi Kasiva. Satu foto bisa berisi sampai 5 struk; buat satu entri per struk.
 Nominal transaksi = total yang dibayar. Pilih categoryId dan walletId hanya dari daftar; bila ragu isi null.
 Untuk bukti transfer, bila nama pemilik akun adalah penerima maka type income, bila pengirim maka expense.
 Jangan mengarang data yang tidak terbaca; isi null. Bila foto bukan struk, kembalikan daftar kosong dan jelaskan di message.`;
@@ -293,7 +293,7 @@ function createAi({ db, client, Anthropic, models = DEFAULT_MODELS, now = () => 
     const preference = str(data.preference, 200, { optional: true }).trim();
     const languageName = LANGUAGE_NAMES[data.language] || LANGUAGE_NAMES.id;
     const system = [
-      `Anda adalah FinFlow Assistant, asisten keuangan pribadi di aplikasi FinFlow. Jawab dalam bahasa ${languageName}, ringkas, memakai format teks biasa (boleh daftar berpoin).
+      `Anda adalah Kasiva Assistant, asisten keuangan pribadi di aplikasi Kasiva. Jawab dalam bahasa ${languageName}, ringkas, memakai format teks biasa (boleh daftar berpoin).
 Anda hanya melihat ringkasan angka pengguna (total bulanan, kategori teratas, anggaran, saldo, tagihan) di bawah; Anda tidak melihat transaksi satu per satu dan tidak bisa mengubah data.
 Bila data tidak cukup, katakan terus terang. Ini bukan nasihat keuangan profesional; jangan merekomendasikan produk investasi tertentu.
 Gaya bicara: ${personality}`,

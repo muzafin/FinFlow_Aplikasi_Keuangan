@@ -4,17 +4,17 @@ Pembaruan lanjutan 2 November: `resetFinancialData` sudah ACTIVE; dua fungsi pen
 
 - Akun tujuan: `muzafinarifin.dev@gmail.com` — berstatus **Owner** pada Users and permissions, diverifikasi ulang langsung pada Firebase Console. Tidak ada pemilik manusia lain pada daftar anggota yang ditampilkan.
 - Project: `finflow-logikawan` / FinFlow Logikawan — dibuat baru; project number 644917550039.
-- Android `com.logikawan.finflow` — terdaftar; app ID `1:644917550039:android:cb5208624b8c69f983c992`.
+- Android `com.clonical.kasiva` — terdaftar; app ID `1:644917550039:android:cb5208624b8c69f983c992`.
 - Konfigurasi Android terbaru setelah OAuth/SHA — diunduh dan dipasang ke `composeApp/google-services.json`; project ID dan package cocok. Terdapat OAuth client Android dan Web.
 - Firebase Authentication Email/Password — aktif, diverifikasi status Enabled di Console.
 - Firebase Authentication Google — aktif, diverifikasi status Enabled di Console.
 - Password policy — diperbarui 29 Oktober 2026: **Require enforcement**, minimum **8 karakter**, maksimum 4096, tanpa Force upgrade on sign-in. Sesuai validasi pendaftaran Kotlin; akun lama tidak dipaksa mengganti password ketika login. Bukti: `../../docs/firebase-evidence/password-policy-2026-10-29.png`.
-- Nama publik: FinFlow; email dukungan: `muzafinarifin.dev@gmail.com`.
+- Nama publik: Kasiva; email dukungan: `muzafinarifin.dev@gmail.com`.
 - SHA-1 dan SHA-256 debug lokal — tersimpan, diverifikasi pada tabel sertifikat Firebase Console.
 - Firestore Standard `(default)` — dibuat pada `asia-southeast2` (Jakarta), mulai dalam production mode.
 - Rules schema v2 — diperbarui melalui Console pada 29 Oktober 2026 14:42 WIB untuk koleksi perencanaan dan pembayaran. Isi editor cocok dengan `firestore.rules` yang diuji setelah normalisasi spasi; versi aktif bertanda bintang teramati. Lima uji rules dan lima uji repository Kotlin dari device menggunakan Firebase Emulator berhasil. [Bukti](../../docs/firebase-evidence/firestore-planning-rules-2026-10-29.png).
 - Indeks — konfigurasi default otomatis Firestore. Query aplikasi saat ini tidak membutuhkan composite index; file indeks lokal kosong secara sengaja.
-- iOS `com.logikawan.finflow` — terdaftar, app ID `1:644917550039:ios:313fd6f05f5ef03783c992`.
+- iOS `com.clonical.kasiva` — terdaftar, app ID `1:644917550039:ios:313fd6f05f5ef03783c992`.
 - Plist iOS resmi — diunduh dan dipasang ke `iosApp/GoogleService-Info.plist`; project/bundle ID sesuai. `Config.xcconfig` lokal dibuat dari reversed client ID resmi.
 - Pengaitan produk Google Play — belum diaktifkan. Menu Console menawarkan pertukaran data App Distribution, Crashlytics, dan Google Analytics. Produk tersebut tidak diperlukan untuk login/Firestore dan belum dipilih. Tidak ada listing Play yang dibuat atau diterbitkan.
 - SHA Play App Signing/release dan signing team iOS — masih perlu sertifikat serta akun signing developer saat menyiapkan rilis. SHA debug tidak menggantikan sertifikat rilis.

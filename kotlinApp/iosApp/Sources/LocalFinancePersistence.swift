@@ -1,7 +1,7 @@
 import Foundation
-import FinFlowShared
+import KasivaShared
 
-final class IOSLocalFinancePersistence: NSObject, FinFlowShared.LocalFinancePersistence {
+final class IOSLocalFinancePersistence: NSObject, KasivaShared.LocalFinancePersistence {
     static let shared = IOSLocalFinancePersistence()
     let id = "finflow-local-v1"
     private let lock = NSLock()
@@ -60,7 +60,7 @@ final class IOSLocalFinancePersistence: NSObject, FinFlowShared.LocalFinancePers
 
     private func fileURL() throws -> URL {
         let support = try manager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        var directory = support.appendingPathComponent("FinFlowLocal", isDirectory: true)
+        var directory = support.appendingPathComponent("KasivaLocal", isDirectory: true)
         try manager.createDirectory(at: directory, withIntermediateDirectories: true,
             attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
         try manager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: directory.path)

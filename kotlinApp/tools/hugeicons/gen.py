@@ -14,7 +14,7 @@ def to_path(tag,a):
     if tag=='ellipse':
         cx,cy,rx,ry=f('cx'),f('cy'),f('rx'),f('ry'); return f"M{cx-rx} {cy}A{rx} {ry} 0 1 0 {cx+rx} {cy}A{rx} {ry} 0 1 0 {cx-rx} {cy}Z"
     raise Exception(tag)
-lines=['package com.logikawan.finflow.core.ui','','// Dihasilkan dari @hugeicons/core-free-icons 4.4.0 (MIT, lihat licenses/hugeicons-LICENSE.txt).','// Format: daftar (pathData, filled). Viewport 24, stroke 1.5, ujung bulat — sama seperti ikon Ollo.','internal val hugeIconPaths: Map<String, List<Pair<String, Boolean>>> = mapOf(']
+lines=['package com.clonical.kasiva.core.ui','','// Dihasilkan dari @hugeicons/core-free-icons 4.4.0 (MIT, lihat licenses/hugeicons-LICENSE.txt).','// Format: daftar (pathData, filled). Viewport 24, stroke 1.5, ujung bulat — sama seperti ikon Ollo.','internal val hugeIconPaths: Map<String, List<Pair<String, Boolean>>> = mapOf(']
 for arg in sys.argv[3:]:
     key,name=arg.split('=')
     src=open(os.path.join(d,name+'Icon.js'),encoding='utf8').read()

@@ -1,7 +1,7 @@
 # Logo bank & e-wallet
 
 Berkas `composeApp/src/commonMain/composeResources/drawable/provider_<id>.png` diolah (dipotong, diperkecil, diberi latar lingkaran putih) dari Wikimedia Commons pada 7 November 2026.
-Semua logo adalah merek dagang milik pemiliknya masing-masing dan dipakai hanya untuk menandai dompet/rekening milik pengguna di FinFlow; status hak cipta di Commons tidak memberikan hak atas merek.
+Semua logo adalah merek dagang milik pemiliknya masing-masing dan dipakai hanya untuk menandai dompet/rekening milik pengguna di Kasiva; status hak cipta di Commons tidak memberikan hak atas merek.
 
 | id | berkas Commons | lisensi Commons |
 |---|---|---|

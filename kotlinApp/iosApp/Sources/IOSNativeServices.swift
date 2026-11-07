@@ -11,7 +11,7 @@ import FirebaseAuth
 import FirebaseStorage
 import PhotosUI
 import ImageIO
-import FinFlowShared
+import KasivaShared
 
 final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegate, UNUserNotificationCenterDelegate, PHPickerViewControllerDelegate {
     func localFinancePersistence() -> any LocalFinancePersistence { IOSLocalFinancePersistence.shared }
@@ -20,7 +20,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
     func deleteLocalProfilePhoto() -> String? {
         do {
             let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            let file = support.appendingPathComponent("FinFlowLocal/avatar.jpg")
+            let file = support.appendingPathComponent("KasivaLocal/avatar.jpg")
             if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
             return nil
         } catch { return "Data keuangan dihapus, tetapi foto lokal belum dapat dibersihkan." }
@@ -34,7 +34,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
         UIApplication.shared.open(url)
         return nil
     }
-    func shareApp() -> String? { "FinFlow belum memiliki tautan App Store. Fitur berbagi instalasi iOS tersedia setelah aplikasi diterbitkan." }
+    func shareApp() -> String? { "Kasiva belum memiliki tautan App Store. Fitur berbagi instalasi iOS tersedia setelah aplikasi diterbitkan." }
     private var photoCallback: ((KotlinByteArray?, String?) -> KotlinUnit)?
     private var photoStorage: Storage { Storage.storage(url: "gs://finflow-logikawan.firebasestorage.app") }
     private func kotlinBytes(_ data: Data) -> KotlinByteArray {
@@ -78,7 +78,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
             do {
                 guard bytes.size > 0, bytes.size <= 2 * 1024 * 1024 else { _ = result(nil, "Ukuran foto tidak valid"); return }
                 let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-                let directory = support.appendingPathComponent("FinFlowLocal", isDirectory: true)
+                let directory = support.appendingPathComponent("KasivaLocal", isDirectory: true)
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 let data = Data((0..<Int(bytes.size)).map { UInt8(bitPattern: bytes.get(index: Int32($0))) })
                 try data.write(to: directory.appendingPathComponent("avatar.jpg"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
@@ -101,7 +101,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
         if path == "local/profile/avatar.jpg" {
             do {
                 let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-                let file = support.appendingPathComponent("FinFlowLocal/avatar.jpg")
+                let file = support.appendingPathComponent("KasivaLocal/avatar.jpg")
                 let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
                 guard size > 0, size <= 2 * 1024 * 1024 else { _ = result(nil, "Foto lokal belum dapat dimuat"); return }
                 _ = result(kotlinBytes(try Data(contentsOf: file)), nil)
@@ -171,7 +171,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
     func shareTextFile(name: String, content: String, mimeType: String) {
         do {
             guard content.utf8.count <= 5 * 1024 * 1024 else {
-                throw NSError(domain: "FinFlowExport", code: 1, userInfo: [NSLocalizedDescriptionKey: "File ekspor maksimal 5 MB"])
+                throw NSError(domain: "KasivaExport", code: 1, userInfo: [NSLocalizedDescriptionKey: "File ekspor maksimal 5 MB"])
             }
             let file = try exportFile(name: name)
             try content.write(to: file, atomically: true, encoding: .utf8)
@@ -192,7 +192,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
     func sharePdf(name: String, title: String, lines: [String]) {
         do {
             guard lines.count <= 25_000, lines.reduce(0, { $0 + $1.utf16.count }) <= 5 * 1024 * 1024 else {
-                throw NSError(domain: "FinFlowExport", code: 1, userInfo: [NSLocalizedDescriptionKey: "PDF terlalu besar. Persempit periode ekspor."])
+                throw NSError(domain: "KasivaExport", code: 1, userInfo: [NSLocalizedDescriptionKey: "PDF terlalu besar. Persempit periode ekspor."])
             }
             let file = try exportFile(name: name)
             let bounds = CGRect(x: 0, y: 0, width: 595, height: 842)
@@ -218,7 +218,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
                     page += 1
                     context.beginPage()
                     titleText.draw(with: CGRect(x: margin, y: margin, width: width, height: 50), options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
-                    let footer = "FinFlow · Halaman \(page)" as NSString
+                    let footer = "Kasiva · Halaman \(page)" as NSString
                     footer.draw(at: CGPoint(x: margin, y: bounds.height - margin - 9), withAttributes: [.font: UIFont.systemFont(ofSize: 9), .foregroundColor: UIColor.gray])
                     let top = margin + titleHeight + 20
                     let bodyRect = CGRect(x: margin, y: margin + 20, width: width, height: bounds.height - top - margin - 20)
@@ -236,7 +236,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
                 } while offset < body.length
             }
             guard !incomplete else {
-                throw NSError(domain: "FinFlowExport", code: 2, userInfo: [NSLocalizedDescriptionKey: "PDF belum dapat diselesaikan. Persempit periode ekspor."])
+                throw NSError(domain: "KasivaExport", code: 2, userInfo: [NSLocalizedDescriptionKey: "PDF belum dapat diselesaikan. Persempit periode ekspor."])
             }
             try data.write(to: file, options: .atomic)
             shareExport(file: file)
@@ -278,7 +278,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
             _ = result(KotlinBoolean(bool: false)); return
         }
-        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Buka FinFlow untuk melihat data keuangan") { success, _ in
+        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Buka Kasiva untuk melihat data keuangan") { success, _ in
             DispatchQueue.main.async { _ = result(KotlinBoolean(bool: success)) }
         }
     }
@@ -341,7 +341,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
             }
             let content = UNMutableNotificationContent()
             content.title = "Waktunya mencatat keuangan"
-            content.body = "Catat pemasukan dan pengeluaran hari ini di FinFlow."
+            content.body = "Catat pemasukan dan pengeluaran hari ini di Kasiva."
             content.sound = .default
             var date = DateComponents(); date.hour = Int(hour); date.minute = Int(minute)
             let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: true)

@@ -21,7 +21,7 @@ test('callable deletion removes only the caller and blocks their old token from 
     const auth=getAuth(app);connectAuthEmulator(auth,'http://127.0.0.1:9098',{disableWarnings:true});
     const client=getFirestore(app);connectFirestoreEmulator(client,'127.0.0.1',8088);
     const storage=getStorage(app,'gs://demo-finflow.firebasestorage.app');connectStorageEmulator(storage,'127.0.0.1',9198);
-    const user=(await createUserWithEmailAndPassword(auth,`deletion-${Date.now()}@example.test`,'FinFlow-test-123!')).user;
+    const user=(await createUserWithEmailAndPassword(auth,`deletion-${Date.now()}@example.test`,'Kasiva-test-123!')).user;
     const uid=user.uid;const token=await user.getIdToken();const other=`untouched-${Date.now()}`;
     await db.doc(`users/${other}`).set({marker:'must survive'});
     await setDoc(doc(client,`users/${uid}`),{id:uid,name:'Disposable emulator account',email:user.email,baseCurrency:'IDR',schemaVersion:2});
