@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Kunci SDK publik RevenueCat (aman ada di APK). Secret key hanya di server (Firebase secret). -->
+    <string name="revenuecat_api_key" translatable="false">goog_LYshvFqvgwZqthPzTjZREteHqVF</string>
+</resources>

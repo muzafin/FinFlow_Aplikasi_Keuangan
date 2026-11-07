@@ -112,6 +112,14 @@ firebase deploy --only firestore --project finflow-logikawan
 
 Jangan deploy rules schema v2 ini ke `finflow-c38e8`. Root `firebase.json` milik Flutter lama tidak diubah.
 
+## Premium (RevenueCat)
+
+- Kunci SDK publik Android `revenuecat_api_key` ada di `composeApp/src/androidMain/res/values/strings.xml`; kunci publik aman ada di APK.
+- Secret API RevenueCat hanya di server: Firebase Secret Manager `REVENUECAT_SECRET_KEY` dan `REVENUECAT_WEBHOOK_AUTH`. Jangan menaruh `sk_...` di repo atau aplikasi.
+- `refreshPremium` membaca entitlement RevenueCat `kasiva_pro` lalu menulis `users/{uid}/entitlements/premium`. `revenueCatWebhook` menerima event RevenueCat di `https://asia-southeast2-finflow-logikawan.cloudfunctions.net/revenueCatWebhook`.
+- Pembelian baru diimplementasikan untuk Android; iOS belum.
+- Belum aktif sampai: service account Play diunggah ke RevenueCat, produk langganan Play dibuat, offering/paket dipetakan, dan SHA Play App Signing didaftarkan ke Firebase. Sebelum itu layar Premium menampilkan status belum dikonfigurasi atau tanpa paket.
+
 ## Impor
 
 Gunakan CSV UTF-8, maksimal 5 MB/10.000 baris per file. Untuk Ivy, pilih **Export to CSV**, bukan Backup Data ZIP/JSON. Jumlah kolom dan ID transaksi wajib valid; satu kesalahan baris menonaktifkan konfirmasi impor. Transfer memerlukan kedua dompet dan nominal diterima. Tanggal tanpa timezone mengikuti perangkat saat impor.

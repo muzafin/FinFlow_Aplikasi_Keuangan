@@ -4,7 +4,7 @@ Pembaruan lanjutan 2 November: `resetFinancialData` sudah ACTIVE; dua fungsi pen
 
 - Akun tujuan: `muzafinarifin.dev@gmail.com` — berstatus **Owner** pada Users and permissions, diverifikasi ulang langsung pada Firebase Console. Tidak ada pemilik manusia lain pada daftar anggota yang ditampilkan.
 - Project: `finflow-logikawan` / FinFlow Logikawan — dibuat baru; project number 644917550039.
-- Android `com.clonical.kasiva` — terdaftar; app ID `1:644917550039:android:cb5208624b8c69f983c992`.
+- Android `com.clonical.kasiva` — terdaftar; app ID `1:644917550039:android:fd8cafbfec4ed63983c992` (app lama `com.logikawan.finflow` tetap ada).
 - Konfigurasi Android terbaru setelah OAuth/SHA — diunduh dan dipasang ke `composeApp/google-services.json`; project ID dan package cocok. Terdapat OAuth client Android dan Web.
 - Firebase Authentication Email/Password — aktif, diverifikasi status Enabled di Console.
 - Firebase Authentication Google — aktif, diverifikasi status Enabled di Console.
@@ -14,7 +14,7 @@ Pembaruan lanjutan 2 November: `resetFinancialData` sudah ACTIVE; dua fungsi pen
 - Firestore Standard `(default)` — dibuat pada `asia-southeast2` (Jakarta), mulai dalam production mode.
 - Rules schema v2 — diperbarui melalui Console pada 29 Oktober 2026 14:42 WIB untuk koleksi perencanaan dan pembayaran. Isi editor cocok dengan `firestore.rules` yang diuji setelah normalisasi spasi; versi aktif bertanda bintang teramati. Lima uji rules dan lima uji repository Kotlin dari device menggunakan Firebase Emulator berhasil. [Bukti](../../docs/firebase-evidence/firestore-planning-rules-2026-10-29.png).
 - Indeks — konfigurasi default otomatis Firestore. Query aplikasi saat ini tidak membutuhkan composite index; file indeks lokal kosong secara sengaja.
-- iOS `com.clonical.kasiva` — terdaftar, app ID `1:644917550039:ios:313fd6f05f5ef03783c992`.
+- iOS `com.clonical.kasiva` — terdaftar, app ID `1:644917550039:ios:d64c0f202ed4acbe83c992` (app lama tetap ada).
 - Plist iOS resmi — diunduh dan dipasang ke `iosApp/GoogleService-Info.plist`; project/bundle ID sesuai. `Config.xcconfig` lokal dibuat dari reversed client ID resmi.
 - Pengaitan produk Google Play — belum diaktifkan. Menu Console menawarkan pertukaran data App Distribution, Crashlytics, dan Google Analytics. Produk tersebut tidak diperlukan untuk login/Firestore dan belum dipilih. Tidak ada listing Play yang dibuat atau diterbitkan.
 - SHA Play App Signing/release dan signing team iOS — masih perlu sertifikat serta akun signing developer saat menyiapkan rilis. SHA debug tidak menggantikan sertifikat rilis.
@@ -31,3 +31,12 @@ Collection `users` dan subcollection data dibuat oleh aplikasi saat akun pertama
 **Setup inti Firebase, Storage dan Functions sudah aktif di cloud**, bukan hanya file lokal. App Check enforcement, integrasi bank, FCM/APNs dan persiapan penandatanganan rilis masih terpisah. App Check enforcement belum diaktifkan karena klien belum memiliki konfigurasi attestation rilis; mengaktifkannya sekarang dapat menolak permintaan aplikasi.
 
 Foto profil dan penghapusan akun memiliki implementasi serta rules tersendiri. Lampiran transaksi belum ditambahkan. [Cakupan terbaru](../../docs/VALIDASI_2026-11-02.md).
+
+## Pembaruan 8 November 2026 — aplikasi Kasiva
+
+- Project Firebase tetap `finflow-logikawan` (nomor 644917550039). App baru: Android `com.clonical.kasiva` = `1:644917550039:android:fd8cafbfec4ed63983c992`, iOS `com.clonical.kasiva` = `1:644917550039:ios:d64c0f202ed4acbe83c992`.
+- SHA-1 `ce:da:36:20:...:1c:9a` dan SHA-256 `94:c3:61:40:...:0b` sertifikat **debug** sudah terdaftar pada app Android baru. SHA sertifikat rilis/Play App Signing belum ada.
+- `composeApp/google-services.json` dan `iosApp/GoogleService-Info.plist` diunduh ulang dari app baru dan dipasang lokal (keduanya diabaikan Git); `Config.xcconfig` iOS ditulis ulang dari reversed client ID app baru.
+- Functions di-deploy ulang 8 November 2026; `refreshPremium` dan `revenueCatWebhook` aktif di `asia-southeast2`. Secret `REVENUECAT_SECRET_KEY` dan `REVENUECAT_WEBHOOK_AUTH` tersimpan di Secret Manager (versi 2), bukan di repo.
+- RevenueCat: project `projaf22ad9c` (Kasiva); app Play Store `appfb825165c2` sudah diarahkan ke package `com.clonical.kasiva`; entitlement `kasiva_pro`; webhook `whintgrb9c46d6dfa804661a646dbb8ffdb6584` menuju `https://asia-southeast2-finflow-logikawan.cloudfunctions.net/revenueCatWebhook` (uji 200 dengan header benar, 401 tanpa header).
+- Sisa pekerjaan Premium: service account Play untuk RevenueCat belum diunggah (`play_service_account_credentials_configured=false`), produk langganan Play belum dibuat, offering/paket belum dipetakan, dan SHA rilis belum didaftarkan.

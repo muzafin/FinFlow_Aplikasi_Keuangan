@@ -2,7 +2,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 const { timingSafeEqual } = require('node:crypto');
 
 // Hak Premium hanya ditulis server dari data RevenueCat (sumber kebenaran pembelian Google Play / App Store).
-const ENTITLEMENT_ID = 'premium';
+const ENTITLEMENT_ID = 'kasiva_pro';
 
 function validUid(uid) {
   return typeof uid === 'string' && uid.length > 0 && uid.length <= 128 && !uid.includes('/') && !uid.startsWith('$RCAnonymousID');

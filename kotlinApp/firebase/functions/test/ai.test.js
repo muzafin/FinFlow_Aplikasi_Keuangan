@@ -113,12 +113,12 @@ test('consent can be granted and withdrawn only for known features', async () =>
 });
 
 test('premium entitlement is read from RevenueCat and keeps admin grants', async () => {
-  assert.deepEqual(entitlementFrom({ entitlements: { premium: { expires_date: null, product_identifier: 'finflow_lifetime' } }, non_subscriptions: { finflow_lifetime: [{}] } }, NOW),
+  assert.deepEqual(entitlementFrom({ entitlements: { kasiva_pro: { expires_date: null, product_identifier: 'finflow_lifetime' } }, non_subscriptions: { finflow_lifetime: [{}] } }, NOW),
     { active: true, expiresAt: null, productId: 'finflow_lifetime', store: 'lifetime' });
-  assert.equal(entitlementFrom({ entitlements: { premium: { expires_date: '2026-11-01T00:00:00Z', product_identifier: 'm' } } }, NOW).active, false);
+  assert.equal(entitlementFrom({ entitlements: { kasiva_pro: { expires_date: '2026-11-01T00:00:00Z', product_identifier: 'm' } } }, NOW).active, false);
   const db = fakeDb({ 'users/owner': {}, 'users/owner/entitlements/premium': { active: false, manualUntil: NOW + 99 } });
   const premium = createPremium({ db, now: () => NOW, webhookSecret: () => 'Bearer s3cret',
-    fetchSubscriber: async uid => ({ entitlements: { premium: { expires_date: '2027-01-01T00:00:00Z', product_identifier: 'annual' } }, subscriptions: { annual: { store: 'play_store' } } }) });
+    fetchSubscriber: async uid => ({ entitlements: { kasiva_pro: { expires_date: '2027-01-01T00:00:00Z', product_identifier: 'annual' } }, subscriptions: { annual: { store: 'play_store' } } }) });
   const response = () => { const r = { code: 0, status(c) { r.code = c; return r; }, send() { return r; } }; return r; };
   const denied = response();
   await premium.webhook({ method: 'POST', get: () => 'Bearer wrong', body: { event: { app_user_id: 'owner' } } }, denied);
