@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.clonical.kasiva.core.model.Goal
 import com.clonical.kasiva.core.ui.*
@@ -26,18 +27,31 @@ fun GoalEditor(old:Goal?,busy:Boolean,dismiss:()->Unit,save:(Goal)->Unit,delete:
     var protection by remember{mutableStateOf(old?.protection ?: "flexible")}
     var archived by remember{mutableStateOf(old?.archived ?: false)}
     var error by remember{mutableStateOf<String?>(null)}
-    EditorDialog(if(old==null)MR.strings.acc_new_goal.text() else MR.strings.acc_edit_goal.text(),busy,dismiss,save={try{
+    // Error per-field: ditampilkan di bawah field yang salah dan hilang begitu field itu diubah (BUG-01, OBS-01).
+    var amountError by remember{mutableStateOf<String?>(null)}
+    var nameError by remember{mutableStateOf<String?>(null)}
+    var currencyError by remember{mutableStateOf<String?>(null)}
+    EditorDialog(if(old==null)MR.strings.acc_new_goal.text() else MR.strings.acc_edit_goal.text(),busy,dismiss,save={
+        error=null
         val code=currency.trim().uppercase()
-        require(name.isNotBlank() && code.matches(Regex("[A-Z]{3}"))){MR.strings.acc_err_goal_name_currency.text()}
-        val amount=minorAmount(target,code)
-        require(amount in 1..com.clonical.kasiva.core.data.FinanceRepository.MAX_MONEY){MR.strings.acc_err_goal_target_range.text()}
-        val base=old ?: Goal(id,name.trim(),amount,currency=code)
-        save(base.copy(name=name.trim(),targetMinor=amount,currency=code,targetDate=if(hasDate)date else "",bucketType=type,protection=protection,archived=archived))
-    }catch(e:Exception){error=e.message}},delete,error,EditorKind.Goal){
+        val amount=runCatching{minorAmount(target,code.takeIf{it.matches(Regex("[A-Z]{3}"))} ?: "IDR")}
+        amountError=when{
+            target.isBlank() || amount.isFailure -> MR.strings.acc_err_goal_amount_invalid.text()
+            amount.getOrThrow() !in 1..com.clonical.kasiva.core.data.FinanceRepository.MAX_MONEY -> MR.strings.acc_err_goal_target_range.text()
+            else -> null
+        }
+        nameError=if(name.isBlank())MR.strings.acc_err_goal_name_required.text() else null
+        currencyError=if(!code.matches(Regex("[A-Z]{3}")))MR.strings.acc_err_goal_currency_invalid.text() else null
+        if(amountError==null && nameError==null && currencyError==null) try{
+            val value=minorAmount(target,code)
+            val base=old ?: Goal(id,name.trim(),value,currency=code)
+            save(base.copy(name=name.trim(),targetMinor=value,currency=code,targetDate=if(hasDate)date else "",bucketType=type,protection=protection,archived=archived))
+        }catch(e:Exception){error=e.message}
+    },delete,error,EditorKind.Goal){
         OlloFormSection(MR.strings.acc_goal_details.text())
-        Field(MR.strings.acc_goal_amount.text(),target,{target=it},enabled=!busy)
-        Field(MR.strings.acc_bucket_name.text(),name,{name=it},enabled=!busy)
-        Field(MR.strings.acc_currency.text(),currency,{currency=it.uppercase().take(3)},enabled=!busy,readOnly=old!=null)
+        AmountField(MR.strings.acc_goal_amount.text(),target,{target=it;amountError=null;error=null},currency.trim().uppercase().ifEmpty{"IDR"},Modifier.testTag("goal-amount"),enabled=!busy,error=amountError)
+        Field(MR.strings.acc_bucket_name.text(),name,{name=it;nameError=null;error=null},enabled=!busy,error=nameError)
+        Field(MR.strings.acc_currency.text(),currency,{currency=it.uppercase().filter{c->c in 'A'..'Z'}.take(3);currencyError=null;error=null},enabled=!busy,readOnly=old!=null,error=currencyError)
         Choice(MR.strings.acc_bucket_type.text(),type,listOf("standard" to bucketName("standard"),"emergency" to bucketName("emergency"),"locked" to bucketName("locked")),{type=it})
         OlloFormSection(MR.strings.acc_schedule_protection.text())
         Row(verticalAlignment=Alignment.CenterVertically){Checkbox(hasDate,{hasDate=it},enabled=!busy);Spacer(Modifier.width(8.dp));Text(MR.strings.acc_use_target_date.text(),style=FFType.bodyMain)}

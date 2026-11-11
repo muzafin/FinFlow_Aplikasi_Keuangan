@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,30 +44,35 @@ fun investmentTypeLabel(type: String): String = when (type) {
 
 @Composable
 fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> Unit) {
-    if (data.investments.isEmpty()) {
-        // Ollo (Asset Management): kartu Total Nilai Aset + kartu ajakan dengan tombol bergaris.
-        val currency = data.profile?.baseCurrency ?: "IDR"
-        Column(Modifier.fillMaxSize().padding(16.dp).testTag("investment-empty"), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(20.dp)) {
-                Text(MR.strings.acc_total_asset_value.text(), style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant)
-                Spacer(Modifier.height(14.dp))
-                Text(com.clonical.kasiva.core.util.formatBalance(0L, currency, com.clonical.kasiva.core.model.LocalPreferences.current), style = FFType.amountLg.copy(fontSize = 33.sp, lineHeight = 40.sp), color = FFColors.onSurface)
+    val base = data.profile?.baseCurrency ?: "IDR"
+    val market = rememberMarketState(base)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val refresh: () -> Unit = { scope.launch { market.load(force = true) } }
+    market.selected?.let { MarketDetailDialog(it) { market.selected = null } }
+    val palette = listOf(FFColors.income, FFColors.secondary, Color(0xFFF5A623), Color(0xFF9B59B6), Color(0xFF5B8DEF), FFColors.tertiary)
+    LazyColumn(Modifier.fillMaxSize().testTag("investment-screen"), contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (data.investments.isEmpty()) {
+            // Ollo (Asset Management): kartu Total Nilai Aset + kartu ajakan dengan tombol bergaris.
+            item("empty-total") {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(20.dp).testTag("investment-empty")) {
+                    Text(MR.strings.acc_total_asset_value.text(), style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant)
+                    Spacer(Modifier.height(14.dp))
+                    Text(com.clonical.kasiva.core.util.formatBalance(0L, base, com.clonical.kasiva.core.model.LocalPreferences.current), style = FFType.amountLg.copy(fontSize = 33.sp, lineHeight = 40.sp), color = FFColors.onSurface)
+                }
             }
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(horizontal = 24.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                FFIcon("hi_wallet", FFColors.onSurfaceVariant.copy(alpha = .6f), 48.dp)
-                Spacer(Modifier.height(14.dp))
-                Text(MR.strings.acc_investment_empty_hint.text(), style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center)
-                Spacer(Modifier.height(18.dp))
-                Row(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(23.dp)).border(1.dp, FFColors.outlineVariant, RoundedCornerShape(23.dp)).clickable(onClick = add).testTag("investment-add"),
-                    horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    FFIcon("hi_add", FFColors.onSurface, 18.dp); Spacer(Modifier.width(8.dp)); Text(MR.strings.acc_add_investment.text(), style = FFType.bodyMain.copy(fontSize = 15.sp))
+            item("empty-cta") {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(horizontal = 24.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    FFIcon("hi_wallet", FFColors.onSurfaceVariant.copy(alpha = .6f), 48.dp)
+                    Spacer(Modifier.height(14.dp))
+                    Text(MR.strings.acc_investment_empty_hint.text(), style = FFType.bodyMain.copy(fontSize = 15.sp), color = FFColors.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(18.dp))
+                    Row(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(23.dp)).border(1.dp, FFColors.outlineVariant, RoundedCornerShape(23.dp)).clickable(onClick = add).testTag("investment-add"),
+                        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        FFIcon("hi_add", FFColors.onSurface, 18.dp); Spacer(Modifier.width(8.dp)); Text(MR.strings.acc_add_investment.text(), style = FFType.bodyMain.copy(fontSize = 15.sp))
+                    }
                 }
             }
         }
-        return
-    }
-    val palette = listOf(FFColors.income, FFColors.secondary, Color(0xFFF5A623), Color(0xFF9B59B6), Color(0xFF5B8DEF), FFColors.tertiary)
-    LazyColumn(contentPadding = PaddingValues(20.dp, 20.dp, 20.dp, 100.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         data.investments.groupBy { it.currency }.forEach { (currency, investments) ->
             val value = investments.fold(0L) { total, inv -> checkedAdd(total, inv.currentMinor) }
             val initial = investments.fold(0L) { total, inv -> checkedAdd(total, inv.investedMinor) }
@@ -123,5 +129,6 @@ fun InvestmentScreen(data: FinanceData, edit: (Investment) -> Unit, add: () -> U
                 }
             }
         }
+        marketPriceItems(market, refresh)
     }
 }

@@ -87,3 +87,24 @@ test('bill reminders notify only users with active bills due and prune dead toke
   assert.doesNotMatch(JSON.stringify(sent[0]), /amount|Minor/);
   assert.ok(!store.has(`users/a/pushTokens/${tokenId(dead)}`));
 });
+
+test('bill reminders reach all eligible accounts and devices without crossing account preferences', async () => {
+  const entry = token => ({ token, language: 'id', timeZone: 'Asia/Jakarta', billReminders: true });
+  const { db } = fakeDb({
+    'users/first/pushTokens/phone': entry('first-phone'),
+    'users/first/pushTokens/tablet': entry('first-tablet'),
+    'users/first/bills/due': { dueDate: '2026-11-11', archived: false },
+    'users/second/pushTokens/phone': entry('second-phone'),
+    'users/second/pushTokens/disabled': { ...entry('second-disabled'), billReminders: false },
+    'users/second/bills/due': { dueDate: '2026-11-12', archived: false },
+    'users/third/pushTokens/phone': entry('third-no-bills'),
+  });
+  const sent = [];
+  const push = createPush({ db, messaging: { send: async message => { sent.push(message); } }, now: () => new Date('2026-11-11T01:00:00Z') });
+  const result = await push.billReminders();
+  assert.equal(result.users, 3);
+  assert.equal(result.sent, 3);
+  assert.deepEqual(sent.map(message => message.token).sort(), ['first-phone', 'first-tablet', 'second-phone']);
+  assert.equal(sent.find(message => message.token === 'second-phone').notification.title, 'Tagihan jatuh tempo besok');
+  assert.notEqual(sent.find(message => message.token === 'first-phone').notification.title, 'Tagihan jatuh tempo besok');
+});

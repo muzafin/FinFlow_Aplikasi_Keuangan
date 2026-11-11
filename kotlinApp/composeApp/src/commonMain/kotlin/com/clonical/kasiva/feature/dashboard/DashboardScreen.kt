@@ -107,7 +107,9 @@ fun Dashboard(data:FinanceData,month:String,monthChange:(String)->Unit,edit:(Tra
     var selectedDate by rememberSaveable{mutableStateOf(today().toString())}
     var currencyOffset by rememberSaveable{mutableIntStateOf(0)}
     val now=today()
-    val range=financePeriod(period,now,month,preferences.recordingDay,preferences.weekStart)
+    // "Bulan Ini" selalu periode pencatatan berjalan, tidak ikut bulan yang dipilih di layar lain (P3-06).
+    val currentMonth=activeRecordingMonth(now,preferences.recordingDay)
+    val range=financePeriod(period,now,currentMonth,preferences.recordingDay,preferences.weekStart)
     val transactions=data.reportTransactions().filter{if(period=="Kalender")it.date==selectedDate else it.date in range}.sortedWith(compareByDescending<Transaction>{it.date}.thenByDescending{it.createdAt})
     val active=data.accounts.filterNot{it.archived}
     val included=data.includedAccounts()
@@ -168,7 +170,7 @@ fun Dashboard(data:FinanceData,month:String,monthChange:(String)->Unit,edit:(Tra
             item(key="budget") {
                 Column(Modifier.fillMaxWidth()) {
                     Spacer(Modifier.height(16.dp))
-                    MonthlyBudgetCard(data=data,month=month,preferences=preferences,amount=::amount,navigate=onNavigate)
+                    MonthlyBudgetCard(data=data,month=currentMonth,preferences=preferences,amount=::amount,navigate=onNavigate)
                 }
             }
             item(key="wallets") {
@@ -514,7 +516,8 @@ private fun RecentTransactionsSection(transactions:List<Transaction>,sizeLimit:I
             Row(Modifier.fillMaxWidth().padding(top=16.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
                 Text(fullDateLabel(date),Modifier.weight(1f),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
                 Column(Modifier.width(140.dp),horizontalAlignment=Alignment.End) {
-                    items.groupBy{it.currency}.forEach{(currency,records)->
+                    // Total harian dari SEMUA transaksi tanggal itu, bukan hanya yang tampil (P3-09).
+                    transactions.filter{it.date==date}.groupBy{it.currency}.forEach{(currency,records)->
                         val net=records.fold(0L){sum,t->when(t.type){"income"->checkedAdd(sum,t.amountMinor);"expense"->checkedAdd(sum,-t.amountMinor);else->sum}}
                         if(net!=0L)FitMoneyText((if(net>0)"+" else "")+amount(net,currency),FFType.bodyMain.copy(fontSize=17.sp,lineHeight=22.sp),
                             if(net>0)FFColors.income else FFColors.expense,TextAlign.End)

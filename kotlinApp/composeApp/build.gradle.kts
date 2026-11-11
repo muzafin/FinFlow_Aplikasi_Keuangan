@@ -51,6 +51,8 @@ kotlin {
             implementation("dev.gitlive:firebase-auth:2.4.0")
             implementation("dev.gitlive:firebase-firestore:2.4.0")
             implementation("dev.gitlive:firebase-functions:2.4.0")
+            // Harga pasar & kurs dari API publik gratis tanpa kunci (Yahoo Finance chart, fawazahmed0/exchange-api).
+            implementation("io.ktor:ktor-client-core:3.5.2")
         }
         androidMain.dependencies {
             implementation(project.dependencies.platform("com.google.firebase:firebase-bom:33.15.0"))
@@ -71,6 +73,10 @@ kotlin {
             implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
             implementation("androidx.core:core-ktx:1.15.0")
             implementation("com.revenuecat.purchases:purchases:11.1.0")
+            implementation("io.ktor:ktor-client-okhttp:3.5.2")
+        }
+        iosMain.dependencies {
+            implementation("io.ktor:ktor-client-darwin:3.5.2")
         }
         commonTest.dependencies { implementation(kotlin("test")); implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2") }
         androidInstrumentedTest.dependencies {
@@ -103,8 +109,8 @@ android {
         applicationId = "com.clonical.kasiva"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.0.4"
+        versionCode = 7
+        versionName = "1.0.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {

@@ -70,6 +70,9 @@
     <string name="acc_err_future_date">The date cannot be in the future</string>
     <string name="acc_err_goal_name_currency">Enter a valid name and currency</string>
     <string name="acc_err_goal_target_range">The goal must be positive and within the limit</string>
+    <string name="acc_err_goal_amount_invalid">Enter a valid amount</string>
+    <string name="acc_err_goal_name_required">Enter a bucket name</string>
+    <string name="acc_err_goal_currency_invalid">Enter a 3-letter currency code (e.g. IDR)</string>
     <string name="acc_err_insufficient_goal_funds">Not enough deposited funds</string>
     <string name="acc_err_insufficient_source">Source wallet balance is insufficient</string>
     <string name="acc_err_invalid_data">Invalid account data</string>
@@ -1692,9 +1695,9 @@
     <string name="pf_downloads_unavailable">Saving to Downloads isn't supported on this device.</string>
     <string name="pf_page_exchange_rates">Exchange Rates</string>
     <string name="pf_rates_error">Rates couldn't be loaded. Check your connection and try again.</string>
-    <string name="pf_rates_intro">Daily reference rates against %1$s. For reference only, not a bank transaction rate.</string>
+    <string name="pf_rates_intro">Reference rates against %1$s, refreshed automatically every minute. For reference only, not a bank transaction rate.</string>
     <string name="pf_rates_refresh">Refresh</string>
-    <string name="pf_rates_source">Source: European Central Bank (ECB) reference rates via Frankfurter, updated every working day.</string>
+    <string name="pf_rates_source">Source: fawazahmed0/exchange-api (free public data on GitHub), covering the currencies of all countries, updated daily.</string>
     <string name="pf_rates_stale">last saved data</string>
     <string name="pf_rates_unavailable">Not available</string>
     <string name="pf_rates_updated">Updated %1$s</string>
@@ -2775,4 +2778,22 @@
     <string name="coach_tabs_title">Switch pages</string>
     <string name="coach_tabs_body">Open Statistics for spending charts, Wallets for bank accounts and e-wallets, and Profile for settings.</string>
     <string name="coach_replay">Replay app guide</string>
+    <string name="set_notif_floating_title">Floating notifications</string>
+    <string name="set_notif_floating_desc">Allow Kasiva notifications to appear as pop-ups. Open Manage permission to allow notifications, then select each category to enable floating notifications where available. You can decline or turn them off at any time in device settings. Do Not Disturb may suppress pop-ups.</string>
+    <string name="set_notif_floating_manage">Manage permission</string>
+    <string name="inv_mkt_title">Market Price</string>
+    <string name="inv_mkt_note">Refreshes automatically every minute. Prices follow market sessions, may be delayed, and are not investment advice.</string>
+    <string name="inv_mkt_idx">Indonesian stocks</string>
+    <string name="inv_mkt_us">International stocks (US)</string>
+    <string name="inv_mkt_metals">Precious metals</string>
+    <string name="inv_mkt_crypto">Crypto</string>
+    <string name="inv_mkt_last_price">Last price</string>
+    <string name="inv_mkt_error">Market prices could not be loaded. Check your internet connection and try again.</string>
+    <string name="inv_mkt_chart_error">The chart could not be loaded.</string>
+    <string name="inv_mkt_source">Source: Yahoo Finance and fawazahmed0/exchange-api, converted to %1$s.</string>
+    <string name="inv_mkt_high_low">High %1$s · Low %2$s</string>
+    <string name="inv_mkt_gold">Gold</string>
+    <string name="inv_mkt_silver">Silver</string>
+    <string name="inv_mkt_platinum">Platinum</string>
+    <string name="inv_mkt_palladium">Palladium</string>
 </resources>

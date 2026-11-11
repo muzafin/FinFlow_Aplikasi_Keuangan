@@ -9,6 +9,8 @@ import com.clonical.kasiva.core.model.ImportPlan
 import com.clonical.kasiva.core.model.Transaction
 import com.clonical.kasiva.core.util.decimalAmount
 import com.clonical.kasiva.core.util.minorAmount
+import com.clonical.kasiva.core.util.normalizeAmountText
+import com.clonical.kasiva.core.util.today
 import com.clonical.kasiva.feature.ai.AiService
 import com.clonical.kasiva.i18n.*
 import kotlinx.datetime.*
@@ -71,8 +73,8 @@ object CsvImport {
         // Deteksi otomatis (AI) dipetakan server lewat CsvImport.previewWithAi; tidak ada mapping posisional.
         if (source == "ai") error("Sumber ai memakai CsvImport.previewWithAi")
         // Wallet by BudgetBakers memakai ";" sebagai pemisah kolom dan koma sebagai pemisah desimal.
-        val input = if (source == "wallet") text.replace(",", " ").replace(";", ",") else text
-        val rows = parse(input)
+        // Dulu koma diganti spasi sehingga "12500,50" terbaca 1.250.050 (100×). Kini dibaca langsung dengan pemisah ";".
+        val rows = if (source == "wallet") parse(text, ';') else parse(text)
         require(rows.isNotEmpty()) { MR.strings.ai_csv_empty.text() }
         return if (source == "ivy" || source == "finflow") previewTemplate(rows, source, existing) else previewPositional(rows, source, existing)
     }
@@ -107,7 +109,10 @@ object CsvImport {
         rows.drop(1).forEachIndexed { index, row ->
             try {
                 require(row.size == header.size) { MR.strings.ai_csv_column_count.text() }
-                fun value(name: String) = header.indexOf(name.lowercase()).let { if (it < 0) "" else row[it].trim() }
+                // Ekspor Kasiva menambah "'" di depan teks berawalan = + - @ (anti formula); buang lagi saat impor (P4-06).
+                fun unescape(raw: String) = if (source == "finflow" && raw.startsWith("'") && raw.length > 1 &&
+                    (raw.substring(1).trimStart().firstOrNull() in listOf('=', '+', '-', '@') || raw[1] in listOf('\t', '\r', '\n'))) raw.substring(1) else raw
+                fun value(name: String) = header.indexOf(name.lowercase()).let { if (it < 0) "" else unescape(row[it]).trim() }
                 val externalId = value("ID")
                 val exportedId = if (source == "finflow") value("Kasiva ID") else ""
                 require(externalId.isNotBlank()) { MR.strings.ai_csv_id_required.text() }
@@ -168,6 +173,7 @@ object CsvImport {
             return if (code.matches(Regex("[A-Z]{3}"))) code else planner.baseCurrency
         }
         val data = rows.drop(1)
+        val monthFirst = detectMonthFirst(data.map { cell(it, columns.date) })
         var index = 0
         var line = 2
         while (index < data.size) {
@@ -180,7 +186,7 @@ object CsvImport {
                 val categoryName = cell(row, columns.category).ifBlank { "Lainnya" }
                 val title = cell(row, columns.title)
                 val description = cell(row, columns.description)
-                val date = importDate(cell(row, columns.date))
+                val date = importDate(cell(row, columns.date), monthFirst)
                 var type = when {
                     columns.typeFromCategory -> if (categoryName.lowercase() == "income") "income" else "expense"
                     cell(row, columns.type).isNotBlank() -> resolveType(cell(row, columns.type), source)
@@ -204,8 +210,8 @@ object CsvImport {
                     }
                 }
                 val amountMinor = minorAmount(amount.digits, currency)
-                val id = source + "_" + stableHash(listOf(source, line.toString(), date, type, amountMinor.toString(), currency, fromName, toName, title).joinToString("|"))
-                if (id in planner.seen) planner.duplicates++ else {
+                val id = planner.importId(source, source, date, type, amountMinor, currency, fromName, toName, title.ifBlank { categoryName })
+                if (id == null || id in planner.seen) planner.duplicates++ else {
                     val from = planner.account(fromName, currency)
                     val to = if (type == "transfer") planner.account(toName, toCurrency) else null
                     val category = if (type == "transfer") null else planner.category(categoryName, type)
@@ -235,11 +241,27 @@ object CsvImport {
         }
         val seen = existing.transactions.map { it.id }.toMutableSet()
         var duplicates = 0
+        private val occurrences = mutableMapOf<String, Int>()
+        private val importedContent = existing.transactions.groupingBy { listOf(it.source, it.date, it.type, it.amountMinor.toString(), it.currency, it.title).joinToString("|") }.eachCount()
+
+        /**
+         * Id impor dari ISI baris + urutan kemunculan isi yang sama di file (bukan nomor baris), sehingga ekspor yang
+         * lebih baru (baris bergeser) tidak menggandakan riwayat (P4-03). Null bila isi ini sudah pernah diimpor,
+         * termasuk impor lama yang id-nya masih memakai nomor baris.
+         */
+        fun importId(prefix: String, txSource: String, date: String, type: String, amount: Long, currency: String, from: String, to: String, title: String): String? {
+            val content = listOf(txSource, date, type, amount.toString(), currency, from, to, title).joinToString("|")
+            val n = occurrences[content] ?: 0
+            occurrences[content] = n + 1
+            if (n < (importedContent[listOf(txSource, date, type, amount.toString(), currency, title).joinToString("|")] ?: 0)) return null
+            return prefix + "_" + stableHash("$content|#$n")
+        }
         val baseCurrency = existing.profile?.baseCurrency ?: "IDR"
 
         fun account(name: String, currency: String): Account {
             require(name.isNotBlank() && name.length <= 100 && currency.matches(Regex("[A-Z]{3}"))) { MR.strings.ai_csv_invalid_wallet.text() }
-            val matches = existing.accounts.filter { it.name == name && it.currency == currency && !it.archived }
+            // Dompet tabungan target dikelola lewat Setor/Tarik; baris CSV tidak boleh masuk ke sana (P1-02).
+            val matches = existing.accounts.filter { it.name == name && it.currency == currency && !it.archived && it.type != "savings" }
             require(matches.size <= 1) { MR.strings.ai_csv_ambiguous_wallet.text(name, currency) }
             return matches.singleOrNull() ?: accounts.getOrPut("$currency:$name") {
                 val id = "import_" + hex("$currency:$name")
@@ -303,21 +325,10 @@ internal data class ParsedNumber(val negative: Boolean, val digits: String)
 
 /** Angka ekspor aplikasi lain: "1,234.50", "1.234,50", "-25", "(25)", "25 IDR". */
 internal fun parseNumber(raw: String): ParsedNumber {
-    var value = raw.trim()
-    var negative = false
-    if (value.startsWith("(") && value.endsWith(")")) { negative = true; value = value.substring(1, value.length - 1) }
-    if (value.startsWith("-")) { negative = true; value = value.removePrefix("-") } else if (value.startsWith("+")) value = value.removePrefix("+")
-    value = value.replace(Regex("[^0-9.,]"), "")
-    require(value.isNotEmpty()) { MR.strings.dash_err_number_format.text() }
-    value = when {
-        '.' in value && ',' in value -> if (value.lastIndexOf(',') > value.lastIndexOf('.')) value.replace(".", "").replace(',', '.') else value.replace(",", "")
-        value.count { it == ',' } > 1 -> if (Regex("[0-9]{1,3}(,[0-9]+)*").matches(value)) value.replace(",", "") else value.replace(',', '.')
-        value.count { it == ',' } == 1 -> if (value.length - value.indexOf(',') - 1 in 1..2) value.replace(',', '.') else value.replace(",", "")
-        value.count { it == '.' } > 1 -> value.replace(".", "")
-        else -> value
-    }
-    if (value.startsWith(".")) value = "0$value"
-    value = value.trimEnd('.')
+    // Satu parser untuk semua nominal; "25.000" kini 25 ribu, bukan 25 (P4-02).
+    val normalized = normalizeAmountText(raw) ?: throw IllegalArgumentException(MR.strings.dash_err_number_format.text())
+    val negative = normalized.startsWith("-")
+    val value = normalized.removePrefix("-")
     require(Regex("[0-9]+(\\.[0-9]+)?").matches(value)) { MR.strings.dash_err_number_format.text() }
     return ParsedNumber(negative, value)
 }
@@ -337,7 +348,24 @@ private fun resolveType(raw: String, source: String): String {
 private fun isTransferType(raw: String, source: String) = raw.isNotBlank() && resolveType(raw, source) == "transfer"
 
 /** Tanggal: ISO, dd/MM/yyyy, dd.MM.yyyy, yyyy/MM/dd; waktu diabaikan karena transaksi hanya menyimpan tanggal. */
-internal fun importDate(raw: String): String {
+/**
+ * Urutan hari/bulan ditentukan SEKALI per file (P4-04): true = bulan dulu (AS), false = hari dulu, null = ambigu
+ * (semua bagian ≤ 12, dipakai hari dulu seperti sebelumnya).
+ */
+internal fun detectMonthFirst(values: List<String>): Boolean? {
+    var dayFirst = false; var monthFirst = false
+    for (raw in values) {
+        val parts = raw.trim().substringBefore('T').substringBefore(' ').split('/', '.', '-')
+        if (parts.size != 3) continue
+        val a = parts[0].toIntOrNull() ?: continue; val b = parts[1].toIntOrNull() ?: continue
+        if (a >= 1000) continue
+        if (a > 12) dayFirst = true
+        if (b > 12) monthFirst = true
+    }
+    return when { monthFirst && !dayFirst -> true; dayFirst && !monthFirst -> false; else -> null }
+}
+
+internal fun importDate(raw: String, monthFirst: Boolean? = null): String {
     val value = raw.trim()
     require(value.isNotBlank()) { MR.strings.ai_csv_date_required.text() }
     if (value.endsWith('Z') || Regex("[+-]\\d\\d:?\\d\\d$").containsMatchIn(value)) {
@@ -357,8 +385,11 @@ internal fun importDate(raw: String): String {
     if (first >= 1000) {
         year = first; month = second; day = third
     } else {
-        year = if (third in 1000..9999) third else third + 2000
+        // Tahun 2 digit: "99" = 1999, "26" = 2026 (dulu selalu 20yy).
+        year = if (third in 1000..9999) third else if (third + 2000 > today().year + 1) third + 1900 else third + 2000
         when {
+            monthFirst == true -> { day = second; month = first }
+            monthFirst == false -> { day = first; month = second }
             first > 12 -> { day = first; month = second }
             second > 12 -> { day = second; month = first }
             else -> { day = first; month = second }

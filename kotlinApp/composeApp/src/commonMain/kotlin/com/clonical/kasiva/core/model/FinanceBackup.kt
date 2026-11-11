@@ -95,6 +95,17 @@ object BackupCodec {
         return ordered
     }
 
+    /**
+     * Preferensi yang menyimpan id dompet (dompet bawaan, urutan dompet, dompet Beranda) diterjemahkan ke id dompet hasil
+     * pulihkan; dulu hanya defaultWalletId sehingga urutan & pilihan Beranda hilang (P1-03).
+     */
+    fun restoredPreferences(backup:FinanceBackup,preferences:AppPreferences):AppPreferences {
+        val restored=restoreData(backup)
+        val map=backup.data.accounts.indices.associate{backup.data.accounts[it].id to restored.accounts[it].id}
+        return preferences.copy(defaultWalletId=map[preferences.defaultWalletId].orEmpty(),
+            walletOrder=preferences.walletOrder.mapNotNull{map[it]}.distinct(),dashboardWalletIds=preferences.dashboardWalletIds.mapNotNull{map[it]}.distinct())
+    }
+
     // ID dompet baru menghindari penimpaan dompet Kas bawaan akun tujuan.
     fun restoreData(backup:FinanceBackup):FinanceData {
         val d=backup.data

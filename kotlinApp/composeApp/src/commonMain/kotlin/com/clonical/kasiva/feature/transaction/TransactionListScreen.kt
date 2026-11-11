@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.clonical.kasiva.core.model.FinanceData
 import com.clonical.kasiva.core.model.LocalPreferences
+import kotlin.math.pow
 import com.clonical.kasiva.core.model.Transaction
 import com.clonical.kasiva.core.model.maskedBalance
 import com.clonical.kasiva.core.ui.FFColors
@@ -62,12 +63,14 @@ fun Transactions(data: FinanceData, month: String, monthChange: (String) -> Unit
     var menu by remember { mutableStateOf(false) }
     fun reset() { query = ""; type = initialType; allMonths = false; category = ""; sort = "newest"; wallet = ""; range = "all"; tag = "" }
     val filtered = data.transactions.filter { tx ->
-        (allMonths || tx.date.startsWith(month)) &&
+        // `month` adalah kunci periode pencatatan, bukan bulan kalender (P3-02).
+        (allMonths || tx.date in com.clonical.kasiva.core.util.recordingPeriod(month, preferences.recordingDay)) &&
             (type == "scheduled" && tx.scheduled || type != "scheduled" && !tx.scheduled && (type == "all" || tx.type == type)) &&
             (category.isEmpty() || tx.categoryId == category || tx.subcategoryId == category) &&
             (wallet.isEmpty() || tx.accountId == wallet || tx.toAccountId == wallet) &&
             (tag.isEmpty() || tag in tx.tags) &&
-            when (range) { "small" -> tx.amountMinor < 10_000_000; "mid" -> tx.amountMinor in 10_000_000..100_000_000; "large" -> tx.amountMinor > 100_000_000; else -> true } &&
+            // Ambang dalam satuan utama mata uang (100rb / 1jt), bukan satuan minor tetap (P3-08).
+            (tx.amountMinor.toDouble() / 10.0.pow(com.clonical.kasiva.core.util.currencyDigits(tx.currency))).let { major -> when (range) { "small" -> major < 100_000; "mid" -> major in 100_000.0..1_000_000.0; "large" -> major > 1_000_000; else -> true } } &&
             (query.isBlank() || "${tx.title} ${tx.description} ${tx.tags.joinToString(" ")} ${data.accountName(tx.accountId)} ${data.categoryName(tx.categoryId)}".contains(query, ignoreCase = true))
     }.let { list ->
         when (sort) {

@@ -104,7 +104,7 @@ fun AccountEditor(old: Account?, data: FinanceData, busy: Boolean, dismiss: () -
             require(type in keys) { MR.strings.acc_err_invalid_type.text() }
             require(!pocket || parent.isNotBlank()) { MR.strings.acc_err_choose_parent.text() }
             require(!pocket || data.accounts.none { it.parentId == id }) { MR.strings.acc_err_parent_has_pockets.text() }
-            val account = Account(id, name.trim(), type, code, minorAmount(opening, code, allowNegative = true), archived, old?.createdAt ?: nowMillis(),
+            val account = Account(id, name.trim(), type, code, parseUserAmount(opening, code, allowNegative = true), archived, old?.createdAt ?: nowMillis(),
                 excluded, if (pocket) parent else null, icon, color, goalId = old?.goalId)
             val bytes = pendingIcon
             if (bytes != null && icon == uploadedIconRef(id) && walletIcons != null) {
@@ -187,8 +187,9 @@ fun AccountEditor(old: Account?, data: FinanceData, busy: Boolean, dismiss: () -
             ToggleCard(MR.strings.acc_exclude_from_total.text(), MR.strings.pb_exclude_desc.text(), excluded, !busy, "wallet-exclude") { excluded = it }
             ToggleCard(MR.strings.pb_link_pocket.text(), MR.strings.pb_link_pocket_desc.text(), pocket, !busy && type != "savings", "wallet-pocket") { pocket = it; if (!it) parent = "" }
             if (pocket) WalletChoice(MR.strings.acc_parent_wallet.text(), parent, data,
-                data.accounts.filter { it.id != id && !it.archived && it.parentId == null && it.currency == currency }, !busy) { parent = it }
-            if (old != null) ToggleCard(MR.strings.acc_archive_wallet.text(), MR.strings.acc_history_kept.text(), archived, !busy, "wallet-archive") { archived = it }
+                data.accounts.filter { it.id != id && (!it.archived || it.id == old?.parentId) && it.parentId == null && it.currency == currency }, !busy) { parent = it }
+            // Dompet target diarsipkan lewat menu Target (P5-02), jadi sakelar arsip disembunyikan untuknya.
+            if (old != null && old.type != "savings") ToggleCard(MR.strings.acc_archive_wallet.text(), MR.strings.acc_history_kept.text(), archived, !busy, "wallet-archive") { archived = it }
         }
 
         // Ikon: grid "Ikon Umum", unggah ikon kustom (bila App menyediakan penyimpan ikon), lalu warna.

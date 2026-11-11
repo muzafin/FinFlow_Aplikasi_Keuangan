@@ -183,6 +183,7 @@ private fun ScanSource(label: String, icon: String, tag: String, enabled: Boolea
 fun AiDraftReviewSheet(controller: AiController, data: FinanceData, busy: Boolean, onEdit: (Transaction) -> Unit, onSaveAll: (List<Transaction>) -> Unit) {
     val drafts = controller.drafts
     if (drafts.isEmpty()) return
+    val missingTransferAmount = drafts.firstOrNull { it.type == "transfer" && it.receivedAmountMinor == null }
     ModalBottomSheet(onDismissRequest = { if (!busy) controller.drafts = emptyList() }, containerColor = FFColors.canvas, shape = sheetShape) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 20.dp).testTag("ai-draft-review")) {
             Text(MR.strings.ai_review_title.text(), style = FFType.appTitle)
@@ -210,12 +211,13 @@ fun AiDraftReviewSheet(controller: AiController, data: FinanceData, busy: Boolea
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { onSaveAll(drafts) }, enabled = !busy && drafts.all { it.categoryId.isNotBlank() }, shape = RoundedCornerShape(28.dp),
+            Button(onClick = { onSaveAll(drafts) }, enabled = !busy && missingTransferAmount == null && drafts.all { it.categoryId.isNotBlank() }, shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = FFColors.onSurface, contentColor = FFColors.canvas),
                 modifier = Modifier.fillMaxWidth().height(52.dp).testTag("ai-draft-save-all")) {
                 Text(if (drafts.size == 1) MR.strings.ai_save_transaction.text() else MR.strings.ai_save_all.text(drafts.size), fontWeight = FontWeight.SemiBold)
             }
             if (drafts.any { it.categoryId.isBlank() }) Text(MR.strings.ai_complete_categories.text(), style = FFType.metaData, color = FFColors.expense)
+            if (missingTransferAmount != null) Text(MR.strings.tx_err_transfer_received.text(), style = FFType.metaData, color = FFColors.expense)
             TextButton(onClick = { controller.drafts = emptyList() }, enabled = !busy, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(MR.strings.common_cancel.text()) }
         }
     }

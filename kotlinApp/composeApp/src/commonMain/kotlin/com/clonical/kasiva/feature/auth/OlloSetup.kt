@@ -102,11 +102,19 @@ internal val setupCurrencies = listOf(
     SetupCurrency("CNY", "Chinese Yuan", "¥"),
 )
 
-/** Daftar lengkap pada dialog "Lihat Semua", disalin dari LocalSetupScreen. */
+/** Seluruh mata uang negara aktif ISO 4217 yang kursnya tersedia (fawazahmed0/exchange-api). */
 internal val setupAllCurrencyCodes = listOf(
-    "AED", "AUD", "BDT", "BHD", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK", "EGP", "EUR", "GBP", "HKD", "HUF",
-    "IDR", "ILS", "INR", "ISK", "JPY", "KRW", "KWD", "LKR", "MAD", "MXN", "MYR", "NOK", "NZD", "OMR", "PHP",
-    "PKR", "PLN", "QAR", "RON", "RUB", "SAR", "SEK", "SGD", "THB", "TRY", "TWD", "UAH", "USD", "VND", "ZAR",
+    "AED", "AFN", "ALL", "AMD", "AOA", "ARS", "AUD", "AWG", "AZN", "BAM", "BBD", "BDT", "BHD", "BIF", "BMD",
+    "BND", "BOB", "BRL", "BSD", "BTN", "BWP", "BYN", "BZD", "CAD", "CDF", "CHF", "CLP", "CNY", "COP", "CRC",
+    "CUP", "CVE", "CZK", "DJF", "DKK", "DOP", "DZD", "EGP", "ERN", "ETB", "EUR", "FJD", "FKP", "GBP", "GEL",
+    "GHS", "GIP", "GMD", "GNF", "GTQ", "GYD", "HKD", "HNL", "HTG", "HUF", "IDR", "ILS", "INR", "IQD", "IRR",
+    "ISK", "JMD", "JOD", "JPY", "KES", "KGS", "KHR", "KMF", "KPW", "KRW", "KWD", "KYD", "KZT", "LAK", "LBP",
+    "LKR", "LRD", "LSL", "LYD", "MAD", "MDL", "MGA", "MKD", "MMK", "MNT", "MOP", "MRU", "MUR", "MVR", "MWK",
+    "MXN", "MYR", "MZN", "NAD", "NGN", "NIO", "NOK", "NPR", "NZD", "OMR", "PAB", "PEN", "PGK", "PHP", "PKR",
+    "PLN", "PYG", "QAR", "RON", "RSD", "RUB", "RWF", "SAR", "SBD", "SCR", "SDG", "SEK", "SGD", "SHP", "SLE",
+    "SOS", "SRD", "SSP", "STN", "SVC", "SYP", "SZL", "THB", "TJS", "TMT", "TND", "TOP", "TRY", "TTD", "TWD",
+    "TZS", "UAH", "UGX", "USD", "UYU", "UZS", "VES", "VND", "VUV", "WST", "XAF", "XCD", "XCG", "XOF", "XPF",
+    "YER", "ZAR", "ZMW",
 )
 
 private val setupIncomeColors = listOf("green" to 0xFF4CAF50L, "teal" to 0xFF009688L, "blue" to 0xFF2196F3L)
@@ -215,7 +223,7 @@ fun OlloSetupFlow(
         }
         error = null
         val opening = try {
-            minorAmount(balance.trim().ifBlank { "0" }, currency)
+            com.clonical.kasiva.core.util.parseUserAmount(balance.trim().ifBlank { "0" }, currency)
         } catch (e: Exception) {
             error = strings.balanceInvalid + " " + e.message.orEmpty()
             return

@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.clonical.kasiva.app.navigation.Editor
 import com.clonical.kasiva.core.i18n.withLocalizedDefaults
@@ -298,6 +299,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     var automationDialog by remember { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf("Beranda") }
     var previousPage by rememberSaveable { mutableStateOf("Beranda") }
+    var backStack by rememberSaveable { mutableStateOf("") }
     var selectedInvestmentId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedAccountId by rememberSaveable { mutableStateOf<String?>(null) }
     var accountParent by rememberSaveable { mutableStateOf("Dompet") }
@@ -433,11 +435,24 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 repo.resetPassword(email)
                 notice = MR.strings.app_password_reset_sent.text()
             }
-            else -> { if(destination=="Detail impian")goalParent=page;if (destination !in mainPages) previousPage = page; page = destination }
+            else -> {
+                if(destination=="Detail impian")goalParent=page
+                // Tumpukan halaman agar Kembali dari halaman tingkat dua kembali ke halaman asal, bukan Beranda (P6-02).
+                if (destination !in mainPages) { previousPage = page; backStack = (backStack.split(PAGE_SEP).filter { it.isNotEmpty() } + page).takeLast(30).joinToString(PAGE_SEP) }
+                else backStack = ""
+                page = destination
+            }
         }
     }
     fun chooseBackup(){native.pickCsv{content,failure->if(content!=null)try{restorePreview=BackupCodec.decode(content) to native.sha256(content)}catch(e:Exception){error=e.message}else if(failure!=null)error=failure}}
-    fun back() { page = if (page.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX)) "Profil" else when (page) { "Pengaturan Asisten" -> "Asisten"; "Asisten", "Premium", "Pengaturan AI Scan" -> aiParent; "Masukan & Peta Jalan" -> "Profil"; "Masukan" -> previousPage.takeIf { it == "Masukan & Peta Jalan" || it in mainPages } ?: "Profil"; "Detail dompet" -> accountParent; "Transaksi terjadwal" -> "Terjadwal"; "Detail investasi" -> "Investasi"; "Detail impian" -> goalParent; "Detail transaksi" -> transactionParent; else -> previousPage.takeIf { it in mainPages || it.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX) } ?: "Beranda" } }
+    fun popBack(): String? {
+        val stack = backStack.split(PAGE_SEP).filter { it.isNotEmpty() }.toMutableList()
+        var target: String? = null
+        while (stack.isNotEmpty()) { val candidate = stack.removeAt(stack.lastIndex); if (candidate != page) { target = candidate; break } }
+        backStack = stack.joinToString(PAGE_SEP)
+        return target
+    }
+    fun back() { page = if (page.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX)) "Profil" else when (page) { "Pengaturan Asisten" -> "Asisten"; "Asisten", "Premium", "Pengaturan AI Scan" -> aiParent; "Masukan & Peta Jalan" -> "Profil"; "Masukan" -> previousPage.takeIf { it == "Masukan & Peta Jalan" || it in mainPages } ?: "Profil"; "Detail dompet" -> accountParent; "Transaksi terjadwal" -> "Terjadwal"; "Detail investasi" -> "Investasi"; "Detail impian" -> goalParent; "Detail transaksi" -> transactionParent; else -> popBack() ?: previousPage.takeIf { it in mainPages || it.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX) } ?: "Beranda" } }
     val planningActions = PlanningActions(
         bill = { editor = Editor.BillForm(it) }, payBill = { editor = Editor.PayBill(it) },
         debt = { editor = Editor.DebtForm(it) }, payDebt = { editor = Editor.PayDebt(it) }, splitBill = { editor = Editor.SplitForm },
@@ -526,7 +541,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                     Text(MR.strings.app_sync_pending_title.text(),style=FFType.appTitle)
                     Text(MR.strings.app_sync_pending_body.text())
                     Button(onClick=onConnect,modifier=Modifier.fillMaxWidth()){Text(MR.strings.app_sync_pending_continue.text())}
-                    if(ready)OutlinedButton(onClick={native.shareTextFile("finflow-lokal-${today()}.json",BackupCodec.encode(FinanceBackup(ownerId="local",data=data,preferences=appearance)),"application/json")}){Text(MR.strings.app_save_local_backup.text())}
+                    if(ready)OutlinedButton(onClick={native.shareTextFile("kasiva-lokal-${today()}.json",BackupCodec.encode(FinanceBackup(ownerId="local",data=data,preferences=appearance)),"application/json")}){Text(MR.strings.app_save_local_backup.text())}
                 }
             }else if(resetPending){
                 Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp,Alignment.CenterVertically)) {
@@ -539,7 +554,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                     Text(MR.strings.app_restore_pending_title.text(),style=FFType.appTitle)
                     Spacer(Modifier.height(16.dp));Text(MR.strings.app_restore_pending_body.text(),style=FFType.bodyMain)
                     Spacer(Modifier.height(20.dp));Button(enabled=!busy,onClick=::chooseBackup,modifier=Modifier.fillMaxWidth()){Text(MR.strings.app_restore_pending_continue.text())}
-                    TextButton(enabled=!busy,onClick={action{repo.logout()}}){Text(MR.strings.app_sign_out_account.text())}
+                    TextButton(enabled=!busy,onClick={action{run { native.writeSetting(com.clonical.kasiva.feature.settings.NOTIFICATION_HISTORY_KEY, "[]"); repo.logout() }}}){Text(MR.strings.app_sign_out_account.text())}
                 }
             } else if (!ready) {
                 Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -549,7 +564,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                         Spacer(Modifier.height(12.dp))
                         Text(MR.strings.app_account_data_access_failed.text(), style = FFType.bodyMain)
                         TextButton(onClick = { retry++ }) { Text(MR.strings.app_reload.text()) }
-                        TextButton(enabled = !busy, onClick = { action { repo.logout() } }) { Text(MR.strings.app_sign_out_switch_account.text()) }
+                        TextButton(enabled = !busy, onClick = { action { run { native.writeSetting(com.clonical.kasiva.feature.settings.NOTIFICATION_HISTORY_KEY, "[]"); repo.logout() } } }) { Text(MR.strings.app_sign_out_switch_account.text()) }
                     }
                 }
             } else {
@@ -561,7 +576,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 in preferencePages -> PreferenceScreen(shown,data,::navigate)
                 "Masukan & Peta Jalan" -> com.clonical.kasiva.feature.settings.RoadmapScreen { navigate("Masukan") }
                 in accountDataPages -> AccountDataScreen(shown,data,native,repo.currentUser?.email.orEmpty(),::navigate,{retry++},back=::back,
-                    backup={native.shareTextFile("finflow-backup-${today()}.json",BackupCodec.encode(FinanceBackup(ownerId=requireNotNull(repo.ownerId),data=data,preferences=appearance)),"application/json")},
+                    backup={native.shareTextFile("kasiva-backup-${today()}.json",BackupCodec.encode(FinanceBackup(ownerId=requireNotNull(repo.ownerId),data=data,preferences=appearance)),"application/json")},
                     chooseRestore=::chooseBackup,busy=busy,changePhoto={
                         val uid=repo.ownerId
                         native.pickProfilePhoto { bytes,failure ->
@@ -569,7 +584,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                             else if (bytes!=null && uid==repo.ownerId) action { repo.saveProfilePhoto(native,bytes);notice=MR.strings.app_profile_photo_updated.text() }
                         }
                     },deleteAccount={ if (!repo.isLocal && !native.isOnline()) error = MR.strings.core_error_need_internet.text() else deleteAccount=true },localMode=repo.isLocal,connect=onConnect,useLocal=onLocal,
-                    ai=ai,signOut=if(repo.isLocal) null else ({ action { repo.logout() } }),factoryReset={ if (!repo.isLocal && !native.isOnline()) error = MR.strings.core_error_need_internet.text() else resetData=true },
+                    ai=ai,signOut=if(repo.isLocal) null else ({ action { run { native.writeSetting(com.clonical.kasiva.feature.settings.NOTIFICATION_HISTORY_KEY, "[]"); repo.logout() } } }),factoryReset={ if (!repo.isLocal && !native.isOnline()) error = MR.strings.core_error_need_internet.text() else resetData=true },
                     saveToDownloads=native::saveToDownloads,
                     deleteTransactions={ if (!repo.isLocal && !native.isOnline()) error = MR.strings.core_error_need_internet.text() else action {
                         repo.deleteAllTransactions()
@@ -580,7 +595,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 "Kategori" -> com.clonical.kasiva.feature.settings.CategoryScreen(data,busy,edit={editor=Editor.Cat(it)},
                     addSub={root->editor=Editor.Cat(null,root.id)},saveCategory={category->action{repo.saveCategory(category)}})
                 "Profil" -> ProfileScreen(native, displayName, if(repo.isLocal)MR.strings.app_local_mode.text() else repo.currentUser?.email.orEmpty(), data, ::navigate, {
-                    if(repo.isLocal){if(!native.closeApp())notice=MR.strings.app_close_via_switcher.text()}else action { repo.logout() }
+                    if(repo.isLocal){if(!native.closeApp())notice=MR.strings.app_close_via_switcher.text()}else action { run { native.writeSetting(com.clonical.kasiva.feature.settings.NOTIFICATION_HISTORY_KEY, "[]"); repo.logout() } }
                 },localMode=repo.isLocal,premiumCard={ if (com.clonical.kasiva.feature.ai.PREMIUM_ENABLED) com.clonical.kasiva.feature.ai.UpgradePremiumCard(ai) { navigate("Premium") } },
                     onChangePhoto={ camera ->
                         val uid=repo.ownerId
@@ -591,8 +606,8 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                         if (camera) native.captureProfilePhoto(done) else native.pickProfilePhoto(done)
                     })
                 "Transaksi terjadwal" -> ScheduledScreen(data, month, { month = it }, ::openTransaction, { editor = Editor.Tx(scheduled = true) })
-                "Statistik" -> Reports(data, month, { month = it }, { native.shareCsv("finflow-$month.csv", CsvImport.export(data, data.transactions.filter { it.date.startsWith(month) })) }, { navigate("Transaksi") }, ::openTransaction,
-                    exportFiltered={transactions->native.shareCsv("finflow-statistik.csv",CsvImport.export(data,transactions))},
+                "Statistik" -> Reports(data, month, { month = it }, { native.shareCsv("kasiva-$month.csv", CsvImport.export(data, data.transactions.filter { it.date.startsWith(month) })) }, { navigate("Transaksi") }, ::openTransaction,
+                    exportFiltered={transactions->native.shareCsv("kasiva-statistik.csv",CsvImport.export(data,transactions))},
                     onSectionOrder = { navigate("Urutan Statistik") }, onPreferences = { navigate("Tema") })
                 "Detail transaksi" -> data.transactions.find { it.id == selectedTransactionId }?.let { tx ->
                     TransactionDetail(tx, data, {
@@ -643,7 +658,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                             }
                         } else try { plan = CsvImport.preview(content, importSource, data) } catch (e: Exception) { plan = ImportPlan(emptyList(), emptyList(), emptyList(), listOf(e.message.orEmpty()), emptyList(), 0) }
                     }
-                }, onTemplate = { native.shareCsv("finflow-template.csv", CsvImport.template) }, onImport = {
+                }, onTemplate = { native.shareCsv("kasiva-template.csv", CsvImport.template) }, onImport = {
                     plan?.let { preview -> action {
                         val added = repo.importCsv(preview) { done, total -> importProgress = "$done / $total" }
                         notice = MR.strings.app_import_added.text(added)
@@ -653,7 +668,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 })
                 "Koneksi bank" -> BankConnectionScreen({ navigate("Impor data") }, { navigate("Impor notifikasi") })
                 "Pengaturan" -> Settings(native, repo.currentUser?.email ?: MR.strings.app_local_mode.text(), data, { editor = Editor.Cat() }, {
-                    if(repo.isLocal){if(!native.closeApp())notice=MR.strings.app_close_via_switcher.text()}else action { repo.logout() }
+                    if(repo.isLocal){if(!native.closeApp())notice=MR.strings.app_close_via_switcher.text()}else action { run { native.writeSetting(com.clonical.kasiva.feature.settings.NOTIFICATION_HISTORY_KEY, "[]"); repo.logout() } }
                 }, navigate = ::navigate, localMode = repo.isLocal)
                 "Pengaturan Dompet" -> com.clonical.kasiva.feature.account.WalletSettingsScreen(data, busy, importWallets = { list -> action { list.forEach { repo.saveAccount(it) } } })
                 "Bahasa Input Suara" -> com.clonical.kasiva.feature.ai.VoiceLanguageScreen()
@@ -776,21 +791,19 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 require(data.transactions.isEmpty() && data.goals.isEmpty() && data.bills.isEmpty() && data.debts.isEmpty() && data.notes.isEmpty() && data.cards.isEmpty() && data.recurring.isEmpty() && data.investments.isEmpty() && data.budgets.isEmpty() && data.wishes.isEmpty() && data.reimbursements.isEmpty() && data.financialEvents.isEmpty()){MR.strings.app_restore_target_not_empty.text()}
             }
             repo.restoreBackup(backup,resuming,{native.writeSetting(jobKey,checksum);restorePending=checksum}){notice=it}
-            val restored=BackupCodec.restoreData(backup)
-            val wallet=backup.data.accounts.indexOfFirst{it.id==backup.preferences.defaultWalletId}
-            preferenceStore?.update(backup.preferences.copy(defaultWalletId=if(wallet>=0)restored.accounts[wallet].id else ""))
+            preferenceStore?.update(BackupCodec.restoredPreferences(backup,backup.preferences))
             native.writeSetting(jobKey,"")
             restorePending=null
             notice=MR.strings.app_restore_done.text()
         }
     }){Text(MR.strings.app_restore.text())}},dismissButton={TextButton(enabled=!busy,onClick={restorePreview=null}){Text(MR.strings.common_cancel.text())}})}
     if (deleteAccount) DeleteAccountDialog(native,repo.currentUser?.providerData?.any{it.providerId=="google.com"}==true,busy,
-        dismiss={deleteAccount=false},confirm={password,token->action{repo.requestAccountDeletion(password,token)}})
+        dismiss={deleteAccount=false},confirm={password,token->action{repo.requestAccountDeletion(password,token);native.writeSetting(com.clonical.kasiva.feature.settings.NOTIFICATION_HISTORY_KEY,"[]")}})
     if (automationDialog) com.clonical.kasiva.feature.settings.AutomationComingSoonDialog(native) { automationDialog = false }
     if(resetData)DeleteAccountDialog(native,repo.currentUser?.providerData?.any{it.providerId=="google.com"}==true,busy,
         dismiss={resetData=false},confirm={password,token->action{
-            if(repo.isLocal){repo.clearLocalData();notice=native.deleteLocalProfilePhoto() ?: MR.strings.app_local_data_deleted.text()}
-            else {repo.resetCloudData(native,password,token);notice=MR.strings.app_cloud_data_deleted.text()}
+            if(repo.isLocal){repo.clearLocalData();native.writeSetting(com.clonical.kasiva.feature.settings.NOTIFICATION_HISTORY_KEY,"[]");notice=native.deleteLocalProfilePhoto() ?: MR.strings.app_local_data_deleted.text()}
+            else {repo.resetCloudData(native,password,token);native.writeSetting(com.clonical.kasiva.feature.settings.NOTIFICATION_HISTORY_KEY,"[]");notice=MR.strings.app_cloud_data_deleted.text()}
             resetData=false;page="Beranda";retry++
         }},dataOnly=true,localMode=repo.isLocal)
     deletion?.let { (label, block) ->
@@ -808,8 +821,24 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         text = { Text(error.orEmpty()) },
         confirmButton = { TextButton(onClick = { error = null }) { Text(MR.strings.app_back_to_form.text()) } },
     )
+    // Error aksi di luar editor (hapus akun, reset, offline) dulu tidak pernah tampil (P6-01).
+    if (editor == null && ready && error != null) AlertDialog(
+        onDismissRequest = { error = null }, title = { Text(MR.strings.app_cannot_save_title.text()) },
+        text = { Text(error.orEmpty(), Modifier.testTag("app-error")) },
+        confirmButton = { TextButton(onClick = { error = null }) { Text(MR.strings.common_close.text()) } },
+    )
+    // Pemberitahuan singkat (impor selesai, data dihapus, dll.) dulu diisi tetapi tidak pernah ditampilkan.
+    notice?.let { message ->
+        androidx.compose.ui.window.Popup(alignment = androidx.compose.ui.Alignment.BottomCenter, onDismissRequest = { notice = null }) {
+            Text(message, Modifier.padding(start = 24.dp, end = 24.dp, bottom = 120.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                .background(FFColors.pill).clickable { notice = null }.padding(horizontal = 18.dp, vertical = 12.dp).testTag("app-notice"),
+                color = FFColors.onPill, style = FFType.bodyMain)
+        }
+    }
     }
 }
+
+private const val PAGE_SEP = "|"
 
 /** Kata benda pada dialog konfirmasi hapus/arsip/batal. Label pengenal (mis. "arsip:tagihan") tetap berbahasa Indonesia. */
 private fun deletionNoun(id: String): String = when (id) {

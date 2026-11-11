@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
  */
 class TranslationCoverageTest {
     private val languages = listOf("base", "en", "ms", "es", "fr", "de", "ja", "zh", "hi")
-    private val prefixes = listOf("coach_", "lb_", "sb_", "set_notif_bills", "core_channel_bills", "core_channel_announcements")
+    private val prefixes = listOf("coach_", "lb_", "sb_", "set_notif_bills", "set_notif_floating_", "core_channel_bills", "core_channel_announcements")
     private val stringPattern = Regex("""<string name="([^"]+)">(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
     private val placeholder = Regex("""%\d+\$[sd]""")
 

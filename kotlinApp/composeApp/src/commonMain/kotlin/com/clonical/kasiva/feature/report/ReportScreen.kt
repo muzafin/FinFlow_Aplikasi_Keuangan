@@ -52,7 +52,9 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
     val preferences = LocalPreferences.current
     val currentDate = today()
     var kind by rememberSaveable { mutableStateOf("month") }
-    var anchor by rememberSaveable { mutableStateOf(if (month == currentDate.toString().take(7)) currentDate.toString() else "$month-01") }
+    // Periode pencatatan bisa mulai tgl ≠ 1: hari ini dipakai bila masuk periode `month` (P3-02).
+    val monthPeriod = recordingPeriod(month, preferences.recordingDay)
+    var anchor by rememberSaveable { mutableStateOf(if (currentDate.toString() in monthPeriod) currentDate.toString() else monthPeriod.start.toString()) }
     var customStart by rememberSaveable { mutableStateOf(recordingPeriod(month, preferences.recordingDay).start.toString()) }
     var customEnd by rememberSaveable { mutableStateOf(recordingPeriod(month, preferences.recordingDay).endExclusive.plus(DatePeriod(days = -1)).toString()) }
     val period = if (kind == "custom") FinancePeriod(LocalDate.parse(customStart), LocalDate.parse(customEnd).plus(DatePeriod(days = 1)))
@@ -156,7 +158,7 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
         if (value == "custom") { openFilters("custom"); return }
         val contextDate = when (kind) {
             "custom" -> LocalDate.parse(customStart)
-            "month" -> if (month == currentDate.toString().take(7)) currentDate else LocalDate.parse("$month-01")
+            "month" -> if (currentDate.toString() in monthPeriod) currentDate else monthPeriod.start
             else -> LocalDate.parse(anchor)
         }
         if (value == "month" && kind != "month") monthChange(activeRecordingMonth(contextDate, preferences.recordingDay))
@@ -379,7 +381,7 @@ fun Reports(data: FinanceData, month: String, monthChange: (String) -> Unit, exp
                     OlloCard {
                         Text(MR.strings.dash_stats_activity_map.text(), style = FFType.bodyMain.copy(fontSize = 16.sp, fontWeight = FontWeight.Medium))
                         Spacer(Modifier.height(14.dp))
-                        ActivityHeatmap(period.start, reportAmounts(period, selected, type), heatColor, preferences.weekStart, currency)
+                        ActivityHeatmap(heatStart.plus(DatePeriod(days = (heatAmounts.size - 42).coerceAtLeast(0))), heatAmounts.takeLast(42), heatColor, preferences.weekStart, currency) // P3-07: hari terbaru
                         Spacer(Modifier.height(12.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                             Text(MR.strings.dash_stats_less.text(), style = FFType.metaData.copy(fontSize = 10.sp), color = FFColors.onSurfaceVariant)
@@ -844,20 +846,21 @@ private fun FinancialCalculator(currency: String, preferences: AppPreferences) {
                 contentAlignment = Alignment.Center) { Text(label, style = FFType.metaData, color = if (chosen) FFColors.background else FFColors.onSurface) }
         }
     }
-    fun amount(text: String) = text.filter { it.isDigit() }.toLongOrNull()?.let { it * 100 }
+    // Skala sesuai jumlah desimal mata uang (JPY 0, KWD 3), bukan selalu ×100 (P3-04).
+    fun amount(text: String) = text.filter { it.isDigit() }.toLongOrNull()?.let { v -> (0 until com.clonical.kasiva.core.util.currencyDigits(currency)).fold(v) { n, _ -> n * 10 } }
     Spacer(Modifier.height(8.dp))
     if (mode == "goal") {
-        Field(MR.strings.dash_calc_target_amount.text(currency), target, { target = it.filter(Char::isDigit) })
-        Field(MR.strings.dash_calc_monthly_saving.text(currency), monthly, { monthly = it.filter(Char::isDigit) })
+        Field(MR.strings.dash_calc_target_amount.text(currency), target, { target = it.filter(Char::isDigit) }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
+        Field(MR.strings.dash_calc_monthly_saving.text(currency), monthly, { monthly = it.filter(Char::isDigit) }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
         val t = amount(target); val m = amount(monthly)
         if (t != null && m != null && m > 0) {
             val months = ((t + m - 1) / m).toInt()
             Text(MR.strings.dash_calc_months_result.text(months, months / 12, months % 12), Modifier.padding(top = 10.dp), style = FFType.bodyMain, color = FFColors.income)
         }
     } else {
-        Field(MR.strings.dash_calc_loan_amount.text(currency), target, { target = it.filter(Char::isDigit) })
-        Field(MR.strings.dash_calc_interest.text(), rate, { rate = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.replace(',', '.') })
-        Field(MR.strings.dash_calc_tenor.text(), tenor, { tenor = it.filter(Char::isDigit) })
+        Field(MR.strings.dash_calc_loan_amount.text(currency), target, { target = it.filter(Char::isDigit) }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
+        Field(MR.strings.dash_calc_interest.text(), rate, { rate = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.replace(',', '.') }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Decimal))
+        Field(MR.strings.dash_calc_tenor.text(), tenor, { tenor = it.filter(Char::isDigit) }, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Number))
         val p = amount(target); val n = tenor.toIntOrNull(); val r = (rate.toDoubleOrNull() ?: -1.0) / 100 / 12
         if (p != null && n != null && n > 0 && r >= 0) {
             val payment = if (r == 0.0) p.toDouble() / n else p * r / (1 - (1 + r).pow(-n.toDouble()))

@@ -247,7 +247,7 @@ final class IOSNativeServices: NSObject, NativeServices, UIDocumentPickerDelegat
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
         let clean = String(name.unicodeScalars.map { allowed.contains($0) ? Character(String($0)) : "_" }.suffix(120))
-        let filename = clean.isEmpty || clean == "." || clean == ".." ? "finflow-export" : clean
+        let filename = clean.isEmpty || clean == "." || clean == ".." ? "kasiva-export" : clean
         return directory.appendingPathComponent(filename)
     }
     private func shareExport(file: URL) {

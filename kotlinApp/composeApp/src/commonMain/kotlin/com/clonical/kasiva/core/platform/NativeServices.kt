@@ -51,6 +51,7 @@ interface NativeServices {
     fun setPushUser(userId: String?, language: String) {}
     fun billPushEnabled(): Boolean = false
     fun setBillPush(enabled: Boolean, result: (String?) -> Unit) { result(MR.strings.set_notif_bills_cloud_only.text()) }
+    fun openNotificationSettings(channelId: String? = null, result: (String?) -> Unit) { result(MR.strings.core_notifications_disabled.text()) }
     fun pickCsv(result: (String?, String?) -> Unit)
     fun shareCsv(name: String, content: String)
     fun shareTextFile(name: String, content: String, mimeType: String) = shareCsv(name, content)

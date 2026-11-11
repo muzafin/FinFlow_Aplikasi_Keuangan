@@ -40,7 +40,7 @@ internal fun walletSummaryValues(data:FinanceData,currency:String,date:LocalDate
         included.fold(sum){subtotal,a->checkedAdd(subtotal,accountDelta(t,a.id))}
     }
     val excluded=data.accounts.filter{it.excludedFromTotal}.map{it.id}.toSet()
-    val debtTotal=data.debts.filter{it.direction=="borrowed" && it.currency==currency && it.accountId !in excluded}
+    val debtTotal=data.debts.filter{it.direction=="borrowed" && !it.archived && it.currency==currency && it.accountId !in excluded} // P5-03
         .fold(0L){sum,d->checkedAdd(sum,(d.amountMinor-d.paidMinor).coerceAtLeast(0))}
     val negativeWallets=included.filter{it.type in listOf("credit","loan")}.fold(0L){sum,a->checkedAdd(sum,-data.balance(a).coerceAtMost(0))}
     val savings=data.goals.filter{!it.archived && it.currency==currency && it.holdingAccountId in ids}
@@ -88,7 +88,7 @@ fun WalletScreen(data:FinanceData,edit:(Account)->Unit,add:()->Unit,open:((Accou
     val visible=data.accounts.filter{it.archived==archived}.orderedWallets(preferences)
     // Grup mengikuti walletGroupOrder (selalu berisi 8 grup yang valid); bawaan sama dengan urutan lama.
     val groupOrder=preferences.walletGroupOrder.filter{it in walletGroups}.let{if(it.toSet()==walletGroups.toSet())it else walletGroups}
-    val currencies=(active.map{it.currency}+data.debts.filter{it.direction=="borrowed" && it.paidMinor<it.amountMinor}.map{it.currency})
+    val currencies=(active.map{it.currency}+data.debts.filter{it.direction=="borrowed" && !it.archived && it.paidMinor<it.amountMinor}.map{it.currency})
         .distinct().ifEmpty{listOf(data.profile?.baseCurrency ?: "IDR")}.sortedWith(compareBy<String>{if(it==data.profile?.baseCurrency)0 else 1}.thenBy{it})
     val types=walletGroups.toSet()-"other"
     val roots=visible.filter{a->a.parentId==null || visible.none{it.id==a.parentId}}
@@ -287,13 +287,13 @@ private fun WalletGoalCard(goal:Goal,data:FinanceData,preferences:AppPreferences
             }
         }
         Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.Bottom) {
-            Column {
-                Text(MR.strings.acc_current_balance.text(),style=FFType.badgeLabel.copy(fontSize=10.sp),color=FFColors.outline)
-                FitMoneyText(formatBalance(saved,currency,preferences),FFType.amountMd)
-            }
-            Text(MR.strings.acc_goal_target_amount.text(formatBalance(target,currency,preferences)),style=FFType.metaData,color=FFColors.outline)
-        }
+        // FitMoneyText selalu fillMaxWidth: jangan taruh berdampingan dengan teks lain tanpa weight, kalau tidak
+        // label target kebagian lebar ~0 dan turun satu huruf per baris (BUG-02). Target diberi baris sendiri.
+        Text(MR.strings.acc_current_balance.text(),style=FFType.badgeLabel.copy(fontSize=10.sp),color=FFColors.outline)
+        FitMoneyText(formatBalance(saved,currency,preferences),FFType.amountMd)
+        Spacer(Modifier.height(4.dp))
+        Text(MR.strings.acc_goal_target_amount.text(formatBalance(target,currency,preferences)),Modifier.fillMaxWidth().testTag("wallet-goal-target-${goal.id}"),
+            style=FFType.metaData,color=FFColors.outline,maxLines=1,overflow=TextOverflow.Ellipsis,textAlign=TextAlign.End)
         Spacer(Modifier.height(10.dp))
         LinearProgressIndicator(progress={if(target>0)(saved.toFloat()/target).coerceIn(0f,1f) else 0f},
             modifier=Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),color=color,trackColor=FFColors.outlineVariant)

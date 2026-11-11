@@ -78,6 +78,7 @@ private fun AiTopBar(title: String, back: () -> Unit, beta: Boolean = false, act
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssistantScreen(controller: AiController, data: FinanceData, language: String, back: () -> Unit, openSettings: () -> Unit, openPremium: () -> Unit) {
+    val recordingDay = com.clonical.kasiva.core.model.LocalPreferences.current.recordingDay
     var conversation by remember { mutableStateOf(AssistantConversation()) }
     var input by rememberSaveable { mutableStateOf("") }
     var history by remember { mutableStateOf(false) }
@@ -92,7 +93,7 @@ fun AssistantScreen(controller: AiController, data: FinanceData, language: Strin
             conversation = asked
             input = ""
             controller.run(MR.strings.ai_working_assistant.text()) {
-                val reply = controller.service.ask(asked.turns, assistantSummary(data), controller.store.assistantSettings(), language)
+                val reply = controller.service.ask(asked.turns, assistantSummary(data, recordingDay), controller.store.assistantSettings(), language)
                 conversation = asked.copy(turns = asked.turns + AssistantTurn("assistant", reply), updatedAt = nowMillis())
                 controller.store.saveConversation(conversation)
             }

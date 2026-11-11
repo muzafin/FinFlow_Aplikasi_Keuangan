@@ -26,6 +26,8 @@ fun FinanceData.withLocalizedDefaults(): FinanceData {
             if (shown == category.name) category else category.copy(name = shown)
         },
         accounts = accounts.map { account ->
+            // Hanya dompet bawaan yang dibuat aplikasi; dompet buatan pengguna bernama "Cash"/"Tunai" tetap (P6-03).
+            if (account.id != "acc_cash") return@map account
             val shown = localizedDefault(account.name, "core_default_wallet_name", MR.strings.core_default_wallet_name)
             if (shown == account.name) account else account.copy(name = shown)
         },

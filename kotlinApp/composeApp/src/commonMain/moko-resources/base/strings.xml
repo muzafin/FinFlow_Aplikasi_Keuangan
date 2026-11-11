@@ -70,6 +70,9 @@
     <string name="acc_err_future_date">Tanggal tidak boleh di masa depan</string>
     <string name="acc_err_goal_name_currency">Isi nama dan mata uang yang valid</string>
     <string name="acc_err_goal_target_range">Target harus positif dan tidak melebihi batas</string>
+    <string name="acc_err_goal_amount_invalid">Masukkan nominal yang valid</string>
+    <string name="acc_err_goal_name_required">Isi nama tabungan</string>
+    <string name="acc_err_goal_currency_invalid">Isi kode mata uang 3 huruf (mis. IDR)</string>
     <string name="acc_err_insufficient_goal_funds">Dana setoran dompet tidak mencukupi</string>
     <string name="acc_err_insufficient_source">Saldo dompet sumber tidak cukup</string>
     <string name="acc_err_invalid_data">Data akun tidak valid</string>
@@ -1692,9 +1695,9 @@
     <string name="pf_downloads_unavailable">Simpan ke Unduhan belum didukung di perangkat ini.</string>
     <string name="pf_page_exchange_rates">Kurs</string>
     <string name="pf_rates_error">Kurs belum dapat dimuat. Periksa koneksi lalu coba lagi.</string>
-    <string name="pf_rates_intro">Kurs referensi harian terhadap %1$s. Dipakai sebagai acuan, bukan kurs transaksi bank.</string>
+    <string name="pf_rates_intro">Kurs referensi terhadap %1$s, diperbarui otomatis setiap menit. Dipakai sebagai acuan, bukan kurs transaksi bank.</string>
     <string name="pf_rates_refresh">Muat ulang</string>
-    <string name="pf_rates_source">Sumber: kurs referensi Bank Sentral Eropa (ECB) melalui Frankfurter, diperbarui setiap hari kerja.</string>
+    <string name="pf_rates_source">Sumber: fawazahmed0/exchange-api (data publik gratis di GitHub), mencakup mata uang seluruh negara dan diperbarui setiap hari.</string>
     <string name="pf_rates_stale">data terakhir tersimpan</string>
     <string name="pf_rates_unavailable">Tidak tersedia</string>
     <string name="pf_rates_updated">Diperbarui %1$s</string>
@@ -2775,4 +2778,22 @@
     <string name="coach_tabs_title">Pindah halaman</string>
     <string name="coach_tabs_body">Buka Statistik untuk grafik pengeluaran, Dompet untuk rekening dan e-wallet, dan Profil untuk pengaturan.</string>
     <string name="coach_replay">Ulangi panduan aplikasi</string>
+    <string name="set_notif_floating_title">Notifikasi mengambang</string>
+    <string name="set_notif_floating_desc">Izinkan notifikasi Kasiva tampil sebagai pop-up. Buka Atur izin untuk mengizinkan notifikasi, lalu pilih setiap kategori untuk mengaktifkan notifikasi mengambang jika tersedia. Anda dapat menolak atau mematikannya kapan saja di pengaturan HP. Mode Jangan Ganggu dapat menahan pop-up.</string>
+    <string name="set_notif_floating_manage">Atur izin</string>
+    <string name="inv_mkt_title">Harga Pasar</string>
+    <string name="inv_mkt_note">Diperbarui otomatis setiap menit. Harga bisa tertunda mengikuti sesi bursa dan bukan rekomendasi investasi.</string>
+    <string name="inv_mkt_idx">Saham Indonesia</string>
+    <string name="inv_mkt_us">Saham Internasional (AS)</string>
+    <string name="inv_mkt_metals">Logam Mulia</string>
+    <string name="inv_mkt_crypto">Kripto</string>
+    <string name="inv_mkt_last_price">Harga terakhir</string>
+    <string name="inv_mkt_error">Harga pasar belum dapat dimuat. Periksa koneksi internet lalu coba lagi.</string>
+    <string name="inv_mkt_chart_error">Grafik belum dapat dimuat.</string>
+    <string name="inv_mkt_source">Sumber: Yahoo Finance dan fawazahmed0/exchange-api, dikonversi ke %1$s.</string>
+    <string name="inv_mkt_high_low">Tertinggi %1$s · Terendah %2$s</string>
+    <string name="inv_mkt_gold">Emas</string>
+    <string name="inv_mkt_silver">Perak</string>
+    <string name="inv_mkt_platinum">Platinum</string>
+    <string name="inv_mkt_palladium">Paladium</string>
 </resources>

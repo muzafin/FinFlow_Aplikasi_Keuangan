@@ -365,12 +365,16 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         val ref=collection("accounts").document(account.id)
         db.runTransaction {
             val previous=get(ref)
+            val old=if(previous.exists)previous.data<Account>() else null
             val parent=account.parentId?.let{require(it!=account.id);get(collection("accounts").document(it)).data<Account>()}
-            require(parent==null || !parent.archived && parent.parentId==null && parent.currency==account.currency){MR.strings.core_error_pocket_parent.text()}
-            if(previous.exists){
-                val old=previous.data<Account>()
+            // Induk yang sudah diarsipkan tidak boleh mengunci pocket-nya (P5-01): status aktif induk hanya dicek saat
+            // pocket baru, induk diganti, atau pocket diaktifkan kembali.
+            val checkParentActive=old==null || old.parentId!=account.parentId || (old.archived && !account.archived)
+            require(parent==null || (!checkParentActive || !parent.archived) && parent.parentId==null && parent.currency==account.currency){MR.strings.core_error_pocket_parent.text()}
+            if(old!=null){
                 require(old.currency==account.currency && old.createdAt==account.createdAt){MR.strings.core_error_wallet_immutable.text()}
-                if(old.type=="savings")require(account.type==old.type && account.goalId==old.goalId && account.openingBalanceMinor==old.openingBalanceMinor && account.parentId==null){MR.strings.core_error_goal_wallet_via_goals.text()}
+                // Dompet target diarsipkan lewat Target (yang memastikan dana sudah ditarik), bukan dari editor dompet (P5-02).
+                if(old.type=="savings")require(account.type==old.type && account.goalId==old.goalId && account.openingBalanceMinor==old.openingBalanceMinor && account.parentId==null && account.archived==old.archived){MR.strings.core_error_goal_wallet_via_goals.text()}
                 else require(account.goalId==null && account.type!="savings")
             } else require(account.type!="savings" && account.goalId==null){MR.strings.core_error_create_savings_via_goals.text()}
             set(ref,account)
@@ -432,15 +436,24 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         }
     }
 
+    private suspend fun FinanceTransaction.validateReferences(tx: Transaction) {
+        val source = get(collection("accounts").document(tx.accountId)).data<Account>()
+        val target = tx.toAccountId?.let { get(collection("accounts").document(it)).data<Account>() }
+        if (tx.type != "transfer") require(get(collection("categories").document(tx.categoryId)).data<Category>().type == tx.type) { MR.strings.core_error_category_type_mismatch.text() }
+        tx.subcategoryId?.let { id ->
+            val sub = get(collection("categories").document(id)).data<Category>()
+            require(sub.parentId == tx.categoryId && sub.type == tx.type) { MR.strings.core_error_subcategory_mismatch.text() }
+        }
+        require(!source.archived && source.currency == tx.currency) { MR.strings.core_error_wallet_inactive_or_currency.text() }
+        require(source.type != "savings" && target?.type != "savings") { MR.strings.core_error_use_goal_deposit.text() }
+        if (target != null) require(!target.archived) { MR.strings.core_error_target_wallet_inactive.text() }
+    }
+
     private suspend fun writeTransaction(tx: Transaction) {
-        val accounts = collection("accounts")
         val ref = collection("transactions").document(tx.id)
         db.runTransaction {
             val previous = get(ref)
-            val source = get(accounts.document(tx.accountId)).data<Account>()
-            val target = tx.toAccountId?.let { get(accounts.document(it)).data<Account>() }
-            if(tx.type!="transfer")require(get(collection("categories").document(tx.categoryId)).data<Category>().type==tx.type){MR.strings.core_error_category_type_mismatch.text()}
-            tx.subcategoryId?.let { id -> val sub=get(collection("categories").document(id)).data<Category>();require(sub.parentId==tx.categoryId && sub.type==tx.type){MR.strings.core_error_subcategory_mismatch.text()} }
+            validateReferences(tx)
             if (previous.exists) {
                 val claim = get(collection("reimbursements").document(tx.id))
                 if (claim.exists) {
@@ -450,9 +463,6 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
                     }
                 }
             }
-            require(!source.archived && source.currency == tx.currency) { MR.strings.core_error_wallet_inactive_or_currency.text() }
-            require(source.type!="savings" && target?.type!="savings"){MR.strings.core_error_use_goal_deposit.text()}
-            if (target != null) require(!target.archived) { MR.strings.core_error_target_wallet_inactive.text() }
             set(ref, tx.copy(updatedAt = nowMillis()))
         }
     }
@@ -479,11 +489,7 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         val ref = base.collection("transactions").document(tx.id)
         return db.runTransaction {
             if (get(ref).exists) false else {
-                val account = get(base.collection("accounts").document(tx.accountId)).data<Account>()
-                require(!account.archived && account.currency == tx.currency) { MR.strings.core_error_pick_active_wallet.text() }
-                if (tx.toAccountId != null) {
-                    require(!get(base.collection("accounts").document(tx.toAccountId)).data<Account>().archived) { MR.strings.core_error_target_wallet_inactive.text() }
-                }
+                validateReferences(tx)
                 set(ref, tx.copy(updatedAt = nowMillis()))
                 true
             }
@@ -559,7 +565,10 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
             validateTransaction(tx)
             val inserted = db.runTransaction {
                 val doc = ref.collection("transactions").document(tx.id)
-                if (get(doc).exists) false else { set(doc, tx); true }
+                if (get(doc).exists) false else {
+                    validateReferences(tx)
+                    set(doc, tx); true
+                }
             }
             if (inserted) added++
             progress(index + 1, plan.transactions.size)

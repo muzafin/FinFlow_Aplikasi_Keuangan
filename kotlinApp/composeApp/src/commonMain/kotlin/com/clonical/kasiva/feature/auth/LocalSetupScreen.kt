@@ -56,7 +56,7 @@ fun LocalSetupScreen(busy:Boolean,back:()->Unit,complete:(String,String,Long)->U
             error?.let{Spacer(Modifier.height(12.dp));Text(it,color=MaterialTheme.colorScheme.error)}
         }
         EntryButton(if(step==0)MR.strings.common_next.text() else MR.strings.auth_start_now.text(),busy){
-            if(step==0)step=1 else try{require(wallet.isNotBlank() && wallet.trim().length<=100){MR.strings.auth_error_wallet_name.text()};complete(currency,wallet.trim(),minorAmount(balance,currency))}catch(e:Exception){error=e.message}
+            if(step==0)step=1 else try{require(wallet.isNotBlank() && wallet.trim().length<=100){MR.strings.auth_error_wallet_name.text()};complete(currency,wallet.trim(),com.clonical.kasiva.core.util.parseUserAmount(balance,currency))}catch(e:Exception){error=e.message}
         }
     }
     if(all)AlertDialog(onDismissRequest={all=false},title={Text(MR.strings.auth_currency_dialog_title.text())},text={Column(Modifier.heightIn(max=360.dp).verticalScroll(rememberScrollState())){

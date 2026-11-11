@@ -66,6 +66,30 @@ fun NotificationSettings(native: NativeServices) {
     )
     Column(Modifier.fillMaxSize().background(FFColors.background).verticalScroll(rememberScrollState()).testTag("notifications-page")
         .padding(horizontal = 16.dp, vertical = 8.dp)) {
+        if (native.devicePlatform() == "android") {
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(FFColors.surface).padding(16.dp)) {
+                Text(MR.strings.set_notif_floating_title.text(), style = FFType.sectionTitle, color = FFColors.onSurface)
+                Spacer(Modifier.height(8.dp))
+                Text(MR.strings.set_notif_floating_desc.text(), style = FFType.bodyMain, color = FFColors.onSurfaceVariant)
+                TextButton(onClick = { native.openNotificationSettings { error = it } }, modifier = Modifier.testTag("notif-system-settings")) {
+                    Text(MR.strings.set_notif_floating_manage.text())
+                }
+                listOf(
+                    "announcements" to MR.strings.core_channel_announcements.text(),
+                    "bills" to MR.strings.core_channel_bills.text(),
+                    "daily" to MR.strings.core_channel_daily.text(),
+                    "budget" to MR.strings.core_channel_budget.text(),
+                ).forEach { (id, label) ->
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
+                        .clickable(role = Role.Button) { native.openNotificationSettings(id) { error = it } }
+                        .testTag("notif-channel-$id").padding(vertical = 12.dp, horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, Modifier.weight(1f), style = FFType.bodyMain, color = FFColors.onSurface)
+                        FFIcon("hi_chevron_right", FFColors.onSurfaceVariant, 18.dp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
         NotificationHistoryBanner()
         if (history.isNotEmpty()) Spacer(Modifier.height(16.dp))
         NotificationHistoryList(history)

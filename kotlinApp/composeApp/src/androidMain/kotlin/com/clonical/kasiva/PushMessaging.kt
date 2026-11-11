@@ -57,7 +57,9 @@ object PushMessaging {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL_BILLS, MR.strings.core_channel_bills.text(), NotificationManager.IMPORTANCE_HIGH))
-        manager.createNotificationChannel(NotificationChannel(CHANNEL_ANNOUNCEMENTS, MR.strings.core_channel_announcements.text(), NotificationManager.IMPORTANCE_DEFAULT))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_ANNOUNCEMENTS, MR.strings.core_channel_announcements.text(), NotificationManager.IMPORTANCE_HIGH))
+        manager.createNotificationChannel(NotificationChannel("daily", MR.strings.core_channel_daily.text(), NotificationManager.IMPORTANCE_HIGH))
+        manager.createNotificationChannel(NotificationChannel("budget", MR.strings.core_channel_budget.text(), NotificationManager.IMPORTANCE_HIGH))
     }
 
     fun billRemindersEnabled(context: Context) = prefs(context).getBoolean(KEY_BILLS, true)

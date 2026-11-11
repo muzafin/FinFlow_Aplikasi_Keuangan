@@ -86,7 +86,7 @@ internal fun normalizeCsv(all: List<List<String>>): NormalizedCsv {
         currency = currency, type = type, description = null,
         dateFormat = detectDateFormat(rowsForSample.map { it[date!!] }),
         amountFormat = null,
-        typeMapping = typeMapping, typeFromSign = type == null && rowsForSample.any { it[amount!!].trim().startsWith("-") },
+        typeMapping = typeMapping, typeFromSign = type == null && rowsForSample.any { it[amount!!].trim().let { v -> v.startsWith("-") || v.startsWith("(") } }, // P4-05: (25000) = negatif
     )
     return NormalizedCsv(header, rows, numbers, mapping)
 }

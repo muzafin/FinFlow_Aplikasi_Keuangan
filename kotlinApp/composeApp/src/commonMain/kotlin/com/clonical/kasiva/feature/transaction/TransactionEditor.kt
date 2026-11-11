@@ -152,7 +152,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                 currency = source.currency, accountId = source.id, categoryId = if (type == "transfer") "transfer" else categoryId,
                 title = title.trim().ifBlank{data.categories.find{it.id==(subcategoryId ?: categoryId)}?.name ?: typeLabel}, description = description.trim(), date = date.trim(),
                 toAccountId = if (type == "transfer") target?.id else null,
-                receivedAmountMinor = if (type == "transfer") minorAmount(received.ifBlank { amount }, target?.currency ?: source.currency) else null,
+                receivedAmountMinor = if (type != "transfer") null else if (target == null || target.currency == source.currency) (converted ?: minorAmount(amount, source.currency)) else minorAmount(received, target.currency), // P3-01: sesama mata uang selalu = nominal
                 createdAt = old?.createdAt ?: pickedCreatedAt ?: nowMillis(), source = old?.source ?: "manual", sourceId = old?.sourceId, scheduled = scheduled,
                 subcategoryId=if(type=="transfer")null else subcategoryId,tags=tags,
                 originalCurrency = if (converting) currency else null, originalAmountMinor = if (converting) minorAmount(amount, currency) else null)

@@ -316,7 +316,8 @@ fun RecurringFormEditor(
             require(accountId.isNotBlank()) { MR.strings.tx_err_pick_payment_wallet.text() }
             val value = minorAmount(amount, currency)
             val next = date
-            val start = old?.takeIf { it.nextDate == next }?.startDate ?: next
+            // Tanggal mulai tidak boleh berubah saat edit (repo menolaknya); pindah jadwal cukup lewat nextDate (P2-01).
+            val start = old?.startDate ?: next
             val anchor = if (old != null && old.nextDate == next) old.anchorDay else LocalDate.parse(next).dayOfMonth
             val recurring = RecurringTransaction(
                 id = id, title = title.trim(), type = type, amountMinor = value, currency = currency,

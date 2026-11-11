@@ -27,11 +27,10 @@ class AiFeatureTest {
         assertNull(AiDraft("income", 0.0, title = "Nol").toTransaction(data, "cash"))
     }
 
-    @Test fun transferWithoutValidTargetBecomesExpenseDraft() {
+    @Test fun crossCurrencyTransferNeedsReceivedAmountAndInvalidTargetIsRejected() {
         val transfer = assertNotNull(AiDraft("transfer", 100.0, title = "Pindah", walletId = "cash", toWalletId = "usd").toTransaction(data, "cash"))
-        assertEquals("transfer", transfer.type); assertEquals("usd", transfer.toAccountId); assertEquals(10000L, transfer.receivedAmountMinor)
-        val broken = assertNotNull(AiDraft("transfer", 100.0, title = "Pindah", walletId = "cash", toWalletId = "cash").toTransaction(data, "cash"))
-        assertEquals("expense", broken.type); assertNull(broken.toAccountId)
+        assertEquals("transfer", transfer.type); assertEquals("usd", transfer.toAccountId); assertNull(transfer.receivedAmountMinor)
+        assertNull(AiDraft("transfer", 100.0, title = "Pindah", walletId = "cash", toWalletId = "cash").toTransaction(data, "cash"))
     }
 
     @Test fun receiptNoteFollowsUserOrderAndToggles() {

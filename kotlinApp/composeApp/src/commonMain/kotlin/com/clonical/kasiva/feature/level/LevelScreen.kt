@@ -199,7 +199,7 @@ private fun AchievementBadge(badge:RecordingAchievement,color:Color,modifier:Mod
 @Composable
 private fun LeaderboardCard(state:GamificationState?) {
     val scope=androidx.compose.runtime.rememberCoroutineScope()
-    androidx.compose.runtime.LaunchedEffect(state){ state?.loadLeaderboard() }
+    androidx.compose.runtime.LaunchedEffect(state){ state?.refresh(); state?.loadLeaderboard() }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(20.dp).testTag("level-leaderboard")) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             FFIcon("emoji_events_outlined",Color(0xFFF2B300),24.dp)

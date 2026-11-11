@@ -42,3 +42,39 @@ fun money(minor: Long, currency: String): String {
     val whole = raw[0].removePrefix("-").reversed().chunked(3).joinToString(".").reversed()
     return "$currency ${if (minor < 0) "-" else ""}$whole${if (raw.size > 1) ",${raw[1]}" else ""}"
 }
+
+/**
+ * Ubah teks angka gaya pengguna ("25.000", "1.500.000", "12.500,50", "1,234.5") menjadi digit dengan "." sebagai
+ * desimal saja ("25000", "1500000", "12500.50"). Aturan pemisah:
+ *  - ada "." dan "," → yang terakhir adalah desimal, yang lain ribuan;
+ *  - salah satu muncul lebih dari sekali → ribuan;
+ *  - muncul sekali diikuti tepat 3 digit → ribuan (kecuali mata uang 3 desimal), selain itu desimal.
+ * Tanda "-" di depan atau kurung "(25.000)" dibaca sebagai negatif. Hasil null bila tidak ada digit.
+ */
+fun normalizeAmountText(raw: String, decimalDigits: Int = 2): String? {
+    var value = raw.trim()
+    var negative = false
+    if (value.startsWith("(") && value.endsWith(")")) { negative = true; value = value.substring(1, value.length - 1).trim() }
+    if (value.startsWith("-")) { negative = true; value = value.removePrefix("-") } else if (value.startsWith("+")) value = value.removePrefix("+")
+    value = value.filter { it in '0'..'9' || it == '.' || it == ',' }
+    if (value.none { it in '0'..'9' }) return null
+    fun groupingOnly(sep: Char): Boolean {
+        val after = value.length - value.indexOf(sep) - 1
+        return after == 3 && decimalDigits != 3 && value.indexOf(sep) > 0
+    }
+    value = when {
+        '.' in value && ',' in value -> if (value.lastIndexOf(',') > value.lastIndexOf('.')) value.replace(".", "").replace(',', '.') else value.replace(",", "")
+        value.count { it == ',' } > 1 -> value.replace(",", "")
+        value.count { it == '.' } > 1 -> value.replace(".", "")
+        value.count { it == ',' } == 1 -> if (groupingOnly(',')) value.replace(",", "") else value.replace(',', '.')
+        value.count { it == '.' } == 1 -> if (groupingOnly('.')) value.replace(".", "") else value
+        else -> value
+    }
+    if (value.startsWith(".")) value = "0$value"
+    value = value.trimEnd('.')
+    return (if (negative) "-" else "") + value
+}
+
+/** [minorAmount] untuk teks yang diketik/ditempel pengguna: memahami pemisah ribuan "." dan desimal ",". */
+fun parseUserAmount(text: String, currency: String, allowNegative: Boolean = false): Long =
+    minorAmount(normalizeAmountText(text, currencyDigits(currency)) ?: text, currency, allowNegative)

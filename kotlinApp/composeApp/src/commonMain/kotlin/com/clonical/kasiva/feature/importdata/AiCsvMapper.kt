@@ -51,8 +51,8 @@ internal fun buildAiPlan(rows: List<List<String>>, mapping: AiCsvMapping, existi
                 }
             }
             val title = cell(row, mapping.title).ifBlank { if (type == "transfer") "Transfer" else categoryName }
-            val id = "ai_" + stableHash(listOf("ai", (offset + 2).toString(), date, type, amount.toString(), currency, fromName, toName, title).joinToString("|"))
-            if (id in planner.seen) planner.duplicates++ else {
+            val id = planner.importId("ai", "ai", date, type, amount, currency, fromName, toName, title)
+            if (id == null || id in planner.seen) planner.duplicates++ else {
                 val from = planner.account(fromName, currency)
                 val to = if (type == "transfer") planner.account(toName, toCurrency) else null
                 val category = if (type == "transfer") null else planner.category(categoryName, type)

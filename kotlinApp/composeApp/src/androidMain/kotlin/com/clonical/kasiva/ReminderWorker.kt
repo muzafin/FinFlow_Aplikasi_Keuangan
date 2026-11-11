@@ -3,7 +3,6 @@ package com.clonical.kasiva
 import com.clonical.kasiva.i18n.*
 import com.clonical.kasiva.core.i18n.text
 import android.Manifest
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -26,7 +25,7 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val prefs = applicationContext.getSharedPreferences("finflow", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("reminder", false)) return Result.success()
         val manager = applicationContext.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel("daily", MR.strings.core_channel_daily.text(), NotificationManager.IMPORTANCE_DEFAULT))
+        PushMessaging.createChannels(applicationContext)
         val allowed = Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (allowed) {
             val intent = PendingIntent.getActivity(applicationContext, 0, Intent(applicationContext, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

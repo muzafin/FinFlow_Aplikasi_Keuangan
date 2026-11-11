@@ -11,7 +11,6 @@ import com.clonical.kasiva.notificationimport.NotificationImportStore
 import android.Manifest
 import android.app.Activity
 import android.app.KeyguardManager
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
@@ -156,6 +155,32 @@ class MainActivity : FragmentActivity(), NativeServices {
         else callback?.invoke(MR.strings.core_notifications_disabled.text())
     }
     private var pushUid: String? = null
+    private var floatingSettingsRequest: Pair<String?, (String?) -> Unit>? = null
+    private val floatingNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val request = floatingSettingsRequest ?: return@registerForActivityResult
+        floatingSettingsRequest = null
+        if (granted) showNotificationSettings(request.first, request.second)
+        else request.second(MR.strings.core_notifications_disabled.text())
+    }
+    override fun openNotificationSettings(channelId: String?, result: (String?) -> Unit) {
+        if (floatingSettingsRequest != null || billPermissionResult != null || budgetPermissionResult != null || reminderResult != null) {
+            result(MR.strings.core_permission_request_pending.text()); return
+        }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            && (!prefs.getBoolean("push.permissionAsked", false) || shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS))) {
+            prefs.edit().putBoolean("push.permissionAsked", true).apply()
+            floatingSettingsRequest = channelId to result
+            floatingNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else showNotificationSettings(channelId, result)
+    }
+    private fun showNotificationSettings(channelId: String?, result: (String?) -> Unit) {
+        PushMessaging.createChannels(this)
+        val intent = Intent(if (channelId == null) android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS else android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+        if (channelId != null) intent.putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, channelId)
+        try { startActivity(intent); result(null) }
+        catch (_: android.content.ActivityNotFoundException) { result(MR.strings.core_notifications_disabled.text()) }
+    }
     override fun setPushUser(userId: String?, language: String) {
         pushUid = userId
         PushMessaging.sync(this, userId, language)
@@ -323,7 +348,7 @@ class MainActivity : FragmentActivity(), NativeServices {
         val directory = File(cacheDir, "exports")
         check(directory.isDirectory || directory.mkdirs()) { MR.strings.core_export_folder_failed.text() }
         val clean = name.replace(Regex("[^a-zA-Z0-9._-]"), "_").takeLast(120)
-        return File(directory, clean.takeUnless { it.isBlank() || it == "." || it == ".." } ?: "finflow-export")
+        return File(directory, clean.takeUnless { it.isBlank() || it == "." || it == ".." } ?: "kasiva-export")
     }
     private fun shareExport(file: File, mimeType: String) {
         val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
@@ -401,7 +426,7 @@ class MainActivity : FragmentActivity(), NativeServices {
             result(MR.strings.core_notifications_disabled.text())
         } else {
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(NotificationChannel("budget", MR.strings.core_channel_budget.text(), NotificationManager.IMPORTANCE_DEFAULT))
+            PushMessaging.createChannels(this)
             if (manager.getNotificationChannel("budget").importance == NotificationManager.IMPORTANCE_NONE) {
                 result(MR.strings.core_channel_budget_disabled.text())
             } else { prefs.edit().putBoolean("budget.enabled", true).apply(); result(null) }
@@ -412,7 +437,7 @@ class MainActivity : FragmentActivity(), NativeServices {
         if (!budgetAlertsEnabled() || prefs.getBoolean(key, false) || !NotificationManagerCompat.from(this).areNotificationsEnabled()) return
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel("budget", MR.strings.core_channel_budget.text(), NotificationManager.IMPORTANCE_DEFAULT))
+        PushMessaging.createChannels(this)
         if (manager.getNotificationChannel("budget").importance == NotificationManager.IMPORTANCE_NONE) return
         val intent = PendingIntent.getActivity(this, 1002, Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)

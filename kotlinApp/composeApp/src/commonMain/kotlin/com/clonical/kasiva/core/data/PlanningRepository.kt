@@ -60,7 +60,8 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             val snapshot = get(ref)
             val account = get(collection("accounts").document(value.accountId)).data<Account>()
             val category = get(collection("categories").document(value.categoryId)).data<Category>()
-            validAccount(account, value.currency); require(category.type == "expense")
+            // Edit tanpa mengganti dompet tetap boleh walau dompetnya sudah diarsipkan (P2-03).
+            validAccount(account, value.currency, active = !(snapshot.exists && snapshot.data<Bill>().accountId == value.accountId)); require(category.type == "expense")
             val previous = if (snapshot.exists) snapshot.data<Bill>() else null
             if (previous != null) {
                 require(previous.revision == value.revision) { planText(MR.strings.plan_err_bill_changed) }
@@ -106,7 +107,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
         db.runTransaction {
             val snapshot = get(ref)
             val account = get(collection("accounts").document(value.accountId)).data<Account>()
-            validAccount(account, value.currency, value.includeBalance)
+            validAccount(account, value.currency, value.includeBalance && !(snapshot.exists && snapshot.data<Debt>().accountId == value.accountId))
             if (snapshot.exists) {
                 val old = snapshot.data<Debt>()
                 require(value.revision == old.revision) { planText(MR.strings.plan_err_debt_changed) }
@@ -176,7 +177,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
         val ref=collection("notes").document(value.id)
         db.runTransaction {
             val snapshot=get(ref)
-            if(value.kind=="bundle")validAccount(get(collection("accounts").document(value.accountId!!)).data(),value.currency)
+            if(value.kind=="bundle")validAccount(get(collection("accounts").document(value.accountId!!)).data(),value.currency,active=!(snapshot.exists && snapshot.data<FinanceNote>().accountId==value.accountId))
             val old=if(snapshot.exists)snapshot.data<FinanceNote>() else null
             if(old!=null) {
                 require(value.revision==old.revision){planText(MR.strings.plan_err_bundle_changed_form)}
@@ -343,7 +344,7 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
             if (snapshot.exists) {
                 val old = snapshot.data<RecurringTransaction>()
                 require(old.revision == value.revision) { planText(MR.strings.plan_err_schedule_processed) }
-                require(old.startDate == value.startDate)
+                require(old.startDate == value.startDate) { planText(MR.strings.plan_err_schedule_processed) }
                 set(ref, value.copy(revision = old.revision + 1, createdAt = old.createdAt, lastEventId = old.lastEventId,
                     anchorDay = if (value.nextDate == old.nextDate) old.anchorDay else value.anchorDay))
             } else {
@@ -361,8 +362,10 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
         require(limit in 1..100)
         val ids = collection("recurring").get().documents.map { it.data<RecurringTransaction>() }.filter { it.active }.map { it.id }
         var count = 0
+        // Satu jadwal bermasalah (mis. dompetnya diarsipkan) tidak boleh menghentikan jadwal lain (P2-02).
+        var firstError: Exception? = null
         for (id in ids) {
-            while (count < limit) {
+            try { while (count < limit) {
                 val processed = db.runTransaction {
                     val ref = collection("recurring").document(id)
                     val current = get(ref).data<RecurringTransaction>()
@@ -386,9 +389,11 @@ class PlanningRepository(private val db: FinanceDatabase, private val root: Fina
                 }
                 if (!processed) break
                 count++
-            }
+            } } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { if (firstError == null) firstError = e }
             if (count >= limit) break
         }
+        // Tetap laporkan bila tidak ada satu pun yang berhasil, agar pengguna tahu ada jadwal yang perlu diperbaiki.
+        if (count == 0) firstError?.let { throw it }
         return count
     }
 

@@ -159,8 +159,8 @@ private fun LazyItemScope.ReorderRow(id:String,index:Int,last:Int,menus:Boolean,
                 PrefSwitch(visible,toggle,Modifier.testTag("menu-visible-$id"))
                 // Tombol naik/turun tetap ada untuk Susunan Menu (dipakai uji & aksesibilitas).
                 Column {
-                    IconButton(onClick={move(index,index-1)},enabled=index>0,modifier=Modifier.size(26.dp)){FFIcon("hi_chevron_up",FFColors.onSurfaceVariant,16.dp,MR.strings.set_pref_move_up.text(id))}
-                    IconButton(onClick={move(index,index+1)},enabled=index<last,modifier=Modifier.size(26.dp)){FFIcon("hi_chevron_down",FFColors.onSurfaceVariant,16.dp,MR.strings.set_pref_move_down.text(id))}
+                    IconButton(onClick={move(index,index-1)},enabled=index>0,modifier=Modifier.size(26.dp)){FFIcon("hi_chevron_up",FFColors.onSurfaceVariant,16.dp,up)}
+                    IconButton(onClick={move(index,index+1)},enabled=index<last,modifier=Modifier.size(26.dp)){FFIcon("hi_chevron_down",FFColors.onSurfaceVariant,16.dp,down)}
                 }
             }
             Box(Modifier.size(44.dp).pointerInput(id,step){detectDragGesturesAfterLongPress(

@@ -46,7 +46,7 @@ fun WishEditor(old: Wish?, busy: Boolean, dismiss: () -> Unit, save: (Wish) -> U
     }, delete, error) {
         Field(MR.strings.plan_wish_name.text(),title,{title=it},enabled = !busy)
         Field(MR.strings.plan_wish_cost.text(),amount,{amount=it},enabled = !busy,keyboardOptions = numberKeyboard)
-        Field(MR.strings.plan_currency.text(),currency,{currency=it.uppercase().take(3)},enabled = !busy)
+        Field(MR.strings.plan_currency.text(),currency,{currency=it.uppercase().filter{c->c in 'A'..'Z'}.take(3)},enabled = !busy)
         Choice(MR.strings.plan_priority.text(),priority,listOf("high" to MR.strings.plan_priority_high.text(),"medium" to MR.strings.plan_priority_medium.text(),"low" to MR.strings.plan_priority_low.text()),{if(!busy) priority=it})
         Field(MR.strings.plan_wish_link.text(),link,{link=it},enabled = !busy)
         Field(MR.strings.plan_note.text(),note,{note=it},singleLine = false,enabled = !busy)
@@ -187,7 +187,7 @@ fun NoteEditor(old: FinanceNote?,busy:Boolean,dismiss:()->Unit,save:(FinanceNote
         Field(if(kind=="bundle")MR.strings.plan_bundle_name.text() else MR.strings.plan_title.text(),title,{title=it.take(100)},enabled=!busy)
         if(kind=="bundle") {
             Choice(MR.strings.plan_record_as.text(),recordAs,listOf("single" to MR.strings.plan_record_single.text(),"items" to MR.strings.plan_record_items.text()),{if(!busy && !paid)recordAs=it})
-            Field(MR.strings.plan_currency.text(),currency,{if(!paid){currency=it.uppercase().take(3);account=""}},enabled=!busy && !paid)
+            Field(MR.strings.plan_currency.text(),currency,{if(!paid){currency=it.uppercase().filter{c->c in 'A'..'Z'}.take(3);account=""}},enabled=!busy && !paid)
             WalletChoice(MR.strings.plan_payment_wallet.text(),account,data,data.accounts.filter{!it.archived && it.type!="savings" && it.currency==currency},!busy){account=it}
             Text(MR.strings.plan_bundle_items.text(),style=FFType.sectionTitle)
             items.forEachIndexed { index,item -> key(item.id) {
@@ -197,7 +197,7 @@ fun NoteEditor(old: FinanceNote?,busy:Boolean,dismiss:()->Unit,save:(FinanceNote
                         if(item.paymentId!=null)Text(MR.strings.plan_paid.text(),style=FFType.metaData,color=FFColors.income)
                         else TextButton(onClick={items.removeAll{it.id==item.id}},enabled=!busy && items.size>1){Text(MR.strings.common_delete.text(),color=FFColors.expense)}
                     }
-                    Field(MR.strings.plan_item_name_n.text(index+1),item.name,{name->items[index]=item.copy(name=name.take(100))},enabled=!busy)
+                    Field(MR.strings.plan_item_name_n.text(index+1),item.name,{name->items[index]=item.copy(name=name.take(100))},enabled=!busy && item.paymentId==null) // P2-04: item terbayar terkunci
                     Spacer(Modifier.height(12.dp))
                     Field(MR.strings.plan_item_price_n.text(index+1,currency),item.amount,{amount->items[index]=item.copy(amount=amount)},enabled=!busy && item.paymentId==null,keyboardOptions=numberKeyboard)
                 }

@@ -68,3 +68,12 @@ Foto profil dan penghapusan akun memiliki implementasi serta rules tersendiri. L
 - Index Firestore: field override `pushTokens.tokenId` (collection group) di-deploy. Rules tidak diubah; `users/{uid}/pushTokens` hanya ditulis Admin SDK.
 - Android 1.0.4 memasang FCM (topik `announcements`, `lang_<kode>`), App Check Play Integrity/debug (belum enforce), Analytics dimatikan lewat manifest.
 - Sisa: daftarkan Play Integrity di App Check (SHA-256 app signing), uji push di HP, APNs untuk iOS. Rincian: [FCM_DAN_FIX_AI_2026-11-11.md](../../docs/FCM_DAN_FIX_AI_2026-11-11.md).
+
+## Pembaruan 11 November 2026 - notifikasi mengambang dan rilis 1.0.5
+
+- Semua kanal Android (announcements, bills, daily, budget) memakai prioritas HIGH untuk kanal baru. Pengaturan kanal lama tetap dihormati; Profil -> Data & Dompet -> Notifikasi menyediakan pengaturan izin dan pintasan setiap kategori.
+- Pesan Firebase Console dari akun muzafinarifin.dev@gmail.com diterima sebagai banner mengambang di HP POCO menggunakan build debug yang diperbarui. Bukti lokal: `kotlinApp/build/fcm-popup-confirmed.png`.
+- FCM tidak memakai pembatasan akun pengembang: semua instalasi berlangganan announcements; token cloud terdaftar per akun/perangkat. Enam tes push lulus, termasuk beberapa akun/perangkat dan preferensi penolakan. registerPushToken, unregisterPushToken, billReminderPush diverifikasi ACTIVE di asia-southeast2.
+- AAB 1.0.5 (versionCode 6) berhasil dibangun, tanda tangan upload diverifikasi, mapping Crashlytics diunggah. File: `kasiva-1.0.5-vc6.aab` di akar repositori.
+- Play Console: AAB diunggah ke Pengujian tertutup - Alpha dan pengiriman review dikonfirmasi. Status terakhir: Perubahan yang sedang ditinjau, pemeriksaan otomatis masih berjalan. Publikasi terkelola aktif; versi belum dinyatakan tersedia untuk penguji. Bukti lokal: `kotlinApp/build/play-vc6-submitted.jpg`.
+- Peringatan simbol debug native masih muncul dan tidak menghalangi pengiriman. Pengiriman aktual lintas HP/akun dan iOS belum diuji; penguji Android harus memakai versi yang mendukung FCM dan mengizinkan notifikasi.

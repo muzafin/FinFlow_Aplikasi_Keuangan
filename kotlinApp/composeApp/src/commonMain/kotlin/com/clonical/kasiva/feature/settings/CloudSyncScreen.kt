@@ -58,9 +58,7 @@ fun CloudSyncScreen(local:FinanceRepository,cloud:FinanceRepository,native:Nativ
                     val encoded=Json.encodeToString(job)
                     native.writeSetting("local.sync.checkpoint",encoded);checkpoint=encoded;began=true
                 },progress={progress=it})
-                val restored=BackupCodec.restoreData(backup)
-                val index=backup.data.accounts.indexOfFirst{it.id==preferences.defaultWalletId}
-                PreferenceState(native,uid).update(preferences.copy(defaultWalletId=if(index>=0)restored.accounts[index].id else ""))
+                PreferenceState(native,uid).update(BackupCodec.restoredPreferences(backup,preferences))
                 native.writeSetting("local.sync.checkpoint","");native.writeSetting("local.sync.frozen","")
                 finish()
             } catch(e:CancellationException){throw e}

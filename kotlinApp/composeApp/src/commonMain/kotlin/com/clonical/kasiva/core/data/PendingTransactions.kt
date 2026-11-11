@@ -36,7 +36,8 @@ class PendingTransactionStore(private val native: NativeServices) {
     }
 
     fun enqueueSave(transaction: Transaction) = add(PendingTransactionOp(transaction.id, false, transaction))
-    fun enqueueDelete(transaction: Transaction) = add(PendingTransactionOp(transaction.id, true, null))
+    // Transaksi ikut disimpan: flush membutuhkannya untuk menghapus di cloud (dulu null → hapus offline hilang, P1-01).
+    fun enqueueDelete(transaction: Transaction) = add(PendingTransactionOp(transaction.id, true, transaction))
 
     fun remove(operation: PendingTransactionOp) {
         val next = _operations.value.filterNot { it.id == operation.id }

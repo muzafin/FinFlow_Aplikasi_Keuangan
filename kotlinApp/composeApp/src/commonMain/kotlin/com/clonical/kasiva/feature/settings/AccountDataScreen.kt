@@ -249,7 +249,7 @@ private fun ExportDataPage(data:FinanceData,native:NativeServices,saveToDownload
         (wallet.isBlank() || it.accountId==wallet || it.toAccountId==wallet) && (category.isBlank() || it.categoryId==category || it.subcategoryId==category)}
         .sortedWith(compareBy<Transaction>{it.date}.thenBy{it.createdAt})
     val rangeLabel=if(allTime)MR.strings.pa_export_all_time.text() else "${shortDateLabel(from)} - ${shortDateLabel(to)}"
-    val fileStem=if(allTime)"finflow-semua" else "finflow-$from-$to"
+    val fileStem=if(allTime)"kasiva-semua" else "kasiva-$from-$to"
     fun attempt(block:()->String?){message=try{block()}catch(e:Exception){e.message ?: MR.strings.set_export_failed.text()}}
     PageColumn(horizontal=24.dp,spacing=12.dp){
         AdFieldLabel(MR.strings.pa_export_date_range.text())

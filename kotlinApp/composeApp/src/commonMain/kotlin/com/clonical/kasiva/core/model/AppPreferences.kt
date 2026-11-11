@@ -110,7 +110,8 @@ data class AppPreferences(
 class PreferenceState(private val native: NativeServices, userId: String?) {
     private val key = "appearance.${userId ?: "guest"}"
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    var value by mutableStateOf(runCatching { json.decodeFromString<AppPreferences>(native.readSetting(key) ?: "{}").also { it.validate() } }.getOrDefault(AppPreferences()))
+    // Satu nilai yang tidak valid lagi (mis. setelah pembaruan) tidak boleh mereset SEMUA preferensi; perbaiki dulu (P1-07).
+    var value by mutableStateOf(runCatching { json.decodeFromString<AppPreferences>(native.readSetting(key) ?: "{}").let { d -> runCatching { d.also { it.validate() } }.getOrElse { d.repaired().also { it.validate() } } } }.getOrDefault(AppPreferences()))
         private set
     private val pending = MutableStateFlow(if (native.readSetting("$key.pending") == "true") value else null)
     val pendingChanges = pending.asStateFlow()

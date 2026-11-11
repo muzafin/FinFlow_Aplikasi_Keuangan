@@ -4,8 +4,11 @@ import com.clonical.kasiva.core.i18n.text
 import com.clonical.kasiva.core.i18n.transactionTypeLabel
 import com.clonical.kasiva.core.model.FinanceData
 import com.clonical.kasiva.core.model.Transaction
+import com.clonical.kasiva.core.data.FinanceRepository
 import com.clonical.kasiva.core.platform.NativeServices
 import com.clonical.kasiva.core.util.currencyDigits
+import com.clonical.kasiva.core.util.budgetPeriod
+import com.clonical.kasiva.core.util.checkedAdd
 import com.clonical.kasiva.core.util.money
 import com.clonical.kasiva.core.util.newId
 import com.clonical.kasiva.core.util.today
@@ -19,6 +22,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.datetime.LocalDate
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.pow
@@ -139,26 +143,33 @@ fun aiContext(data: FinanceData, language: String): AiContext {
 
 /** Draf AI selalu ditinjau pengguna di editor sebelum disimpan. */
 fun AiDraft.toTransaction(data: FinanceData, fallbackWalletId: String, note: String? = null): Transaction? {
-    val wallet = data.accounts.firstOrNull { it.id == walletId && !it.archived }
-        ?: data.accounts.firstOrNull { it.id == fallbackWalletId && !it.archived }
-        ?: data.accounts.firstOrNull { !it.archived && it.type != "savings" } ?: return null
+    // Mata uang draf AI dihormati (P4-07): "12 dolar" tidak boleh tersimpan sebagai Rp12. Pilih dompet bermata uang
+    // itu; bila tidak ada, draf tidak bisa disimpan (null) alih-alih diam-diam diganti mata uangnya.
+    val wanted = currency?.trim()?.uppercase()?.takeIf { it.matches(Regex("[A-Z]{3}")) }
+    fun usable(a: com.clonical.kasiva.core.model.Account) = !a.archived && a.type != "savings" && (wanted == null || a.currency == wanted)
+    val wallet = data.accounts.firstOrNull { it.id == walletId && usable(it) }
+        ?: data.accounts.firstOrNull { it.id == fallbackWalletId && usable(it) }
+        ?: data.accounts.firstOrNull { usable(it) } ?: return null
     val kind = if (type in listOf("income", "transfer")) type else "expense"
-    val target = toWalletId?.takeIf { kind == "transfer" && it != wallet.id && data.accounts.any { a -> a.id == it && !a.archived } }
-    val finalType = if (kind == "transfer" && target == null) "expense" else kind
+    val target = data.accounts.firstOrNull { kind == "transfer" && it.id == toWalletId && it.id != wallet.id && !it.archived && it.type != "savings" }
+    if (kind == "transfer" && target == null) return null
+    val finalType = kind
     val category = categoryId?.takeIf { id -> data.categories.any { it.id == id && it.type == finalType } }
         ?: data.categories.firstOrNull { it.parentId == null && it.type == finalType && it.id.startsWith("other") }?.id
         ?: data.categories.firstOrNull { it.parentId == null && it.type == finalType }?.id ?: ""
-    val minor = (amount * 10.0.pow(currencyDigits(wallet.currency))).roundToLong()
-    if (minor <= 0) return null
-    val day = date?.takeIf { Regex("\\d{4}-\\d{2}-\\d{2}").matches(it) } ?: today().toString()
+    val scaled = amount * 10.0.pow(currencyDigits(wallet.currency))
+    if (!scaled.isFinite() || scaled < 0.5 || scaled > FinanceRepository.MAX_MONEY) return null
+    val minor = scaled.roundToLong()
+    val day = date?.takeIf { runCatching { LocalDate.parse(it) }.isSuccess } ?: today().toString()
     return Transaction(id = newId(), type = finalType, amountMinor = minor, currency = wallet.currency, accountId = wallet.id,
-        categoryId = if (finalType == "transfer") "transfer" else category, title = title.ifBlank { transactionTypeLabel(if (finalType == "income") "income" else "expense") }.take(100),
+        categoryId = if (finalType == "transfer") "transfer" else category, title = title.ifBlank { transactionTypeLabel(finalType) }.take(100),
         description = listOfNotNull(this.note, note).filter { it.isNotBlank() }.joinToString("\n").take(500), date = day,
-        toAccountId = target, receivedAmountMinor = if (target != null) minor else null)
+        // Jumlah tujuan berbeda mata uang harus diisi pengguna di editor, bukan diasumsikan kurs 1:1.
+        toAccountId = target?.id, receivedAmountMinor = if (target?.currency == wallet.currency) minor else null)
 }
 
 /** Ringkasan yang dikirim ke Asisten: total, kategori, anggaran, saldo, tagihan — tanpa transaksi satu per satu. */
-fun assistantSummary(data: FinanceData): String {
+fun assistantSummary(data: FinanceData, recordingDay: Int = 1): String {
     val base = data.profile?.baseCurrency ?: "IDR"
     val month = today().toString().take(7)
     val previous = today().let { d -> if (d.monthNumber == 1) "${d.year - 1}-12" else "${d.year}-${(d.monthNumber - 1).toString().padStart(2, '0')}" }
@@ -179,8 +190,10 @@ fun assistantSummary(data: FinanceData): String {
         .entries.sortedByDescending { it.value }.take(4).takeIf { it.isNotEmpty() }?.let { top ->
             lines += "Sumber pemasukan bulan ini: " + top.joinToString("; ") { "${names[it.key] ?: it.key} ${money(it.value, base)}" }
         }
-    data.budgets.filter { it.month == month || it.period != "monthly" }.take(10).forEach { budget ->
-        val spent = current.filter { it.type == "expense" && it.categoryId == budget.categoryId }.sumOf { it.amountMinor }
+    data.budgets.filter { today().toString() in budgetPeriod(it, recordingDay) }.take(10).forEach { budget ->
+        val period = budgetPeriod(budget, recordingDay)
+        val spent = data.reportTransactions().filter { it.type == "expense" && it.categoryId == budget.categoryId && it.currency == budget.currency && it.date in period }
+            .fold(0L) { sum, tx -> checkedAdd(sum, tx.amountMinor) }
         lines += "Anggaran ${budget.title.ifBlank { names[budget.categoryId] ?: budget.categoryId }}: terpakai ${money(spent, budget.currency)} dari ${money(budget.limitMinor, budget.currency)}."
     }
     data.accounts.filter { !it.archived }.take(15).forEach { lines += "Saldo dompet ${it.name} (${it.type}): ${money(data.balance(it), it.currency)}." }

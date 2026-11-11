@@ -61,12 +61,17 @@ fun shiftMonth(month: String, delta: Int): String {
 fun compactDisplayMoney(value: Long, currency: String): String {
     if (currency != "IDR") return displayMoney(value, currency)
     val amount = value / 100.0
-    val divisor = when {
-        kotlin.math.abs(amount) >= 1_000_000_000 -> 1_000_000_000.0 to MR.strings.dash_compact_billion.text()
-        kotlin.math.abs(amount) >= 1_000_000 -> 1_000_000.0 to MR.strings.dash_compact_million.text()
-        kotlin.math.abs(amount) >= 1_000 -> 1_000.0 to MR.strings.dash_compact_thousand.text()
-        else -> return "Rp${amount.roundToLong()}"
+    val units = listOf(1_000.0 to MR.strings.dash_compact_thousand.text(), 1_000_000.0 to MR.strings.dash_compact_million.text(),
+        1_000_000_000.0 to MR.strings.dash_compact_billion.text())
+    var index = units.indexOfLast { kotlin.math.abs(amount) >= it.first }
+    if (index < 0) {
+        val whole = amount.roundToLong()
+        if (kotlin.math.abs(whole) < 1_000) return "Rp$whole"
+        index = 0
     }
+    // Pembulatan bisa menaikkan ke satuan berikutnya: 999.950 → "1.0jt", bukan "1000.0rb" (P1-05).
+    if (index < units.lastIndex && kotlin.math.abs((amount / units[index].first * 10).roundToLong()) >= 10_000) index++
+    val divisor = units[index]
     val tenths = (amount / divisor.first * 10).roundToLong()
     val sign = if (tenths < 0) "-" else ""
     val magnitude = kotlin.math.abs(tenths)
