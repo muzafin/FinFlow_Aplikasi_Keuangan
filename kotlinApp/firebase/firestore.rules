@@ -175,7 +175,7 @@ service cloud.firestore {
           let d = request.resource.data;
           let from = account(uid, d.accountId);
           return d.keys().hasAll(['id', 'type', 'amountMinor', 'currency', 'accountId', 'categoryId', 'title', 'description', 'date', 'toAccountId', 'receivedAmountMinor', 'createdAt', 'updatedAt', 'source', 'sourceId', 'scheduled'])
-            && d.keys().hasOnly(['id', 'type', 'amountMinor', 'currency', 'accountId', 'categoryId', 'title', 'description', 'date', 'toAccountId', 'receivedAmountMinor', 'createdAt', 'updatedAt', 'source', 'sourceId', 'scheduled','subcategoryId','tags'])
+            && d.keys().hasOnly(['id', 'type', 'amountMinor', 'currency', 'accountId', 'categoryId', 'title', 'description', 'date', 'toAccountId', 'receivedAmountMinor', 'createdAt', 'updatedAt', 'source', 'sourceId', 'scheduled','subcategoryId','tags','originalCurrency','originalAmountMinor'])
             && d.id == id && d.type in ['income', 'expense', 'transfer']
             && money(d.amountMinor) && d.amountMinor > 0 && currency(d.currency)
             && text(d.accountId, 1000) && text(d.categoryId, 1000)
@@ -185,6 +185,9 @@ service cloud.firestore {
             && (d.sourceId == null || (d.sourceId is string && d.sourceId.size() <= 200))
             && !from.archived && from.currency == d.currency
             && tagsValid(d.get('tags',[])) && nullableId(d.get('subcategoryId',null),1000)
+            // Mata uang input berbeda dari dompet: jumlah asli disimpan, amountMinor tetap dalam mata uang dompet.
+            && ((d.get('originalCurrency',null) == null && d.get('originalAmountMinor',null) == null)
+              || (currency(d.originalCurrency) && d.originalCurrency != d.currency && money(d.originalAmountMinor) && d.originalAmountMinor > 0 && d.type != 'transfer'))
             && (d.get('subcategoryId',null) == null || (d.type != 'transfer' && category(uid,d.subcategoryId).parentId == d.categoryId && category(uid,d.subcategoryId).type == d.type))
             && (from.type != 'savings' || d.source in ['goal_deposit','goal_withdrawal'])
             && ((d.type == 'transfer' && text(d.toAccountId, 1000) && d.toAccountId != d.accountId

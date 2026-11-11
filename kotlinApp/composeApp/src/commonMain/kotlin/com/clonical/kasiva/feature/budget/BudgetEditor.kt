@@ -96,8 +96,7 @@ fun BudgetEditor(old: Budget?, data: FinanceData, busy: Boolean, dismiss: () -> 
                 }
                 Text(if (old == null) MR.strings.tx_new_budget.text() else MR.strings.tx_edit_budget.text(), Modifier.weight(1f), style = FFType.appTitle, textAlign = TextAlign.Center, color = FFColors.onSurface)
                 Box(Modifier.size(48.dp).clip(CircleShape).clickable { submit() }.testTag("budget-save"), contentAlignment = Alignment.Center) {
-                    if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else FFIcon("check_rounded", if (amount.isNotBlank()) FFColors.onSurface else FFColors.outline, 26.dp, MR.strings.common_save.text())
+                    FFIcon("check_rounded", if (amount.isNotBlank()) FFColors.onSurface else FFColors.outline, 26.dp, MR.strings.common_save.text())
                 }
             }
             Column(

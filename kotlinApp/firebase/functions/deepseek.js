@@ -3,7 +3,8 @@ const { z } = require('zod');
 
 // Adapter DeepSeek (API kompatibel OpenAI) dengan bentuk subset klien Anthropic yang dipakai ai.js:
 // messages.parse({ model, system, messages, output_config.format, max_tokens }) -> { parsed_output, stop_reason }
-// beta.messages.create({ model, system, messages, max_tokens }) -> { content: [{ type: 'text', text }], stop_reason }
+// beta.messages.create({ model, system, messages, output_config.effort, max_tokens }) -> { content: [{ type: 'text', text }], stop_reason }
+// deepseek-flash membaca teks + gambar; thinking dimatikan untuk ekstraksi JSON dan "low" untuk asisten.
 // Kunci API hanya dibaca dari Secret Manager oleh index.js; tidak pernah dikirim ke klien.
 
 const BASE_URL = 'https://api.deepseek.com';
@@ -23,11 +24,12 @@ function toChatMessages(system, messages) {
   if (sys) out.push({ role: 'system', content: sys });
   for (const message of messages) {
     if (typeof message.content === 'string') { out.push({ role: message.role, content: message.content }); continue; }
-    if (message.content.some(part => part.type === 'image')) {
-      // Model DeepSeek tidak membaca gambar; ai.js mengembalikan kuota bila panggilan gagal.
-      throw new HttpsError('failed-precondition', 'AI Scan belum didukung penyedia AI saat ini. Gunakan AI Chat atau catat manual.');
-    }
-    out.push({ role: message.role, content: message.content.filter(part => part.type === 'text').map(part => part.text).join('\n') });
+    // Blok Anthropic -> blok kompatibel OpenAI: gambar base64 jadi data URL, teks jadi { type: 'text' }.
+    out.push({ role: message.role, content: message.content.map(part => {
+      if (part.type === 'text') return { type: 'text', text: part.text };
+      if (part.type === 'image' && part.source?.data) return { type: 'image_url', image_url: { url: `data:${part.source.media_type};base64,${part.source.data}` } };
+      return null;
+    }).filter(Boolean) });
   }
   return out;
 }
@@ -62,18 +64,28 @@ function createDeepSeekClient({ apiKey, fetchImpl = fetch, timeoutMs = 90_000, b
     const zodSchema = output_config?.format?.zod;
     const instruction = `Balas HANYA dengan satu objek JSON valid (tanpa teks lain) yang sesuai JSON Schema berikut:\n${JSON.stringify(schema)}`;
     const json = await complete({
-      model, max_tokens: Math.min(max_tokens || 4000, 8000), temperature: 0,
+      model, max_tokens: Math.min(max_tokens || 4000, 8000), temperature: 0, thinking: { type: 'disabled' },
       response_format: { type: 'json_object' },
       messages: toChatMessages([...(Array.isArray(system) ? system : [{ type: 'text', text: systemText(system) }]), { type: 'text', text: instruction }], messages),
     });
     const choice = json.choices?.[0];
     let parsed = null;
-    try { parsed = zodSchema.parse(JSON.parse(choice?.message?.content || '')); } catch { parsed = null; }
+    try { parsed = zodSchema.parse(jsonContent(choice?.message?.content)); } catch { parsed = null; }
     return { parsed_output: parsed, stop_reason: stopReason(choice) };
   }
 
-  async function create({ model, system, messages, max_tokens }) {
-    const json = await complete({ model, max_tokens: Math.min(max_tokens || 4000, 8000), temperature: 0.7, messages: toChatMessages(system, messages) });
+  // Content JSON bisa dibungkus pagar markdown (```json ... ```); model kadang tetap memakainya.
+  function jsonContent(content) {
+    const text = String(content || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    return JSON.parse(text);
+  }
+
+  async function create({ model, system, messages, max_tokens, output_config }) {
+    const json = await complete({
+      model, max_tokens: Math.min(max_tokens || 4000, 8000), temperature: 0.7,
+      thinking: { type: 'enabled' }, reasoning_effort: output_config?.effort || 'low',
+      messages: toChatMessages(system, messages),
+    });
     const choice = json.choices?.[0];
     return { content: [{ type: 'text', text: choice?.message?.content || '' }], stop_reason: stopReason(choice) };
   }

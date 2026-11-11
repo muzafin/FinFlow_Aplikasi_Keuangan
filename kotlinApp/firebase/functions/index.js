@@ -65,6 +65,7 @@ exports.aiConsent = onCall(async request => createAi({ db: getFirestore() }).set
 exports.aiStatus = onCall(async request => createAi({ db: getFirestore() }).status(request.auth));
 exports.aiParseText = onCall(aiOptions, async request => aiService().parseText(request.auth, request.data));
 exports.aiScanReceipt = onCall({ ...aiOptions, memory: '512MiB' }, async request => aiService().scanReceipt(request.auth, request.data));
+exports.aiCsvMap = onCall(aiOptions, async request => aiService().csvMap(request.auth, request.data));
 exports.aiAssistant = onCall(aiOptions, async request => aiService().assistant(request.auth, request.data));
 
 // Premium: RevenueCat memverifikasi pembelian toko; server menyalin hak akses ke users/{uid}/entitlements/premium.
@@ -75,3 +76,22 @@ exports.revenueCatWebhook = onRequest({ secrets: [revenueCatSecret, revenueCatWe
 // Kurs referensi (ECB via Frankfurter) untuk halaman Kurs; data publik, di-cache 12 jam di `_rates/{base}`.
 const { createRates } = require('./rates');
 exports.exchangeRates = onCall({ maxInstances: 3 }, async request => createRates({ db: getFirestore() }).latest(request.data));
+
+// Push FCM: token per perangkat (users/{uid}/pushTokens) dan pengingat tagihan terjadwal tiap pagi WIB.
+const { getMessaging } = require('firebase-admin/messaging');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { createPush } = require('./push');
+const push = () => createPush({ db: getFirestore(), messaging: getMessaging() });
+exports.registerPushToken = onCall({ maxInstances: 5 }, async request => push().register(request.auth, request.data));
+exports.unregisterPushToken = onCall({ maxInstances: 5 }, async request => push().unregister(request.auth, request.data));
+exports.billReminderPush = onSchedule({ schedule: '0 8 * * *', timeZone: 'Asia/Jakarta', timeoutSeconds: 540, maxInstances: 1, retryCount: 0 },
+  async () => { const result = await push().billReminders(); console.log('bill reminders', result); });
+
+// XP, level, dan peringkat bulanan (dihitung server; lihat gamification.js untuk aturan & batas harian).
+const { createGamification } = require('./gamification');
+const gamification = () => createGamification({ db: getFirestore() });
+exports.awardTransactionXp = onDocumentCreated({ document: 'users/{uid}/transactions/{txId}', retry: false, maxInstances: 5 },
+  async event => { await gamification().onTransactionCreated(event.params.uid, event.params.txId, event.data?.data()); });
+exports.gamificationStatus = onCall({ maxInstances: 5 }, async request => gamification().status(request.auth));
+exports.monthlyLeaderboard = onCall({ maxInstances: 5 }, async request => gamification().leaderboard(request.auth, request.data));
+exports.setLeaderboardVisibility = onCall({ maxInstances: 5 }, async request => gamification().setVisibility(request.auth, request.data));

@@ -62,7 +62,9 @@ import kotlin.math.roundToLong
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismiss: () -> Unit,
-                      save: (Transaction) -> Unit, delete: (() -> Unit)?, isDraft: Boolean = false, startingScheduled: Boolean = false, startingAccountId: String? = null, startingType: String = "expense", onScan: (() -> Unit)? = null, openCurrencySettings: (() -> Unit)? = null) {
+                      save: (Transaction) -> Unit, delete: (() -> Unit)?, isDraft: Boolean = false, startingScheduled: Boolean = false, startingAccountId: String? = null, startingType: String = "expense", onScan: (() -> Unit)? = null, openCurrencySettings: (() -> Unit)? = null,
+                      /** Simpan pengeluaran baru beserta klaim reimburse-nya (chip "Reimburse" Ollo). */
+                      saveReimbursed: ((Transaction, Long) -> Unit)? = null) {
     val preferences = LocalPreferences.current
     val id = remember { old?.id ?: newId() }
     var type by remember { mutableStateOf(old?.type ?: startingType) }
@@ -96,6 +98,13 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
     // setelah dikonversi dengan kurs harian, jumlah aslinya di originalCurrency/originalAmountMinor.
     var entryCurrency by remember { mutableStateOf(old?.originalCurrency) }
     var pickingCurrency by remember { mutableStateOf(false) }
+    // Chip Ollo di bawah subkategori (khusus pengeluaran): Reimburse, Split Bill (segera hadir), CC/Paylater.
+    var reimburseMinor by remember { mutableStateOf<Long?>(null) }
+    var editingReimburse by remember { mutableStateOf(false) }
+    var pickingCredit by remember { mutableStateOf(false) }
+    var walletBeforeCredit by remember { mutableStateOf<String?>(null) }
+    var chipMessage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(chipMessage) { if (chipMessage != null) { kotlinx.coroutines.delay(2500); chipMessage = null } }
     var amount by remember { mutableStateOf(old?.let { o -> o.originalAmountMinor?.let { decimalAmount(it, o.originalCurrency ?: o.currency) } ?: decimalAmount(o.amountMinor, o.currency) }.orEmpty()) }
     var received by remember { mutableStateOf(old?.receivedAmountMinor?.let { decimalAmount(it, target?.currency ?: old.currency) }.orEmpty()) }
     var date by remember { mutableStateOf(old?.date ?: today().toString()) }
@@ -148,8 +157,10 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                 subcategoryId=if(type=="transfer")null else subcategoryId,tags=tags,
                 originalCurrency = if (converting) currency else null, originalAmountMinor = if (converting) minorAmount(amount, currency) else null)
             FinanceRepository.validateTransaction(tx)
+            val claim = reimburseMinor?.takeIf { type == "expense" && saveReimbursed != null }
+            require(claim == null || claim <= tx.amountMinor) { MR.strings.tx_reimburse_too_large.text() }
             error = null
-            save(tx)
+            if (claim != null) saveReimbursed!!(tx, claim) else save(tx)
         } catch (e: Exception) { error = e.message ?: MR.strings.tx_err_cannot_save.text() }
     }
     fun press(key: String) {
@@ -210,7 +221,7 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                         data.categories.filter { it.type == type && it.parentId==null }.orderedBy(preferences.categoryOrder) { it.id }.forEach { category ->
                             val selected = categoryId == category.id
                             val color = category.color?.let{Color(it)} ?: categoryColor(category.id)
-                            Column(Modifier.width(if(compact)62.dp else 72.dp).clickable(enabled = !busy, role = Role.RadioButton) { categoryId = category.id;subcategoryId=null }
+                            Column(Modifier.widthIn(min = if(compact)62.dp else 72.dp, max = 128.dp).clickable(enabled = !busy, role = Role.RadioButton) { categoryId = category.id;subcategoryId=null }
                                 .semantics { this.selected = selected }, horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(Modifier.size(if(compact)50.dp else 56.dp).clip(CircleShape).background(if (selected) color else color.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
                                     FFIcon(category.icon.ifBlank{categoryIcon(category.id)}, if (selected) Color.White else color, 24.dp)
@@ -236,6 +247,23 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
                             }
                         }
                     }
+                    if (type == "expense") Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp).testTag("expense-options"),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (saveReimbursed != null && old == null) OptionChip(
+                            reimburseMinor?.let { MR.strings.tx_reimburse_chip_amount.text(transactionInputAmount(decimalAmount(it, walletCurrency).let { d -> if (d.contains('.')) d.trimEnd('0').trimEnd('.') else d }, walletCurrency)) }
+                                ?: MR.strings.tx_reimburse.text(), reimburseMinor != null, "option-reimburse", !busy) { editingReimburse = true }
+                        OptionChip(MR.strings.tx_split_bill.text(), false, "option-split-bill", !busy) { chipMessage = MR.strings.tx_split_bill_soon.text() }
+                        val creditChosen = account?.type == "credit"
+                        OptionChip(if (creditChosen) MR.strings.tx_credit_chip_wallet.text(account?.name.orEmpty()) else MR.strings.tx_credit_paylater.text(),
+                            creditChosen, "option-credit", !busy) {
+                            when {
+                                creditChosen -> { accountId = walletBeforeCredit?.takeIf { id -> data.accounts.any { it.id == id && !it.archived } } ?: accountId; walletBeforeCredit = null }
+                                data.accounts.none { it.type == "credit" && !it.archived } -> chipMessage = MR.strings.tx_credit_none.text()
+                                else -> pickingCredit = true
+                            }
+                        }
+                    }
+                    chipMessage?.let { Text(it, Modifier.padding(horizontal = 20.dp).testTag("option-message"), style = FFType.metaData, color = FFColors.onSurfaceVariant) }
                 } else {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Surface(onClick = { pickingAccount = true }, enabled = !busy, shape = RoundedCornerShape(16.dp), color = FFColors.surfaceLow, modifier = Modifier.weight(1f)) {
@@ -364,6 +392,12 @@ fun TransactionEditor(old: Transaction?, data: FinanceData, busy: Boolean, dismi
         onSelect = { entryCurrency = it.takeIf { code -> code != walletCurrency }; pickingCurrency = false },
         onDismiss = { pickingCurrency = false }, defaultCode = walletCurrency,
         onSettings = openCurrencySettings?.let { open -> { pickingCurrency = false; open() } })
+    if (pickingCredit) WalletPicker(data, data.accounts.filter { it.type == "credit" && !it.archived }, accountId, { pickingCredit = false }) {
+        if (account?.type != "credit") walletBeforeCredit = accountId
+        accountId = it
+        pickingCredit = false
+    }
+    if (editingReimburse) ReimburseAmountSheet(reimburseMinor, walletCurrency, { editingReimburse = false }) { reimburseMinor = it; editingReimburse = false }
     if (pickingAccount) WalletPicker(data, data.accounts.filter { (!it.archived || it.id == accountId) && it.type!="savings" }, accountId, { pickingAccount = false }) {
         accountId = it
         if (toId == accountId) toId = ""
@@ -420,12 +454,78 @@ private fun TransactionKeypad(busy: Boolean, date: String, createdAt: Long, type
                         when (key) {
                             "backspace" -> FFIcon("backspace_outlined", FFColors.expense, 24.dp)
                             "calculator" -> FFIcon("hi_calculator", FFColors.onSurface, 24.dp)
-                            "confirm" -> if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = FFColors.onPill, strokeWidth = 2.dp) else FFIcon("check", FFColors.onPill, 26.dp)
+                            "confirm" -> FFIcon("check", FFColors.onPill, 26.dp)
                             "calendar" -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(keypadDateLabel(date), style = FFType.metaData.copy(lineHeight = 14.sp), color = FFColors.onSurfaceVariant, maxLines = 1)
                                 if (time.isNotBlank()) Text(time, style = FFType.bodyMain.copy(fontSize = 15.sp, lineHeight = 18.sp), color = FFColors.onSurface, maxLines = 1)
                             }
                             else -> Text(key, style = FFType.numpadDigit.copy(fontSize = 20.sp, fontWeight = FontWeight.Normal), color = FFColors.onSurface)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Chip pilihan Ollo (Reimburse / Split Bill / CC-Paylater): pil abu, terpilih sedikit lebih gelap. */
+@Composable
+private fun OptionChip(label: String, selected: Boolean, tag: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(Modifier.height(36.dp).clip(RoundedCornerShape(18.dp)).background(if (selected) FFColors.raised else FFColors.chip)
+        .semantics { this.selected = selected }.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .padding(horizontal = 16.dp).testTag(tag), contentAlignment = Alignment.Center) {
+        Text(label, style = FFType.metaData.copy(fontSize = 13.sp), color = if (selected) FFColors.onSurface else FFColors.onSurfaceVariant, maxLines = 1)
+    }
+}
+
+/** Panel "Reimburse" Ollo: jumlah yang akan diganti (mata uang dompet), keypad, Reset, dan tombol centang. */
+@Composable
+private fun ReimburseAmountSheet(initial: Long?, currency: String, dismiss: () -> Unit, done: (Long?) -> Unit) {
+    var input by remember { mutableStateOf(initial?.let { decimalAmount(it, currency) }.orEmpty()) }
+    fun press(key: String) {
+        when (key) {
+            "backspace" -> input = input.dropLast(1)
+            "C" -> input = ""
+            "." -> if (currencyDigits(currency) > 0 && !input.contains('.')) input = input.ifEmpty { "0" } + "."
+            "confirm" -> done(runCatching { minorAmount(input, currency) }.getOrNull()?.takeIf { it > 0 })
+            else -> {
+                val decimals = currencyDigits(currency)
+                val room = if (input.contains('.')) (decimals - input.substringAfter('.').length).coerceAtLeast(0) else key.length
+                val next = input + key.take(room)
+                if (next.length <= 20) input = if (!next.contains('.')) next.trimStart('0').ifEmpty { "0" } else next
+            }
+        }
+    }
+    val noRipple = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val swallow = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    androidx.compose.ui.window.Dialog(onDismissRequest = dismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().clickable(interactionSource = noRipple, indication = null, onClick = dismiss), contentAlignment = Alignment.BottomCenter) {
+            Column(Modifier.fillMaxWidth().padding(12.dp).navigationBarsPadding().clip(RoundedCornerShape(28.dp)).background(FFColors.canvas)
+                .clickable(interactionSource = swallow, indication = null) {}
+                .padding(16.dp).testTag("reimburse-sheet"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.align(Alignment.CenterHorizontally).size(36.dp, 4.dp).background(FFColors.outline, RoundedCornerShape(2.dp)))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(MR.strings.tx_reimburse.text(), style = FFType.sectionTitle, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { input = ""; done(null) }, modifier = Modifier.testTag("reimburse-reset")) { Text(MR.strings.tx_reset.text(), color = FFColors.onSurface) }
+                }
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(FFColors.surface).padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(MR.strings.tx_reimburse_amount.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+                    Text(transactionInputAmount(input, currency), style = FFType.amountLg.copy(fontSize = 22.sp, lineHeight = 30.sp), color = FFColors.onSurface,
+                        modifier = Modifier.testTag("reimburse-amount"))
+                }
+                listOf(listOf("1", "2", "3", "backspace"), listOf("4", "5", "6", "C"), listOf("7", "8", "9", "confirm"), listOf(".", "0", "000", "")).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { key ->
+                            if (key.isEmpty()) Spacer(Modifier.weight(1f).height(52.dp))
+                            else Box(Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(16.dp))
+                                .background(when (key) { "backspace" -> FFColors.expense.copy(alpha = .10f); "confirm" -> FFColors.pill; else -> FFColors.surface })
+                                .clickable(role = Role.Button) { press(key) }.testTag("reimburse-key-$key"), contentAlignment = Alignment.Center) {
+                                when (key) {
+                                    "backspace" -> FFIcon("backspace_outlined", FFColors.expense, 22.dp, MR.strings.tx_key_backspace.text())
+                                    "confirm" -> FFIcon("check", FFColors.onPill, 24.dp, MR.strings.tx_done.text())
+                                    else -> Text(key, style = FFType.numpadDigit.copy(fontSize = 19.sp, fontWeight = FontWeight.Normal), color = FFColors.onSurface)
+                                }
+                            }
                         }
                     }
                 }

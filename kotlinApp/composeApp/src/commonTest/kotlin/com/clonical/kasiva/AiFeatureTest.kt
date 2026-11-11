@@ -44,11 +44,13 @@ class AiFeatureTest {
 
     @Test fun freeLimitsBlockOnlyNewItemsPastTheLimit() {
         val wallets = data.copy(accounts = (1..FreeLimits.WALLETS).map { Account("w$it", "Dompet $it") })
-        assertNotNull(freeLimitReached(Editor.Wallet(), wallets))
-        assertNull(freeLimitReached(Editor.Wallet(wallets.accounts.first()), wallets))
-        assertNull(freeLimitReached(Editor.Wallet(), data))
+        assertNotNull(freeLimitMessage(Editor.Wallet(), wallets))
+        assertNull(freeLimitMessage(Editor.Wallet(wallets.accounts.first()), wallets))
+        assertNull(freeLimitMessage(Editor.Wallet(), data))
+        // Selama langganan belum dibuka, batas gratis tidak boleh menghalangi pengguna.
+        if (!PREMIUM_ENABLED) assertNull(freeLimitReached(Editor.Wallet(), wallets))
         val wishes = data.copy(wishes = (1..FreeLimits.WISHES).map { Wish(title = "W$it", targetMinor = 1) })
-        assertNotNull(freeLimitReached(Editor.WishForm(null), wishes))
+        assertNotNull(freeLimitMessage(Editor.WishForm(null), wishes))
     }
 
     @Test fun assistantSummaryContainsTotalsButNotIndividualTitles() {

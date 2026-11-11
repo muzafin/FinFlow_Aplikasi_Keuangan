@@ -41,7 +41,8 @@ fun TransactionDetail(tx: Transaction, data: FinanceData, edit: () -> Unit, dele
                 val time = runCatching { Instant.fromEpochMilliseconds(tx.createdAt).toLocalDateTime(TimeZone.currentSystemDefault()).time.toString().take(5) }.getOrDefault("—")
                 Surface(color = FFColors.surface, shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
-                        val rows = listOf(MR.strings.tx_title.text() to tx.title, MR.strings.tx_category.text() to data.categoryName(tx.categoryId), MR.strings.tx_wallet.text() to data.accountName(tx.accountId), MR.strings.tx_date.text() to tx.date, MR.strings.tx_created_time.text() to time, MR.strings.tx_note.text() to tx.description.ifBlank { "—" })
+                        val rows = listOf(MR.strings.tx_title.text() to tx.title, MR.strings.tx_category.text() to data.categoryName(tx.categoryId), MR.strings.tx_wallet.text() to data.accountName(tx.accountId), MR.strings.tx_date.text() to tx.date, MR.strings.tx_created_time.text() to time, MR.strings.tx_note.text() to tx.description.ifBlank { "—" }) +
+                            listOfNotNull(tx.originalCurrency?.let { code -> tx.originalAmountMinor?.let { MR.strings.tx_original_amount.text() to money(it, code) } })
                         rows.forEachIndexed { index, (label, value) ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text(label, style = FFType.bodyMain, color = FFColors.onSurfaceVariant)

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kebijakan Privasi — Kasiva</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.65; max-width: 820px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  h2 { font-size: 19px; margin-top: 32px; }
+  .meta { color: #666; font-size: 14px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid #bbb; padding: 8px 10px; text-align: left; vertical-align: top; font-size: 14px; }
+  code { background: rgba(127,127,127,.15); padding: 1px 4px; border-radius: 4px; }
+  a { color: #0b6bcb; }
+</style>
+</head>
+<body>
+<h1>Kebijakan Privasi Kasiva</h1>
+<p class="meta">Berlaku sejak 8 November 2026 · Aplikasi Android <code>com.clonical.kasiva</code> · Pengembang: Kasiva (Muhammad Zaenal Arifin) · Kontak: <a href="mailto:muzafinarifin.dev@gmail.com">muzafinarifin.dev@gmail.com</a></p>
+
+<p>Kasiva adalah aplikasi pencatatan keuangan pribadi. Dokumen ini menjelaskan data apa yang diproses, mengapa, dan pilihan yang tersedia untuk Anda.</p>
+
+<h2>1. Mode Lokal (tanpa akun)</h2>
+<p>Anda dapat memakai Kasiva tanpa akun. Pada mode ini data keuangan hanya disimpan di perangkat Anda dan tidak dikirim ke server Kasiva. Fitur AI dan sinkronisasi cloud tidak tersedia pada mode ini.</p>
+
+<h2>2. Data yang diproses saat Anda memakai akun cloud</h2>
+<table>
+  <tr><th>Data</th><th>Keterangan</th></tr>
+  <tr><td>Identitas akun</td><td>Nama dan alamat email dari pendaftaran email/password atau Google Sign-In; ID pengguna Firebase.</td></tr>
+  <tr><td>Data keuangan</td><td>Profil, dompet, transaksi, anggaran, target, tagihan, utang, kartu, investasi, catatan, preferensi tampilan. Disimpan di Cloud Firestore milik akun Anda.</td></tr>
+  <tr><td>Foto profil</td><td>Opsional, disimpan privat di Cloud Storage hanya untuk akun Anda.</td></tr>
+  <tr><td>Perangkat</td><td>Nama perangkat, platform, versi aplikasi, waktu aktif terakhir, untuk daftar "Perangkat Terhubung" dan keamanan akun.</td></tr>
+  <tr><td>Data AI (opsional)</td><td>Teks yang Anda ketik untuk AI Chat/Voice, foto struk untuk AI Scan, dan ringkasan angka untuk Asisten. Dikirim ke server Kasiva lalu ke penyedia model AI (DeepSeek) untuk diproses. Foto tidak disimpan oleh server Kasiva setelah diproses; permintaan AI menunggu persetujuan per fitur dan dapat dicabut.</td></tr>
+  <tr><td>Pembelian</td><td>Bila fitur Premium aktif: status pembelian langganan diproses lewat Google Play Billing dan RevenueCat. Pada rilis ini fitur Premium dinonaktifkan.</td></tr>
+</table>
+
+<h2>3. Fitur lokal lainnya</h2>
+<p>Transkripsi suara dilakukan oleh layanan pengenalan suara di perangkat. Impor notifikasi memproses notifikasi di perangkat dan hanya kandidat yang Anda konfirmasi yang dikirim ke akun Anda. Data impor CSV yang Anda unggah dibaca di perangkat dan hasil yang Anda setujui disimpan ke akun Anda.</p>
+
+<h2>4. Tujuan pemrosesan</h2>
+<p>Mulai versi Android 1.0.3, Kasiva menggunakan Firebase Crashlytics untuk laporan crash, aplikasi tidak merespons (ANR), dan error teknis. Data diagnostik mencakup versi aplikasi dan sistem operasi, model perangkat, ID instalasi Crashlytics, serta lokasi kode yang gagal. Pelaporan ini juga berjalan pada mode lokal; data keuangan lokal tetap berada di perangkat. Log error tambahan yang dibuat Kasiva tidak menyertakan pesan exception asli, email, token login, atau isi transaksi. Laporan digunakan untuk memperbaiki stabilitas aplikasi dan diproses oleh Google Firebase sebagai penyedia layanan.</p>
+<p>Menyediakan fungsi aplikasi (mencatat dan menyinkronkan data keuangan, menampilkan statistik, AI opsional), keamanan akun, dukungan pengguna, dan kepatuhan hukum. Kami tidak menjual data pribadi dan tidak menampilkan iklan.</p>
+
+<h2>5. Penyimpanan dan penghapusan</h2>
+<p>Data cloud disimpan selama akun aktif. Anda dapat menghapus akun beserta seluruh data dari dalam aplikasi (<em>Profil → Manajemen Akun → Minta Penghapusan Akun</em>) atau melalui halaman <a href="/hapus-akun">Hapus Akun</a>. Penghapusan akun menghapus data profil, data keuangan, foto, dan data perangkat milik akun tersebut.</p>
+
+<h2>6. Keamanan</h2>
+<p>Data dikirim melalui koneksi terenkripsi (TLS). Akses data dibatasi oleh Firebase Authentication dan security rules sehingga hanya pemilik akun yang dapat membaca datanya. Kunci API penyedia AI hanya berada di server.</p>
+
+<h2>7. Anak-anak</h2>
+<p>Kasiva tidak ditujukan untuk anak di bawah 13 tahun. Kami tidak dengan sengaja mengumpulkan data anak di bawah 13 tahun.</p>
+
+<h2>8. Perubahan kebijakan</h2>
+<p>Perubahan material akan diumumkan di aplikasi atau halaman ini sebelum berlaku. Tanggal berlaku tercantum di bagian atas.</p>
+
+<h2>9. Kontak</h2>
+<p>Pertanyaan atau permintaan terkait privasi: <a href="mailto:muzafinarifin.dev@gmail.com">muzafinarifin.dev@gmail.com</a>.</p>
+</body>
+</html>

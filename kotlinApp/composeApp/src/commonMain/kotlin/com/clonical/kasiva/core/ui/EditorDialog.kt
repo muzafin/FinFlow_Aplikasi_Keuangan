@@ -36,8 +36,7 @@ fun EditorDialog(title: String, busy: Boolean, dismiss: () -> Unit, save: () -> 
                 IconButton(onClick = { if (!busy) dismiss() }, Modifier.align(Alignment.CenterStart)) { FFIcon("chevron_left_rounded", FFColors.onSurface, 24.dp, MR.strings.common_back.text()) }
                 Text(title, Modifier.align(Alignment.Center), style = FFType.appTitle.copy(fontSize = 20.sp, lineHeight = 26.sp), color = FFColors.onSurface)
                 IconButton(onClick = save, enabled = !busy, modifier = Modifier.align(Alignment.CenterEnd).testTag("editor-save")) {
-                    if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else FFIcon("hi_check", FFColors.onSurface, 24.dp, MR.strings.app_save_wallet.text())
+                    FFIcon("hi_check", FFColors.onSurface, 24.dp, MR.strings.app_save_wallet.text())
                 }
             } else DesignHeader(title, back = { if (!busy) dismiss() })
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(horizontal = 20.dp, vertical = 8.dp),
@@ -48,8 +47,7 @@ fun EditorDialog(title: String, busy: Boolean, dismiss: () -> Unit, save: () -> 
             }
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!headerSave) Button(enabled = !busy, onClick = save, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(24.dp)) {
-                    if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    else Text(when (kind) { EditorKind.Budget -> MR.strings.app_save_budget.text(); EditorKind.Goal -> MR.strings.app_save_savings_goal.text(); EditorKind.Wallet -> MR.strings.app_save_wallet.text(); EditorKind.Generic -> MR.strings.common_save.text() })
+                    Text(when (kind) { EditorKind.Budget -> MR.strings.app_save_budget.text(); EditorKind.Goal -> MR.strings.app_save_savings_goal.text(); EditorKind.Wallet -> MR.strings.app_save_wallet.text(); EditorKind.Generic -> MR.strings.common_save.text() })
                 }
                 if (isBudget) OutlinedButton(enabled = !busy, onClick = dismiss, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text(MR.strings.common_cancel.text()) }
                 delete?.let { TextButton(enabled = !busy, onClick = it, modifier = Modifier.fillMaxWidth()) { Text(MR.strings.common_delete.text(), color = FFColors.expense) } }

@@ -62,7 +62,7 @@ class ProfilePhotos(private val activity: FragmentActivity) {
             while (true) {
                 val count = input.read(buffer)
                 if (count < 0) break
-                require(output.size() + count <= 5 * 1024 * 1024) { MR.strings.core_photo_max_5mb.text() }
+                require(output.size() + count <= 25 * 1024 * 1024) { MR.strings.core_ai_photo_max_25mb.text() }
                 output.write(buffer, 0, count)
             }
             output.toByteArray()
@@ -71,7 +71,7 @@ class ProfilePhotos(private val activity: FragmentActivity) {
 
     /** JPEG persegi maksimal 1024 px dan 2 MB; memperbaiki rotasi EXIF. */
     private fun compress(raw: ByteArray): ByteArray {
-        require(raw.size <= 5 * 1024 * 1024) { MR.strings.core_photo_max_5mb.text() }
+        require(raw.size <= 25 * 1024 * 1024) { MR.strings.core_ai_photo_max_25mb.text() }
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(raw, 0, raw.size, bounds)
         require(bounds.outWidth in 1..20000 && bounds.outHeight in 1..20000) { MR.strings.core_photo_format_size_unsupported.text() }
@@ -139,9 +139,48 @@ class ProfilePhotos(private val activity: FragmentActivity) {
             result(null, MR.strings.core_photo_invalid_account_size.text()); return
         }
         val path = "users/$uid/profile/avatar.jpg"
-        storage.reference.child(path).putBytes(bytes, StorageMetadata.Builder().setContentType("image/jpeg").build())
-            .addOnSuccessListener { result(path, null) }
-            .addOnFailureListener { result(null, MR.strings.core_photo_upload_failed_storage.text()) }
+        // Foto disimpan di perangkat dulu sehingga selalu berhasil (juga tanpa internet); pengunggahan ke
+        // cloud berjalan di latar belakang dan diulang otomatis sampai berhasil.
+        activity.lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val cache = cacheFile(uid)
+                    check(cache.parentFile!!.isDirectory || cache.parentFile!!.mkdirs())
+                    val file = android.util.AtomicFile(cache)
+                    val output = file.startWrite()
+                    try { output.write(bytes); file.finishWrite(output) } catch (e: Exception) { file.failWrite(output); throw e }
+                    pendingMarker(uid).writeText("1")
+                }
+            } catch (e: Exception) { result(null, MR.strings.core_photo_local_save_failed.text()); return@launch }
+            result(path, null)
+            syncPending(uid)
+        }
+    }
+
+    private fun safeUid(uid: String) = uid.takeIf { it.matches(Regex("[A-Za-z0-9_-]{1,128}")) }
+    private fun cacheFile(uid: String) = File(activity.noBackupFilesDir, "finflow-cloud/avatar-${safeUid(uid)}.jpg")
+    private fun pendingMarker(uid: String) = File(activity.noBackupFilesDir, "finflow-cloud/avatar-${safeUid(uid)}.pending")
+    private var uploading = false
+
+    private fun online(): Boolean = runCatching {
+        val manager = activity.getSystemService(android.net.ConnectivityManager::class.java)
+        manager.activeNetwork?.let { manager.getNetworkCapabilities(it)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) } == true
+    }.getOrDefault(true)
+
+    /** Unggah foto yang tertunda (disimpan saat offline). Aman dipanggil berulang. */
+    fun syncPending(uid: String) {
+        if (safeUid(uid) == null || uploading || uid != FirebaseAuth.getInstance().currentUser?.uid) return
+        if (!pendingMarker(uid).exists() || !online()) return
+        uploading = true
+        activity.lifecycleScope.launch {
+            val bytes = withContext(Dispatchers.IO) { runCatching { cacheFile(uid).readBytes() }.getOrNull() }
+            if (bytes == null || bytes.isEmpty() || bytes.size > 2 * 1024 * 1024) { pendingMarker(uid).delete(); uploading = false; return@launch }
+            storage.maxUploadRetryTimeMillis = 60_000
+            storage.reference.child("users/$uid/profile/avatar.jpg")
+                .putBytes(bytes, StorageMetadata.Builder().setContentType("image/jpeg").build())
+                .addOnSuccessListener { pendingMarker(uid).delete(); uploading = false }
+                .addOnFailureListener { error -> android.util.Log.w("KasivaProfilePhoto", "upload avatar tertunda", error); uploading = false }
+        }
     }
 
     fun load(path: String, result: (ByteArray?, String?) -> Unit) {
@@ -156,7 +195,20 @@ class ProfilePhotos(private val activity: FragmentActivity) {
         }
         val uid = FirebaseAuth.getInstance().currentUser?.uid
         if (uid == null || path != "users/$uid/profile/avatar.jpg") { result(null, MR.strings.core_photo_access_denied.text()); return }
-        storage.reference.child(path).getBytes(2L * 1024 * 1024)
-            .addOnSuccessListener { result(it, null) }.addOnFailureListener { result(null, MR.strings.core_photo_load_failed.text()) }
+        // Salinan lokal dipakai bila ada unggahan tertunda, saat offline, atau jika cloud gagal dimuat.
+        activity.lifecycleScope.launch {
+            val cached = withContext(Dispatchers.IO) { runCatching { cacheFile(uid).takeIf { it.length() in 1..2L * 1024 * 1024 }?.readBytes() }.getOrNull() }
+            if (cached != null && (pendingMarker(uid).exists() || !online())) { result(cached, null); return@launch }
+            if (cached != null) result(cached, null)
+            if (!online()) { if (cached == null) result(null, MR.strings.core_photo_load_failed.text()); return@launch }
+            storage.reference.child(path).getBytes(2L * 1024 * 1024)
+                .addOnSuccessListener { bytes ->
+                    activity.lifecycleScope.launch(Dispatchers.IO) {
+                        runCatching { cacheFile(uid).apply { parentFile?.mkdirs() }.writeBytes(bytes) }
+                    }
+                    result(bytes, null)
+                }
+                .addOnFailureListener { if (cached == null) result(null, MR.strings.core_photo_load_failed.text()) }
+        }
     }
 }

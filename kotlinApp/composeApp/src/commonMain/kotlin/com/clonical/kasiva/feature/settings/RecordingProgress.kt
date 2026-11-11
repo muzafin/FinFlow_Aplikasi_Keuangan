@@ -8,9 +8,25 @@ import kotlinx.datetime.*
 
 data class RecordingAchievement(val title: String, val description: String, val xp: Int, val earned: Boolean)
 data class RecordingProgress(val transactions: Int, val activeDays: Int, val streak: Int, val longestStreak: Int,
-    val xp: Int, val achievements: List<RecordingAchievement>) {
-    val level get() = 1 + xp / 500
-    val levelXp get() = xp % 500
+    val xp: Int, val achievements: List<RecordingAchievement>, val verified: Boolean = false) {
+    // Kurva sama dengan server: Lvl 2 = 100 XP, Lvl 3 = 300, Lvl 4 = 600, … (dulu 500 XP per level → macet di Lvl 1).
+    val level get() = com.clonical.kasiva.feature.level.LevelCurve.levelFor(xp)
+    val levelStartXp get() = com.clonical.kasiva.feature.level.LevelCurve.start(level)
+    val nextLevelXp get() = com.clonical.kasiva.feature.level.LevelCurve.start(level + 1)
+    val levelXp get() = xp - levelStartXp
+    val levelSpan get() = nextLevelXp - levelStartXp
+}
+
+/**
+ * Akun cloud: XP transaksi, streak, hari aktif dihitung server (tidak turun saat transaksi dihapus, batas 20/hari);
+ * bonus lencana tetap dihitung dari data. Mode lokal / belum ada status server: dihitung di perangkat.
+ */
+fun recordingProgress(data: FinanceData, server: com.clonical.kasiva.feature.level.GamificationStatus?, date: LocalDate = today()): RecordingProgress {
+    val local = recordingProgress(data, date)
+    server ?: return local
+    val badges = local.achievements.filter { it.earned }.sumOf { it.xp }
+    return RecordingProgress(server.transactions, server.activeDays, server.streak, maxOf(server.longestStreak, 0),
+        server.xp + badges, local.achievements, verified = true)
 }
 
 fun recordingProgress(data: FinanceData, date: LocalDate = today()): RecordingProgress {

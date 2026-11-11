@@ -1,6 +1,7 @@
 {
   "firestore": { "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
   "storage": { "rules": "storage.rules" },
+  "hosting": { "public": "hosting", "ignore": ["firebase.json", "**/.*"], "cleanUrls": true },
   "functions": [{ "source": "functions", "codebase": "finflow", "ignore": ["node_modules", "*.log", "test"] }],
   "emulators": {
     "auth": { "host": "127.0.0.1", "port": 9098 },

@@ -47,7 +47,30 @@ val extraCardGradientPresets = listOf(
     CardGradientPreset("forest_night", MR.strings.pc_card_forest_night, listOf(0xFF0B3D2E, 0xFF1F6F50), dark = true),
 )
 
-val allCardGradientPresets: List<CardGradientPreset> get() = cardGradientPresets + extraCardGradientPresets
+/**
+ * Kartu & menu "paket tema" palet Profil (Ollo "Theme bundle applied"): tidak tampil di daftar pilihan,
+ * hanya dipasang saat palet dipilih. Warna diambil dari kartu & ikon menu Ollo per palet.
+ */
+private val paletteBundleCards = listOf(
+    CardGradientPreset("palette_ruby", MR.strings.core_preset_ruby, listOf(0xFFD32F2F, 0xFFB71C1C), dark = true),
+    CardGradientPreset("palette_emerald", MR.strings.core_preset_emerald, listOf(0xFF388E3C, 0xFF1B5E20), dark = true),
+    CardGradientPreset("palette_indigo", MR.strings.core_preset_indigo, listOf(0xFF3F51B5, 0xFF283593), dark = true),
+)
+private val paletteBundleMenus = listOf(
+    MenuThemePreset("palette_ruby", MR.strings.core_preset_ruby, listOf(0xFFC62828), single = true),
+    MenuThemePreset("palette_emerald", MR.strings.core_preset_emerald, listOf(0xFF2E7D32), single = true),
+    MenuThemePreset("palette_indigo", MR.strings.core_preset_indigo, listOf(0xFF3949AB), single = true),
+)
+fun isPaletteBundlePreset(id: String): Boolean = id.startsWith("palette_")
+
+/** Palet Profil = paket tema: aksen, kartu saldo, dan warna ikon menu berubah bersama. */
+fun AppPreferences.withPaletteBundle(palette: String): AppPreferences = when (palette) {
+    "arctic" -> copy(palette = palette, cardGradient = "arctic_blue", menuTheme = "arctic_blue")
+    "ruby", "emerald", "indigo" -> copy(palette = palette, cardGradient = "palette_$palette", menuTheme = "palette_$palette")
+    else -> copy(palette = "neutral", cardGradient = "teal", menuTheme = "colorful")
+}
+
+val allCardGradientPresets: List<CardGradientPreset> get() = cardGradientPresets + extraCardGradientPresets + paletteBundleCards
 
 private const val CUSTOM_CARD_PREFIX = "custom:"
 private fun argbHex(color: Long): String = (color and 0xFFFFFFFFL).toString(16).uppercase().padStart(8, '0')
@@ -92,7 +115,7 @@ val extraMenuThemePresets = listOf(
     MenuThemePreset("rose", MR.strings.pc_menu_rose, listOf(0xFFE91E63), single = true),
 )
 
-val allMenuThemePresets: List<MenuThemePreset> get() = menuThemePresets + extraMenuThemePresets
+val allMenuThemePresets: List<MenuThemePreset> get() = menuThemePresets + extraMenuThemePresets + paletteBundleMenus
 
 fun isValidMenuTheme(id: String): Boolean = allMenuThemePresets.any { it.id == id }
 

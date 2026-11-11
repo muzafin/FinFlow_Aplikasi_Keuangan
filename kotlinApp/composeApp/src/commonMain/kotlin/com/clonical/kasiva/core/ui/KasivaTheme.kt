@@ -3,6 +3,7 @@ package com.clonical.kasiva.core.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.clonical.kasiva.core.model.LocalPreferences
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -122,4 +123,11 @@ fun KasivaTheme(usePoppins: Boolean = true, content: @Composable () -> Unit) {
 @Composable
 fun KasivaLogo(size: Dp = 72.dp) {
     Image(painterResource(Res.drawable.kasiva_logo), "Kasiva", Modifier.size(size))
+}
+
+/** Logo lengkap (simbol + tulisan navy); di mode gelap tulisan tak terbaca, jadi kembali ke simbol saja. */
+@Composable
+fun KasivaLogoFull(height: Dp = 140.dp) {
+    if (FFColors.isDark) KasivaLogo(height)
+    else Image(painterResource(Res.drawable.kasiva_logo_full), "Kasiva", Modifier.height(height))
 }

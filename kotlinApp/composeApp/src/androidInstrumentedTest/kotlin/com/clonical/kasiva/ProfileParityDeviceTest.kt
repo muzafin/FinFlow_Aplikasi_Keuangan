@@ -1,5 +1,8 @@
 package com.clonical.kasiva
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import android.graphics.Bitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -92,10 +95,14 @@ class ProfileParityDeviceTest {
         ui.mainClock.advanceTimeBy(300)
         ui.waitForIdle()
         ui.onNodeWithText("Preferensi").assertExists()
-        ui.onNodeWithTag("profile-list").performScrollToNode(hasText("Format Saldo"))
+        // Menu Profil dikelompokkan: "Format Saldo" ada di grup "Tampilan & Format".
+        ui.onNodeWithText("Format Saldo").assertDoesNotExist()
+        ui.onNodeWithTag("profile-list").performScrollToNode(hasText("Tampilan & Format"))
         ui.mainClock.advanceTimeBy(300)
         ui.waitForIdle()
         screenshot("profile-ollo-light-bottom")
+        ui.onNodeWithText("Tampilan & Format").performClick()
+        ui.runOnIdle { assertEquals(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX + "display", nav) }
         ui.onNodeWithTag("profile-list").performScrollToNode(hasText("Hapus Data"))
         ui.mainClock.advanceTimeBy(300)
         ui.waitForIdle()
@@ -143,40 +150,62 @@ class ProfileParityDeviceTest {
         val data = fixture()
         val native = FakeNative()
         val store = PreferenceState(native, "profile-menu-qa")
+        // null = tab Profil; selain itu id halaman grup yang sedang dibuka.
+        var group by mutableStateOf<String?>(null)
         ui.setContent {
             CompositionLocalProvider(LocalPreferenceState provides store, LocalPreferences provides store.value.copy(theme = "dark")) {
                 KasivaTheme {
                     Box(Modifier.fillMaxSize().background(FFColors.background)) {
-                        ProfileScreen(native, "Muhammad", "muhammad@example.invalid", data, { routes += it }, {})
+                        val shown = group
+                        if (shown == null) ProfileScreen(native, "Muhammad", "muhammad@example.invalid", data, { routes += it }, {})
+                        else com.clonical.kasiva.feature.settings.ProfileGroupScreen(shown) { routes += it }
                     }
                 }
             }
         }
         ui.waitForIdle()
-        // Setiap menu Profil membuka rutenya masing-masing.
+        val prefix = com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX
+        // Tab Profil: ubin utama, baris grup, dan baris umum/bahaya membuka rutenya masing-masing.
         val expected = listOf("Manajemen Akun" to "Manajemen Akun", "Cadangan & Pemulihan" to "Cadangan & Pemulihan", "Perangkat Terhubung" to "Perangkat Terhubung",
-            "Ekspor Data" to "Ekspor Data", "Impor Data" to "Impor data", "Periode Pencatatan" to "Periode Pencatatan", "Kategori" to "Kategori",
-            "Pengaturan Dompet" to "Pengaturan Dompet", "Notifikasi" to "Notifikasi", "Tema" to "Tema", "Tampilan Kartu" to "Tampilan Kartu", "Tampilan Menu" to "Tampilan Menu",
-            "Palet Transaksi" to "Palet Transaksi", "Urutan Statistik" to "Urutan Statistik", "Tampilan Beranda" to "Tampilan Beranda",
-            "Paket Ikon" to "Paket Ikon", "Format Saldo" to "Format Saldo",
-            "Asisten Kasiva (Beta)" to "Asisten", "Pengaturan Asisten" to "Pengaturan Asisten", "Pengaturan AI Scan" to "Pengaturan AI Scan",
-            "Memori Pencatatan" to "Memori Pencatatan", "Bahasa Input Suara" to "Bahasa Input Suara",
-            "Otomasi & Integrasi" to "Otomasi", "Masukan & Peta Jalan" to "Masukan & Peta Jalan",
-            "Pengaturan" to "Pengaturan", "Bantuan & Dukungan" to "Bantuan", "Kirim Masukan" to "Masukan", "Bagikan Kasiva ke Teman" to "Bagikan",
-            "Laporkan Bug" to "Laporkan Bug", "Tentang Kasiva" to "Tentang", "Catatan Pembaruan" to "Catatan Pembaruan",
-            "Hapus Data" to "Hapus Data", "Keluar Aplikasi" to "Keluar Aplikasi")
+            "Ekspor Data" to "Ekspor Data", "Tema" to "Tema", "Tampilan Kartu" to "Tampilan Kartu", "Tampilan Menu" to "Tampilan Menu",
+            "Palet Transaksi" to "Palet Transaksi", "Data & Dompet" to prefix + "data", "Tampilan & Format" to prefix + "display", "AI" to prefix + "ai",
+            "Fitur Masa Mendatang" to prefix + "future", "Bantuan & Info" to prefix + "help",
+            "Pengaturan" to "Pengaturan", "Hapus Data" to "Hapus Data", "Keluar Aplikasi" to "Keluar Aplikasi")
         expected.forEach { (title, route) ->
             ui.onNodeWithTag("profile-list").performScrollToNode(hasText(title))
             ui.onNodeWithText(title).performClick()
             ui.runOnIdle { assertEquals("$title -> $route", route, routes.last()) }
         }
-        // Urutan bagian mengikuti Ollo dan versi tampil di paling bawah.
-        listOf("Akun & Data", "Preferensi", "AI", "Fitur Masa Mendatang", "Umum", "Lainnya").forEach {
+        // Urutan bagian: Akun & Data, Preferensi, Menu Lainnya (grup), Umum, Lainnya; versi paling bawah.
+        listOf("Akun & Data", "Preferensi", "Menu Lainnya", "Umum", "Lainnya").forEach {
             ui.onNodeWithTag("profile-list").performScrollToNode(hasText(it))
             ui.onNodeWithText(it).assertExists()
         }
         ui.onNodeWithTag("profile-list").performScrollToNode(hasTestTag("profile-version"))
         ui.onNodeWithText("Kasiva v1.0.0").assertExists()
+        // Setiap halaman grup berisi menu yang dipindahkan dari tab Profil.
+        val groups = mapOf(
+            "data" to listOf("Impor Data" to "Impor data", "Periode Pencatatan" to "Periode Pencatatan", "Kategori" to "Kategori",
+                "Pengaturan Dompet" to "Pengaturan Dompet", "Notifikasi" to "Notifikasi"),
+            "display" to listOf("Urutan Statistik" to "Urutan Statistik", "Tampilan Beranda" to "Tampilan Beranda",
+                "Tampilan Tambah Transaksi" to "Tampilan Tambah Transaksi", "Paket Ikon" to "Paket Ikon", "Format Saldo" to "Format Saldo"),
+            "ai" to listOf("Asisten Kasiva (Beta)" to "Asisten", "Pengaturan Asisten" to "Pengaturan Asisten", "Pengaturan AI Scan" to "Pengaturan AI Scan",
+                "Memori Pencatatan" to "Memori Pencatatan", "Bahasa Input Suara" to "Bahasa Input Suara"),
+            "future" to listOf("Otomasi & Integrasi" to "Otomasi", "Masukan & Peta Jalan" to "Masukan & Peta Jalan"),
+            "help" to listOf("Bantuan & Dukungan" to "Bantuan", "Kirim Masukan" to "Masukan", "Bagikan Kasiva ke Teman" to "Bagikan",
+                "Laporkan Bug" to "Laporkan Bug", "Tentang Kasiva" to "Tentang", "Catatan Pembaruan" to "Catatan Pembaruan"),
+        )
+        groups.forEach { (id, items) ->
+            ui.runOnIdle { group = prefix + id }
+            ui.waitForIdle()
+            items.forEach { (title, route) ->
+                ui.onNodeWithTag("profile-group-$id").performScrollToNode(hasText(title))
+                ui.onNodeWithText(title).performClick()
+                ui.runOnIdle { assertEquals("$title -> $route", route, routes.last()) }
+            }
+        }
+        ui.runOnIdle { group = null }
+        ui.waitForIdle()
         // Avatar membuka editor profil, statistik membuka halaman level.
         ui.onNodeWithTag("profile-list").performScrollToIndex(0)
         ui.onNodeWithTag("profile-avatar").performClick()

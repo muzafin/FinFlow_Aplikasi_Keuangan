@@ -67,3 +67,9 @@ key.properties
 keystore.properties
 *.jks
 *.keystore
+
+# Kasiva: kunci penandatanganan, artefak rilis, dan cache deploy Firebase tidak masuk Git.
+/kotlinApp/keystore
+*.aab
+/kotlinApp/composeApp/release/
+/kotlinApp/firebase/.firebase/

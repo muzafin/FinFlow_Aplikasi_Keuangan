@@ -81,8 +81,7 @@ fun InvestmentDetail(investment: Investment, onBack: () -> Unit, onEdit: () -> U
                     onUpdateValue(value)
                 } catch (e: Exception) { error = e.message ?: MR.strings.acc_err_invalid_investment_value.text() }
             }, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                else Text(MR.strings.acc_update_value.text(), style = FFType.bodyMain.copy(fontWeight = FontWeight.SemiBold))
+                Text(MR.strings.acc_update_value.text(), style = FFType.bodyMain.copy(fontWeight = FontWeight.SemiBold))
             }
             Spacer(Modifier.height(12.dp))
             Text(MR.strings.acc_investment_detail_note.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)

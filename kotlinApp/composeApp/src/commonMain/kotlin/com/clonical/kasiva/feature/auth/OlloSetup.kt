@@ -384,8 +384,7 @@ private fun SetupPrimaryButton(label: String, busy: Boolean, onClick: () -> Unit
             disabledContentColor = Color.White,
         ),
     ) {
-        if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-        else Text(label, style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold), color = Color.White)
+        Text(label, style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold), color = Color.White)
     }
 }
 

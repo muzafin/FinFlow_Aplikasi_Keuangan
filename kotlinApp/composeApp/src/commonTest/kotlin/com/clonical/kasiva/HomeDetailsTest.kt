@@ -69,8 +69,8 @@ class HomeDetailsTest {
         val body = bugReportBody("Berulang", "Tinggi", "Dompet", "Pilihan dompet gagal", "1. Pilih dompet", "POCO · Android 16")
         assertTrue(body.contains("POCO · Android 16"))
         assertTrue(body.contains("1. Pilih dompet"))
-        assertEquals(9, dashboardShortcuts.size)
+        assertEquals(10, dashboardShortcuts.size)
         assertEquals("Notifikasi", dashboardShortcuts.first().second)
-        assertEquals("Periode Pencatatan", dashboardShortcuts.last().second)
+        assertEquals("Panduan Aplikasi", dashboardShortcuts.last().second)
     }
 }

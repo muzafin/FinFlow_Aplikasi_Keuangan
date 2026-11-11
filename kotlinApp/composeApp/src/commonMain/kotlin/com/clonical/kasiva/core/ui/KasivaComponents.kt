@@ -20,8 +20,8 @@ import com.clonical.kasiva.i18n.*
 import com.clonical.kasiva.core.i18n.text
 
 @Composable
-fun FFIcon(name: String, tint: Color = FFColors.onSurfaceVariant, size: Dp = 24.dp, contentDescription: String? = null) {
-    if (name.startsWith("hi_")) { HugeIcon(name, tint, size, contentDescription); return }
+fun FFIcon(name: String, tint: Color = FFColors.onSurfaceVariant, size: Dp = 24.dp, contentDescription: String? = null, stroke: Float = 1.5f) {
+    if (name.startsWith("hi_")) { HugeIcon(name, tint, size, contentDescription, stroke); return }
     val rounded = LocalPreferences.current.iconPack == "rounded"
     val figmaAsset = figmaIconNames[name]
     @Composable fun drawAsset(asset: String) {
@@ -51,31 +51,7 @@ fun FFIconButton(name: String, onClick: () -> Unit, modifier: Modifier = Modifie
 }
 
 fun categoryIcon(id: String): String = when {
-    id == "food-breakfast" -> "free_breakfast"
-    id == "food-lunch" -> "lunch_dining"
-    id == "food-dinner" -> "dinner_dining"
-    id == "food-eat-out" -> "restaurant_menu"
-    id == "transport-fuel" -> "local_gas_station"
-    id == "transport-public" -> "directions_bus"
-    id == "transport-parking" -> "local_parking"
-    id == "transport-ride" -> "local_taxi"
-    id == "shopping-groceries" -> "shopping_basket"
-    id == "shopping-clothing" -> "checkroom"
-    id == "shopping-electronics" -> "devices"
-    id == "health-medicine" -> "medication"
-    id == "health-doctor" -> "medical_services"
-    id == "health-sport" -> "fitness_center"
-    id == "bills-electricity" -> "bolt"
-    id == "bills-water" -> "water_drop"
-    id == "bills-internet" -> "wifi"
-    id == "bills-rent" -> "home"
-    id == "education-books" -> "menu_book"
-    id == "education-course" -> "workspace_premium"
-    id == "education-stationery" -> "edit"
-    id == "entertainment-streaming" -> "live_tv"
-    id == "entertainment-cinema" -> "theaters"
-    id == "entertainment-games" -> "sports_esports"
-    id == "entertainment-hobby" -> "palette"
+    com.clonical.kasiva.core.model.defaultCategorySpec(id) != null -> com.clonical.kasiva.core.model.defaultCategorySpec(id)!!.icon
     listOf("food", "makan").any { id.contains(it, true) } -> "restaurant"
     id.contains("transport", true) -> "directions_bus"
     listOf("shopping", "belanja").any { id.contains(it, true) } -> "local_mall"
@@ -89,7 +65,7 @@ fun categoryIcon(id: String): String = when {
     else -> "category"
 }
 @Composable
-fun categoryColor(id: String): Color = when (categoryIcon(id)) {
+fun categoryColor(id: String): Color = com.clonical.kasiva.core.model.defaultCategorySpec(id)?.let { Color(it.color) } ?: when (categoryIcon(id)) {
     "restaurant" -> Color(0xFFFF6B00); "directions_bus" -> Color(0xFF8B5CF6); "local_mall" -> Color(0xFF3B82F6)
     "local_hospital" -> Color(0xFFE74C3C); "movie" -> Color(0xFF8E44AD); "school" -> Color(0xFF2980B9)
     "receipt_long" -> Color(0xFFBA1A1A); "swap_horiz" -> FFColors.secondary; else -> FFColors.primary

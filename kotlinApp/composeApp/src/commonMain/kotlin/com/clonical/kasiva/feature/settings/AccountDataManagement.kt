@@ -171,7 +171,7 @@ private fun AccountStatusCard(ai: AiController, localMode: Boolean, premium: Boo
         LocalOrCloudButtonsRow(localMode, busy, actions, openSync)
         if (!premium) {
             Spacer(Modifier.height(10.dp))
-            AdPillButton(MR.strings.ai_upgrade_premium.text(), "hi_flag", { actions.navigate("Premium") }, Modifier.fillMaxWidth(), border = false, tag = "account-upgrade")
+            if (com.clonical.kasiva.feature.ai.PREMIUM_ENABLED) AdPillButton(MR.strings.ai_upgrade_premium.text(), "hi_flag", { actions.navigate("Premium") }, Modifier.fillMaxWidth(), border = false, tag = "account-upgrade")
         }
     }
 }

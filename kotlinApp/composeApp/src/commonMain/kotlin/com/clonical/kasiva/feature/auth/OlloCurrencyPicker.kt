@@ -145,6 +145,9 @@ private fun currencySymbol(code: String): String = currencySymbols[code] ?: code
 
 private val pickerCodes: List<String> = setupAllCurrencyCodes.sorted()
 
+/** Urutan Ollo pada pemilih mata uang transaksi: mata uang populer dulu, sisanya alfabetis. */
+private val popularCodes = listOf("IDR", "USD", "EUR", "GBP", "JPY", "CNY", "HKD", "SGD", "MYR", "AUD", "KRW", "SAR", "THB")
+
 /**
  * Dialog "Lihat Semua" mata uang bergaya Ollo: lembar bawah putih dengan pencarian dan daftar
  * seluruh [setupAllCurrencyCodes]. Warna seluruhnya eksplisit netral sehingga tidak memakai
@@ -157,13 +160,19 @@ fun OlloCurrencyDialog(
     selected: String,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
+    /** Mata uang bawaan (diberi lencana "Bawaan" dan ditaruh paling atas), gaya pemilih transaksi Ollo. */
+    defaultCode: String? = null,
+    /** Ikon roda gigi di judul: membuka pengaturan mata uang bawaan. */
+    onSettings: (() -> Unit)? = null,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val keyword = query.trim()
+    val ordered = if (defaultCode == null) pickerCodes
+        else (listOf(defaultCode) + popularCodes.filter { it in pickerCodes } + pickerCodes).distinct()
     val codes = if (keyword.isEmpty()) {
-        pickerCodes
+        ordered
     } else {
-        pickerCodes.filter { code ->
+        ordered.filter { code ->
             code.contains(keyword, ignoreCase = true) || currencyName(code).contains(keyword, ignoreCase = true)
         }
     }
@@ -197,6 +206,9 @@ fun OlloCurrencyDialog(
                         style = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
                         color = pickerInk,
                     )
+                    if (onSettings != null) IconButton(onClick = onSettings, modifier = Modifier.testTag("currency-picker-settings")) {
+                        FFIcon("settings_outlined", pickerInk, 22.dp, MR.strings.tx_currency_settings.text())
+                    }
                     IconButton(onClick = onDismiss, modifier = Modifier.testTag("currency-picker-close")) {
                         FFIcon("close_rounded", pickerInk, 22.dp, closeLabel)
                     }
@@ -255,6 +267,8 @@ fun OlloCurrencyDialog(
                                 symbol = currencySymbol(code),
                                 selected = code == selected,
                                 onClick = { onSelect(code) },
+                                codeFirst = defaultCode != null,
+                                isDefault = code == defaultCode,
                             )
                         }
                     }
@@ -265,7 +279,8 @@ fun OlloCurrencyDialog(
 }
 
 @Composable
-private fun CurrencyRow(code: String, name: String, symbol: String, selected: Boolean, onClick: () -> Unit) {
+private fun CurrencyRow(code: String, name: String, symbol: String, selected: Boolean, onClick: () -> Unit,
+                        codeFirst: Boolean = false, isDefault: Boolean = false) {
     Row(
         Modifier.fillMaxWidth().testTag("currency-picker-row-" + code)
             .clip(RoundedCornerShape(20.dp))
@@ -298,15 +313,24 @@ private fun CurrencyRow(code: String, name: String, symbol: String, selected: Bo
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                name,
-                style = TextStyle(fontSize = 14.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold),
-                color = pickerInk,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (codeFirst) code else name,
+                    style = TextStyle(fontSize = if (codeFirst) 16.sp else 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
+                    color = pickerInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (isDefault) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(MR.strings.tx_currency_default_badge.text(),
+                        Modifier.clip(RoundedCornerShape(8.dp)).background(pickerLine).padding(horizontal = 8.dp, vertical = 2.dp),
+                        style = TextStyle(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium), color = pickerInk)
+                }
+            }
             Spacer(Modifier.height(2.dp))
-            Text(code, style = TextStyle(fontSize = 12.sp, lineHeight = 16.sp), color = pickerMuted)
+            Text(if (codeFirst) name else code, style = TextStyle(fontSize = 12.sp, lineHeight = 16.sp), color = pickerMuted)
         }
         if (selected) {
             Spacer(Modifier.width(8.dp))

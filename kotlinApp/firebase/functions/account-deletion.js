@@ -18,6 +18,17 @@ async function deleteAccountData(uid, { db, auth, bucket }) {
   await bucket.deleteFiles({ prefix: `users/${uid}/` });
   await db.recursiveDelete(db.collection('users').doc(uid));
   await db.recursiveDelete(db.collection('_dataResets').doc(uid));
+  // Baris peringkat bulanan (24 bulan terakhir) ikut dihapus agar nama samaran tidak tertinggal.
+  if (typeof db.batch === 'function') {
+    const batch = db.batch();
+    const cursor = new Date();
+    for (let i = 0; i < 24; i += 1) {
+      const month = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`;
+      batch.delete(db.collection('leaderboards').doc(month).collection('entries').doc(uid));
+      cursor.setUTCMonth(cursor.getUTCMonth() - 1);
+    }
+    await batch.commit();
+  }
   try { await auth.deleteUser(uid); }
   catch (error) { if (error.code !== 'auth/user-not-found') throw error; }
   await job.update({ status: 'complete', completedAt: Date.now() });

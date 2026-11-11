@@ -86,8 +86,7 @@ fun AuthViews(screen:String,navigate:(String)->Unit,name:String,changeName:(Stri
 @Composable
 internal fun EntryButton(label:String,busy:Boolean,onClick:()->Unit) {
     Button(onClick=onClick,enabled=!busy,modifier=Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(20.dp)) {
-        if(busy)CircularProgressIndicator(Modifier.size(22.dp),color=MaterialTheme.colorScheme.onPrimary,strokeWidth=2.dp)
-        else Text(label,fontSize=16.sp,fontWeight=FontWeight.SemiBold)
+        Text(label,fontSize=16.sp,fontWeight=FontWeight.SemiBold)
     }
 }
 

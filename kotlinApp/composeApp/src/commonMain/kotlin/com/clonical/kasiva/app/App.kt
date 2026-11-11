@@ -24,6 +24,8 @@ import com.clonical.kasiva.app.navigation.mainPages
 import com.clonical.kasiva.app.navigation.aiPages
 import com.clonical.kasiva.core.data.FinanceRepository
 import com.clonical.kasiva.core.data.ConnectedDevice
+import com.clonical.kasiva.core.data.PendingTransactionStore
+import com.clonical.kasiva.core.data.withPendingTransactions
 import com.clonical.kasiva.core.ui.LocalWalletIcons
 import com.clonical.kasiva.core.ui.WalletIconStore
 import com.clonical.kasiva.core.ui.WALLET_ICON_MAX_BYTES
@@ -82,6 +84,7 @@ import com.clonical.kasiva.feature.transaction.RecordMethodsSheet
 import com.clonical.kasiva.feature.planning.*
 import com.clonical.kasiva.core.model.managedTransactionSources
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -93,7 +96,8 @@ import com.clonical.kasiva.core.i18n.tabLabel
 
 @Composable
 fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycle() },cloudRepository:FinanceRepository?=null,previewFirstRun:Boolean=false) {
-    val repository = remember { cloudRepository ?: FinanceRepository() }
+    val offlineQueue = remember { PendingTransactionStore(native) }
+    val repository = remember { cloudRepository ?: FinanceRepository(pending = offlineQueue, online = { native.isOnline() }) }
     val localRepository = remember { lazy{FinanceRepository(local=native.localFinancePersistence())} }
     val authScope = rememberCoroutineScope()
     val user by repository.authChanges.collectAsState(initial = repository.currentUser)
@@ -132,7 +136,8 @@ fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycl
         catch (_: Exception) {}
     }
     var starting by rememberSaveable { mutableStateOf(true) }
-    LaunchedEffect(Unit) { kotlinx.coroutines.delay(800); starting = false }
+    // Splash sistem Android sudah tampil sebelum Compose; jangan menahan pengguna lagi di splash buatan.
+    LaunchedEffect(Unit) { if (!native.hasSystemSplash()) kotlinx.coroutines.delay(300); starting = false }
     DisposableEffect(lifecycle) {
         lifecycle.onBackground = { if (native.lockEnabled()) locked = true }
         onDispose { lifecycle.onBackground = null }
@@ -141,13 +146,41 @@ fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycl
     val preferences = remember(preferenceOwner) { PreferenceState(native, preferenceOwner) }
     val activeLanguage = com.clonical.kasiva.core.i18n.resolveLanguage(preferences.value.language, native.deviceLanguage())
     remember(activeLanguage) { com.clonical.kasiva.core.i18n.AppLocale.apply(activeLanguage) }
+    // Push FCM: topik pengumuman untuk semua instalasi; token akun cloud untuk pengingat tagihan.
+    LaunchedEffect(user?.uid, localMode, activeLanguage) { native.setPushUser(if (localMode) null else user?.uid, activeLanguage) }
     val setupState = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     LaunchedEffect(preferences, localMode, user?.uid, preferenceRetry) {
-        if (!localMode && user != null) {
+        if (!localMode && user != null && native.isOnline()) {
             preferenceError = null
-            try { repository.synchronizePreferences(preferences) }
-            catch (e: CancellationException) { throw e }
-            catch (e: Exception) { preferenceError = e.message ?: MR.strings.app_pref_sync_failed.text() }
+            var attempt = 0
+            while (true) {
+                try { repository.synchronizePreferences(preferences); return@LaunchedEffect }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    // Gangguan jaringan/rules bisa sementara; perubahan di perangkat sudah aman. Ulangi dulu,
+                    // lalu tampilkan pesan yang bisa dibaca pengguna (bukan teks exception mentah).
+                    println("KASIVA_PREF_SYNC_FAIL attempt=" + (attempt + 1) + " " + e.stackTraceToString().take(2000))
+                    attempt++
+                    if (attempt >= 3) {
+                        native.reportError("preferences_sync", e)
+                        // Offline bukan kegagalan permanen: jangan ganggu pengguna, coba lagi saat koneksi kembali.
+                        if (native.isOnline()) preferenceError = MR.strings.app_pref_sync_failed.text()
+                        return@LaunchedEffect
+                    }
+                    delay(2_000L * attempt)
+                }
+            }
+        }
+    }
+    // Saat koneksi kembali, ulangi sinkronisasi preferensi yang tertunda (antrean transaksi ditangani layar utama).
+    LaunchedEffect(user?.uid, localMode) {
+        var wasOnline = native.isOnline()
+        while (true) {
+            delay(5_000)
+            val online = native.isOnline()
+            if (!wasOnline && online && !localMode && user != null) preferenceRetry++
+            if (online && !localMode) user?.uid?.let { native.syncPendingProfilePhoto(it) }
+            wasOnline = online
         }
     }
     fun googleSignIn() {
@@ -161,7 +194,7 @@ fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycl
             } else authScope.launch {
                 try { repository.googleLogin(token); native.setOnboardingComplete(); tourDone = true }
                 catch (e: CancellationException) { throw e }
-                catch (e: Exception) { googleError = e.message ?: MR.strings.app_google_login_failed.text() }
+                catch (e: Exception) { native.reportError("google_sign_in", e); googleError = e.message ?: MR.strings.app_google_login_failed.text() }
                 finally { googleBusy = false }
             }
         }
@@ -236,6 +269,9 @@ fun App(native: NativeServices, lifecycle: AppLifecycle = remember { AppLifecycl
     }
 }
 
+/** Setting perangkat: panduan Beranda sudah dilihat. */
+private const val COACH_HOME_KEY = "coach.home.v1"
+
 /** Setting lokal berisi ID perangkat ini untuk users/{uid}/devices. */
 private const val DEVICE_ID_KEY = "device.id"
 
@@ -247,11 +283,15 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     var rawData by remember { mutableStateOf(FinanceData()) }
     // Nama kategori bawaan & dompet "Kas" yang belum diganti pengguna tampil dalam bahasa aktif.
     val activeLocale = com.clonical.kasiva.core.i18n.AppLocale.current
-    val data = remember(rawData, activeLocale) { rawData.withLocalizedDefaults() }
+    // Transaksi yang dicatat saat offline ditampilkan dari antrean sampai berhasil dikirim ke Firestore.
+    val pendingOps by repo.pendingOperations.collectAsState()
+    val data = remember(rawData, activeLocale, pendingOps) { rawData.withLocalizedDefaults().withPendingTransactions(pendingOps) }
     var ready by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
+    // Pemberitahuan singkat: hilang sendiri 4 detik agar tidak menetap di semua layar.
+    LaunchedEffect(notice) { if (notice != null) { delay(4_000); notice = null } }
     var busy by remember { mutableStateOf(false) }
     var deleteAccount by remember { mutableStateOf(false) }
     var resetData by remember { mutableStateOf(false) }
@@ -288,6 +328,9 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     val aiLanguage = com.clonical.kasiva.core.i18n.AppLocale.current.ifBlank { "id" }
     var walletDetailMenu by remember { mutableStateOf(false) }
     var addIntro by remember { mutableStateOf(false) }
+    // Panduan pertama kali (coach mark) di Beranda; disimpan per perangkat agar hanya muncul sekali.
+    val coachMarks = remember { com.clonical.kasiva.core.ui.CoachMarkRegistry() }
+    var coachVisible by remember { mutableStateOf(false) }
     LaunchedEffect(askAddButton) { if (askAddButton) { addIntro = true; onAskAddButtonShown() } }
     val syncPending=repo.isLocal && !native.readSetting("local.sync.checkpoint").isNullOrBlank()
     val resetPending=!native.readSetting("reset.${repo.ownerId}").isNullOrBlank()
@@ -298,10 +341,30 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         ready = false
         error = null
         try {
-            repo.initializeProfile()
-            repo.observe().collect { rawData = it; ready = true }
+            // Data dibaca langsung dari cache Firestore (instan, juga offline). Pembuatan profil awal berjalan
+            // paralel di latar belakang, tidak lagi menahan layar utama menunggu jaringan.
+            kotlinx.coroutines.coroutineScope {
+                launch {
+                    try { repo.initializeProfile() }
+                    catch (e: CancellationException) { throw e }
+                    catch (e: Exception) { native.reportError("profile_initialization", e); if (!ready) error = e.message ?: MR.strings.app_data_load_failed.text() }
+                }
+                repo.observe().collect { rawData = it; ready = true }
+            }
         } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { error = e.message ?: MR.strings.app_data_load_failed.text() }
+        catch (e: Exception) { native.reportError("cloud_data_load", e); error = e.message ?: MR.strings.app_data_load_failed.text() }
+    }
+    LaunchedEffect(repo.ownerId) { repo.pendingStore?.bind(repo.ownerId) }
+    // Kirim ulang antrean transaksi offline secara berkala; snapshot Firestore akan menggantikan data antrean.
+    LaunchedEffect(ready, pendingOps.size) {
+        if (ready && !repo.isLocal && pendingOps.isNotEmpty()) {
+            while (true) {
+                delay(4_000)
+                val result = repo.flushPendingTransactions()
+                if (result.failed.isNotEmpty()) notice = result.failed.first()
+                if (repo.pendingOperations.value.isEmpty()) break
+            }
+        }
     }
     fun action(closeEditor: Boolean = false, block: suspend () -> Unit) {
         if (busy) return
@@ -310,8 +373,16 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         scope.launch {
             try { block(); if (closeEditor) editor = null }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: MR.strings.app_save_failed.text() }
+            catch (e: Exception) { native.reportError("finance_action", e); error = e.message ?: MR.strings.app_save_failed.text() }
             finally { busy = false }
+        }
+    }
+    // Lengkapi kategori & subkategori bawaan (gaya Ollo) di akun lama; idempoten, kategori pengguna tidak disentuh.
+    LaunchedEffect(ready, dataPaused) {
+        if (ready && !dataPaused) {
+            try { repo.ensureDefaultCategories() }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) {}
         }
     }
     LaunchedEffect(ready, data.featuresReady, dataPaused) {
@@ -337,6 +408,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         }
     }
     fun navigate(destination: String) {
+        if (destination == "Panduan Aplikasi") { page = "Beranda"; coachVisible = true; return }
         if (destination == "Premium" && !com.clonical.kasiva.feature.ai.PREMIUM_ENABLED) return
         if(destination.startsWith("Dompet:")){
             selectedAccountId=destination.substringAfter(':');previousPage=page
@@ -368,7 +440,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     fun back() { page = if (page.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX)) "Profil" else when (page) { "Pengaturan Asisten" -> "Asisten"; "Asisten", "Premium", "Pengaturan AI Scan" -> aiParent; "Masukan & Peta Jalan" -> "Profil"; "Masukan" -> previousPage.takeIf { it == "Masukan & Peta Jalan" || it in mainPages } ?: "Profil"; "Detail dompet" -> accountParent; "Transaksi terjadwal" -> "Terjadwal"; "Detail investasi" -> "Investasi"; "Detail impian" -> goalParent; "Detail transaksi" -> transactionParent; else -> previousPage.takeIf { it in mainPages || it.startsWith(com.clonical.kasiva.feature.settings.PROFILE_GROUP_PREFIX) } ?: "Beranda" } }
     val planningActions = PlanningActions(
         bill = { editor = Editor.BillForm(it) }, payBill = { editor = Editor.PayBill(it) },
-        debt = { editor = Editor.DebtForm(it) }, payDebt = { editor = Editor.PayDebt(it) },
+        debt = { editor = Editor.DebtForm(it) }, payDebt = { editor = Editor.PayDebt(it) }, splitBill = { editor = Editor.SplitForm },
         wish = { editor = Editor.WishForm(it) }, fulfillWish = { action { repo.planner.saveWish(it) } },
         card = { editor = Editor.CardForm(it) }, note = { editor = Editor.NoteForm(it) },
         claim = { editor = Editor.ClaimForm(it) }, receiveClaim = { editor = Editor.ReceiveClaim(it) },
@@ -400,8 +472,18 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = e.message ?: MR.strings.app_data_load_failed.text() }
     }
-    CompositionLocalProvider(LocalWalletIcons provides walletIcons) {
+    // XP/level/peringkat akun cloud (dihitung server); mode lokal = null.
+    val gamification = com.clonical.kasiva.feature.level.rememberGamification(native, if (repo.isLocal) null else repo.ownerId, data.transactions.size)
+    LaunchedEffect(page, ready, editor == null, addIntro, recordSheet) {
+        if (page == "Beranda" && ready && editor == null && !addIntro && !recordSheet && native.readSetting(COACH_HOME_KEY) != "done") {
+            kotlinx.coroutines.delay(900)
+            coachVisible = true
+        }
+    }
+    CompositionLocalProvider(LocalWalletIcons provides walletIcons, com.clonical.kasiva.feature.level.LocalGamification provides gamification.takeIf { !repo.isLocal },
+        com.clonical.kasiva.core.ui.LocalCoachMarks provides coachMarks) {
     CompositionLocalProvider(LocalTopBarActions provides topBarSlot) {
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -438,13 +520,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
         Column(Modifier.fillMaxSize().layerBackdrop(navigationBackdrop).background(designBackground).padding(top = padding.calculateTopPadding())
             .then(if (page in mainPages && page != "Profil" || page == "Transaksi") Modifier.statusBarsPadding() else Modifier)
             .then(if (page !in mainPages && page != "Detail investasi" && page !in aiPages) Modifier.navigationBarsPadding() else Modifier)) {
-            if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            error?.let { msg -> Card(Modifier.fillMaxWidth().padding(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)) {
-                Text(msg, Modifier.padding(12.dp))
-                if (!ready) TextButton(onClick = { retry++ }) { Text(MR.strings.app_reload.text()) }
-                else TextButton(onClick = { error = null }) { Text(MR.strings.common_close.text()) }
-            } }
-            notice?.let { TextButton(onClick = { notice = null }) { Text(it) } }
+            // Tanpa banner galat/pemberitahuan dan tanpa bar loading: kegagalan sementara (mis. offline) tidak menampilkan apa pun.
             if(syncPending){
                 Column(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp,Alignment.CenterVertically)){
                     Text(MR.strings.app_sync_pending_title.text(),style=FFType.appTitle)
@@ -467,10 +543,12 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 }
             } else if (!ready) {
                 Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (error == null) MR.strings.app_preparing_account_data.text() else MR.strings.app_account_data_load_failed.text(), style = FFType.sectionTitle)
+                    // Saat memuat tidak ada teks/loading: layar kosong sesaat. Hanya kegagalan nyata yang ditampilkan.
                     if (error != null) {
+                        Text(MR.strings.app_account_data_load_failed.text(), style = FFType.sectionTitle)
                         Spacer(Modifier.height(12.dp))
                         Text(MR.strings.app_account_data_access_failed.text(), style = FFType.bodyMain)
+                        TextButton(onClick = { retry++ }) { Text(MR.strings.app_reload.text()) }
                         TextButton(enabled = !busy, onClick = { action { repo.logout() } }) { Text(MR.strings.app_sign_out_switch_account.text()) }
                     }
                 }
@@ -490,10 +568,10 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                             if (failure!=null) error=failure
                             else if (bytes!=null && uid==repo.ownerId) action { repo.saveProfilePhoto(native,bytes);notice=MR.strings.app_profile_photo_updated.text() }
                         }
-                    },deleteAccount={deleteAccount=true},localMode=repo.isLocal,connect=onConnect,useLocal=onLocal,
-                    ai=ai,signOut=if(repo.isLocal) null else ({ action { repo.logout() } }),factoryReset={resetData=true},
+                    },deleteAccount={ if (!repo.isLocal && !native.isOnline()) error = MR.strings.core_error_need_internet.text() else deleteAccount=true },localMode=repo.isLocal,connect=onConnect,useLocal=onLocal,
+                    ai=ai,signOut=if(repo.isLocal) null else ({ action { repo.logout() } }),factoryReset={ if (!repo.isLocal && !native.isOnline()) error = MR.strings.core_error_need_internet.text() else resetData=true },
                     saveToDownloads=native::saveToDownloads,
-                    deleteTransactions={ action {
+                    deleteTransactions={ if (!repo.isLocal && !native.isOnline()) error = MR.strings.core_error_need_internet.text() else action {
                         repo.deleteAllTransactions()
                         notice=MR.strings.r3_delete_tx_done.text()
                     } },
@@ -548,7 +626,22 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
                 "Impor data" -> ImportScreen(plan, importSource, { importSource = it; plan = null }, busy, importProgress, onPick = {
                     native.pickCsv { content, failure ->
                         if (content == null) error = failure
-                        else try { plan = CsvImport.preview(content, importSource, data) } catch (e: Exception) { error = e.message }
+                        else if (importSource == "ai") {
+                            fun failed(e: Exception) = ImportPlan(emptyList(), emptyList(), emptyList(), listOf(e.message ?: MR.strings.ai_err_generic.text()), emptyList(), 0)
+                            // Kolom yang dikenali langsung dipetakan di perangkat: tanpa AI, tanpa internet, tanpa persetujuan.
+                            val local = try { CsvImport.previewLocal(content, data) } catch (e: Exception) { plan = failed(e); return@pickCsv }
+                            if (local != null) plan = local
+                            else ai.requireConsent(AiFeature.Chat) {
+                                scope.launch {
+                                    busy = true
+                                    importProgress = MR.strings.ai_working_reading.text()
+                                    try { plan = CsvImport.previewWithAi(content, ai.service, aiLanguage, data) }
+                                    catch (e: CancellationException) { throw e }
+                                    catch (e: Exception) { plan = failed(e) }
+                                    finally { busy = false; importProgress = "" }
+                                }
+                            }
+                        } else try { plan = CsvImport.preview(content, importSource, data) } catch (e: Exception) { plan = ImportPlan(emptyList(), emptyList(), emptyList(), listOf(e.message.orEmpty()), emptyList(), 0) }
                     }
                 }, onTemplate = { native.shareCsv("finflow-template.csv", CsvImport.template) }, onImport = {
                     plan?.let { preview -> action {
@@ -583,6 +676,11 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
             else pageContent(page)
             }
         }
+    if (coachVisible && page == "Beranda" && editor == null) com.clonical.kasiva.core.ui.CoachMarkOverlay(coachMarks, com.clonical.kasiva.core.ui.homeCoachSteps) {
+        coachVisible = false
+        native.writeSetting(COACH_HOME_KEY, "done")
+    }
+    }
     }
     }
     if (addIntro) AddButtonIntroSheet(appearance.addButtonMode, onChoose = { mode ->
@@ -624,7 +722,7 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     com.clonical.kasiva.feature.ai.AiConsentDialog(ai)
     com.clonical.kasiva.feature.ai.AiErrorDialog(ai) { navigate("Premium") }
     if (ai.working != null && !aiChat && !aiScan && page != "Asisten") AlertDialog(onDismissRequest = {}, confirmButton = {},
-        text = { Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(12.dp)); Text(ai.working.orEmpty()) } })
+        text = { Row(verticalAlignment = Alignment.CenterVertically) { ; Spacer(Modifier.width(12.dp)); Text(ai.working.orEmpty()) } })
     LaunchedEffect(editor, ai.isPremium) {
         com.clonical.kasiva.feature.ai.freeLimitReached(editor, data)?.takeIf { !ai.isPremium }?.let { premiumGate = it; editor = null }
     }
@@ -632,6 +730,14 @@ private fun FinanceScreen(repo: FinanceRepository, native: NativeServices, name:
     editor?.let { current ->
         EntityEditor(current, data, busy, dismiss = { if (!busy) editor = null },
             openCurrencySettings = { if (!busy) { editor = null; navigate("Pengaturan") } },
+            // Chip "Reimburse": pengeluaran disimpan dulu, lalu klaimnya (id klaim = id pengeluaran) di menu Reimburse.
+            saveReimbursed = { transaction, claimMinor -> action(true) {
+                repo.saveTransaction(transaction)
+                repo.planner.saveReimbursement(com.clonical.kasiva.core.model.Reimbursement(transaction.id, transaction.id, transaction.title.take(100),
+                    MR.strings.tx_reimburse_party_default.text(), claimMinor, transaction.currency, transaction.accountId))
+                if(appearance.rememberCategory)preferenceStore?.update(appearance.copy(lastExpenseCategory=transaction.categoryId))
+                notice = MR.strings.tx_reimburse_saved.text()
+            } },
             onScan = if (current is Editor.Tx && current.value == null && !current.aiDraft && !current.notificationImport) ({ editor = null; ai.requireConsent(AiFeature.Scan) { aiScan = true } }) else null,
             saveTx = { transaction -> action(true) {
                 if (current is Editor.Tx && current.aiDraft) {

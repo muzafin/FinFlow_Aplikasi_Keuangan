@@ -25,7 +25,6 @@ import android.os.Bundle
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
-import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
@@ -56,6 +55,7 @@ class MainActivity : FragmentActivity(), NativeServices {
     override fun localFinancePersistence() = AndroidLocalFinancePersistence.get(this)
     override fun closeApp():Boolean { finishAndRemoveTask();return true }
     override fun appVersion():String = packageManager.getPackageInfo(packageName,0).versionName ?: "1.0.0"
+    override fun reportError(operation: String, error: Throwable) = reportTechnicalError(operation, error)
     override fun deleteLocalProfilePhoto():String? {
         val file=File(noBackupFilesDir,"finflow-local/avatar.jpg")
         // Ikon dompet kustom mode lokal ikut dibersihkan bersama data lokal.
@@ -76,11 +76,18 @@ class MainActivity : FragmentActivity(), NativeServices {
     override fun captureProfilePhoto(result: (ByteArray?, String?) -> Unit) = profilePhotos.capture(result)
     override fun uploadProfilePhoto(userId: String, bytes: ByteArray, result: (String?, String?) -> Unit) = profilePhotos.upload(userId, bytes, result)
     override fun loadProfilePhoto(path: String, result: (ByteArray?, String?) -> Unit) = profilePhotos.load(path, result)
+    override fun syncPendingProfilePhoto(userId: String) = profilePhotos.syncPending(userId)
     private val walletIcons = WalletIcons(this)
     override fun pickImage(maxBytes: Int, result: (ByteArray?, String?) -> Unit) = walletIcons.pick(maxBytes, result)
     override fun saveWalletIcon(ownerId: String, accountId: String, bytes: ByteArray, result: (String?) -> Unit) = walletIcons.save(ownerId, accountId, bytes, result)
     override fun loadWalletIcon(ownerId: String, accountId: String, result: (ByteArray?, String?) -> Unit) = walletIcons.load(ownerId, accountId, result)
     override fun devicePlatform(): String = "android"
+    override fun isOnline(): Boolean = runCatching {
+        val manager = getSystemService(android.net.ConnectivityManager::class.java)
+        manager.activeNetwork?.let { network ->
+            manager.getNetworkCapabilities(network)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } == true
+    }.getOrDefault(true)
     private val aiDevice = AiDevice(this)
     override fun recognizeSpeech(languageTag: String, result: (String?, String?) -> Unit) = aiDevice.recognizeSpeech(languageTag, result)
     override fun captureReceiptPhoto(result: (ByteArray?, String?) -> Unit) = aiDevice.captureReceipt(result)
@@ -141,16 +148,45 @@ class MainActivity : FragmentActivity(), NativeServices {
         else callback?.invoke(MR.strings.core_budget_permission_denied.text())
     }
 
+    private var billPermissionResult: ((String?) -> Unit)? = null
+    private val billNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val callback = billPermissionResult
+        billPermissionResult = null
+        if (granted) { callback?.let { setBillPush(true, it) } }
+        else callback?.invoke(MR.strings.core_notifications_disabled.text())
+    }
+    private var pushUid: String? = null
+    override fun setPushUser(userId: String?, language: String) {
+        pushUid = userId
+        PushMessaging.sync(this, userId, language)
+        // Android 13+: tanpa izin notifikasi, push (pengingat tagihan/pengumuman) tidak pernah tampil. Minta sekali
+        // setelah masuk akun cloud; bila ditolak, pengguna masih bisa menyalakannya dari Profil → Notifikasi.
+        if (userId != null && Build.VERSION.SDK_INT >= 33 && !prefs.getBoolean("push.permissionAsked", false)
+            && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            && billPermissionResult == null && budgetPermissionResult == null) {
+            prefs.edit().putBoolean("push.permissionAsked", true).apply()
+            billNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    override fun billPushEnabled(): Boolean = pushUid != null && PushMessaging.billRemindersEnabled(this) && NotificationManagerCompat.from(this).areNotificationsEnabled()
+    override fun setBillPush(enabled: Boolean, result: (String?) -> Unit) {
+        if (pushUid == null) { result(MR.strings.set_notif_bills_cloud_only.text()); return }
+        if (!enabled) { PushMessaging.setBillReminders(this, false); result(null); return }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            if (billPermissionResult != null) { result(MR.strings.core_permission_request_pending.text()); return }
+            billPermissionResult = result
+            billNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            result(MR.strings.core_notifications_disabled.text())
+        } else { PushMessaging.setBillReminders(this, true); result(null) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
-        // Screenshot debug dipakai untuk pemeriksaan UI; perlindungan rilis tetap aktif.
-        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (!appLifecycle.back()) {

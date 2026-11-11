@@ -31,6 +31,7 @@ import com.kyant.backdrop.shadow.InnerShadow
 import com.clonical.kasiva.core.ui.*
 import com.clonical.kasiva.core.ui.liquid.LiquidBottomTab
 import com.clonical.kasiva.core.ui.liquid.LiquidBottomTabs
+import com.clonical.kasiva.core.ui.liquid.LiquidGlass
 import kotlin.math.roundToInt
 import com.clonical.kasiva.i18n.*
 import com.clonical.kasiva.core.i18n.text
@@ -52,7 +53,7 @@ fun MainNavigation(page: String, navigate: (String) -> Unit, add: () -> Unit, en
     val selectedState = rememberUpdatedState(selected)
     val selectedProvider = remember { { selectedState.value } }
     var dragging by remember { mutableStateOf(false) }
-    val containerColor = if (FFColors.isDark) Color(0xFF121212).copy(.4f) else Color(0xFFFAFAFA).copy(.4f)
+    val containerColor = if (FFColors.isDark) Color(0xFF121212).copy(LiquidGlass.DARK_TINT) else Color.White.copy(LiquidGlass.LIGHT_TINT)
 
     Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -61,7 +62,7 @@ fun MainNavigation(page: String, navigate: (String) -> Unit, add: () -> Unit, en
             onTabSelected = { index -> if (mainPages[index] != currentPage) currentNavigate(mainPages[index]) },
             backdrop = sourceBackdrop,
             tabsCount = mainPages.size,
-            modifier = Modifier.weight(1f).testTag("navigation-glass")
+            modifier = Modifier.weight(1f).coachTarget("coach-tabs").testTag("navigation-glass")
                 .semantics { stateDescription = if (dragging) "dragging" else "idle" },
             onDragging = { dragging = it },
         ) {
@@ -69,19 +70,24 @@ fun MainNavigation(page: String, navigate: (String) -> Unit, add: () -> Unit, en
                 val active = index == selected
                 val icon = when (item) { "Beranda" -> "hi_home"; "Statistik" -> "hi_invest"; "Dompet" -> "hi_wallet"; else -> "hi_user" }
                 LiquidBottomTab(onClick = { currentNavigate(item) }, modifier = Modifier.testTag("tab-$item").semantics { this.selected = active }) {
-                    FFIcon(icon, if (active) FFColors.onSurface else FFColors.onSurfaceVariant, 24.dp)
-                    Text(tabLabel(item), style = FFType.metaData.copy(fontSize = 11.sp, lineHeight = 13.sp, letterSpacing = 0.sp),
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal, color = if (active) FFColors.onSurface else FFColors.onSurfaceVariant, maxLines = 1)
+                    // Kontras ikon & label (kaca tetap bening): warna teks utama penuh untuk semua tab + halo tipis
+                    // warna latar di belakang label agar tetap terbaca saat isi halaman lewat di balik kaca.
+                    FFIcon(icon, FFColors.onSurface, 24.dp, stroke = if (active) 2.2f else 1.9f)
+                    Text(tabLabel(item), style = FFType.metaData.copy(fontSize = 11.sp, lineHeight = 13.sp, letterSpacing = 0.sp,
+                        shadow = androidx.compose.ui.graphics.Shadow(FFColors.canvas.copy(alpha = 0.9f), blurRadius = 8f)),
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold, color = FFColors.onSurface, maxLines = 1)
                 }
             }
         }
         // Tombol + kaca bulat terpisah (seperti tombol cari Convx).
         Box(Modifier.size(64.dp).drawBackdrop(sourceBackdrop, { RoundedCornerShape(50) }, effects = {
-            vibrancy(); blur(8.dp.toPx()); lens(24.dp.toPx(), 24.dp.toPx())
-        }, onDrawSurface = { drawRect(containerColor) })
+            vibrancy(); blur(LiquidGlass.BLUR.toPx()); lens(LiquidGlass.REFRACTION_HEIGHT.toPx(), LiquidGlass.REFRACTION_AMOUNT.toPx(), chromaticAberration = true)
+        }, highlight = { com.kyant.backdrop.highlight.Highlight.Default.copy(alpha = LiquidGlass.HIGHLIGHT) },
+            shadow = { com.kyant.backdrop.shadow.Shadow(radius = 18.dp, alpha = LiquidGlass.SHADOW) },
+            onDrawSurface = { drawRect(containerColor) })
             .clickable(enabled = enabled, interactionSource = remember { MutableInteractionSource() }, indication = null, role = Role.Button, onClick = add)
-            .testTag("add-transaction").semantics { contentDescription = MR.strings.app_add_transaction.text() }, contentAlignment = Alignment.Center) {
-            FFIcon("hi_add", FFColors.onSurface, 26.dp)
+            .coachTarget("coach-add").testTag("add-transaction").semantics { contentDescription = MR.strings.app_add_transaction.text() }, contentAlignment = Alignment.Center) {
+            FFIcon("hi_add", FFColors.onSurface, 26.dp, stroke = 2.2f)
         }
     }
 }

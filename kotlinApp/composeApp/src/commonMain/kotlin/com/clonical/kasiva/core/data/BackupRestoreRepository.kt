@@ -24,7 +24,7 @@ class BackupRestoreRepository(private val db:FinanceDatabase,private val root:Fi
             val accounts=root.collection("accounts").get().documents.map{it.data<Account>()}
             require(accounts.all{it.id=="acc_cash" && it.openingBalanceMinor==0L && !it.archived}){MR.strings.core_restore_target_has_wallet.text()}
             val categories=root.collection("categories").get().documents.map{it.data<Category>()}
-            require(categories.all{it.id in defaultCategoryTree.map{c->c.id}}){MR.strings.core_restore_target_has_categories.text()}
+            require(categories.all{it.id in (defaultCategoryTree+legacyDefaultCategories).map{c->c.id}}){MR.strings.core_restore_target_has_categories.text()}
         } else verifyResume(d)
         begin()
         progress(MR.strings.core_restore_progress_wallets.text())
@@ -79,7 +79,7 @@ class BackupRestoreRepository(private val db:FinanceDatabase,private val root:Fi
     private suspend fun verifyResume(d:FinanceData) {
         fun intact(value:Boolean){require(value){MR.strings.core_restore_target_changed.text()}}
         suspend fun ids(name:String,allowed:Set<String>){intact(root.collection(name).get().documents.all{it.id in allowed})}
-        ids("accounts",d.accounts.map{it.id}.toSet()+"acc_cash");ids("categories",d.categories.map{it.id}.toSet()+defaultCategoryTree.map{it.id})
+        ids("accounts",d.accounts.map{it.id}.toSet()+"acc_cash");ids("categories",d.categories.map{it.id}.toSet()+(defaultCategoryTree+legacyDefaultCategories).map{it.id})
         ids("transactions",d.transactions.map{it.id}.toSet());ids("financialEvents",d.financialEvents.map{it.id}.toSet())
         ids("goals",d.goals.map{it.id}.toSet());ids("bills",d.bills.map{it.id}.toSet());ids("debts",d.debts.map{it.id}.toSet())
         ids("notes",d.notes.map{it.id}.toSet());ids("recurring",d.recurring.map{it.id}.toSet());ids("reimbursements",d.reimbursements.map{it.id}.toSet())
@@ -88,7 +88,7 @@ class BackupRestoreRepository(private val db:FinanceDatabase,private val root:Fi
         events.forEach{intact(it in d.financialEvents)}
         root.collection("transactions").get().documents.forEach{intact(it.data<Transaction>() in d.transactions)}
         root.collection("accounts").get().documents.forEach{snapshot->val old=snapshot.data<Account>();if(old.id=="acc_cash")intact(old.openingBalanceMinor==0L) else {val value=d.accounts.single{it.id==old.id};intact(old==value || old==value.copy(archived=false))}}
-        root.collection("categories").get().documents.forEach{val value=it.data<Category>();intact(value in d.categories || defaultCategoryTree.any{it.copy(name=value.name)==value})}
+        root.collection("categories").get().documents.forEach{val value=it.data<Category>();intact(value in d.categories || (defaultCategoryTree+legacyDefaultCategories).any{it.copy(name=value.name)==value})}
         root.collection("wishes").get().documents.forEach{intact(it.data<Wish>() in d.wishes)}
         root.collection("cards").get().documents.forEach{intact(it.data<WalletCard>() in d.cards)}
         root.collection("budgets").get().documents.forEach{intact(it.data<Budget>() in d.budgets)}

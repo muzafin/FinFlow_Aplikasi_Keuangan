@@ -107,8 +107,7 @@ fun InvestmentEditor(old: Investment?, busy: Boolean, dismiss: () -> Unit, save:
                     error?.let { Text(it, Modifier.padding(top = 12.dp), style = FFType.bodyMain, color = MaterialTheme.colorScheme.error) }
                     Spacer(Modifier.height(32.dp))
                     Button(onClick = ::submit, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                        if (busy) CircularProgressIndicator(Modifier.size(22.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                        else Text(MR.strings.acc_save_portfolio.text(), style = FFType.bodyMain.copy(fontWeight = FontWeight.SemiBold))
+                        Text(MR.strings.acc_save_portfolio.text(), style = FFType.bodyMain.copy(fontWeight = FontWeight.SemiBold))
                     }
                 }
             }

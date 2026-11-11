@@ -80,7 +80,7 @@ fun ExchangeRatesScreen(data: FinanceData) {
         val current = rates
         when {
             loading && current == null -> item {
-                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp) }
+                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {  }
             }
             current == null -> item {
                 DesignCard {

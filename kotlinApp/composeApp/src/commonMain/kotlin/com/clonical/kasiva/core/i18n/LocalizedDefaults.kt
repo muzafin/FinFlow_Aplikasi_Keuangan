@@ -9,19 +9,8 @@ import dev.icerock.moko.resources.StringResource
  * mengganti namanya (nama masih salah satu terjemahan bawaan), tampilkan dalam bahasa aktif.
  * Nama yang sudah diganti pengguna dibiarkan apa adanya.
  */
-private val categoryKeys: Map<String, Pair<String, StringResource>> get() = mapOf(
-    "food" to ("core_category_food" to MR.strings.core_category_food),
-    "transport" to ("core_category_transport" to MR.strings.core_category_transport),
-    "shopping" to ("core_category_shopping" to MR.strings.core_category_shopping),
-    "health" to ("core_category_health" to MR.strings.core_category_health),
-    "bills" to ("core_category_bills" to MR.strings.core_category_bills),
-    "education" to ("core_category_education" to MR.strings.core_category_education),
-    "entertainment" to ("core_category_entertainment" to MR.strings.core_category_entertainment),
-    "other_expense" to ("core_category_other" to MR.strings.core_category_other),
-    "other_income" to ("core_category_other" to MR.strings.core_category_other),
-    "salary" to ("core_category_salary" to MR.strings.core_category_salary),
-    "business" to ("core_category_business" to MR.strings.core_category_business),
-)
+private val categoryKeys: Map<String, Pair<String, StringResource>> get() =
+    (com.clonical.kasiva.core.model.defaultCategorySpecs + com.clonical.kasiva.core.model.legacyCategorySpecs).associate { it.id to (it.key to it.name) }
 
 /** Nama tampilan: terjemahan bawaan bila [name] masih nama bawaan untuk kunci [key]. */
 private fun localizedDefault(name: String, key: String, resource: StringResource): String =

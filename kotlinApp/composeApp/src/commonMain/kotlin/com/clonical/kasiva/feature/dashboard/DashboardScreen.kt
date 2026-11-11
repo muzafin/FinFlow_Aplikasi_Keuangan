@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
@@ -70,12 +71,14 @@ internal val dashboardShortcuts=listOf(
     Triple("Format Saldo","Format Saldo","payments"),
     Triple("Kategori","Kategori","category"),
     Triple("Periode Pencatatan","Periode Pencatatan","calendar_today_outlined"),
+    Triple("Panduan","Panduan Aplikasi","school_outlined"),
 )
 private const val shortcutBadge="Catatan Pembaruan"
 
 /** Label tampilan pintasan Beranda; label di [dashboardShortcuts] tetap menjadi pengenal. */
 fun shortcutLabel(label:String):String = when(label){
     "Notifikasi"->MR.strings.dash_shortcut_notifications.text()
+    "Panduan"->MR.strings.coach_replay.text()
     "Catatan Pembaruan"->MR.strings.dash_shortcut_changelog.text()
     "Tambah Transaksi"->MR.strings.dash_shortcut_add_transaction.text()
     "Tampilan Kartu"->MR.strings.dash_shortcut_card_view.text()
@@ -121,12 +124,14 @@ fun Dashboard(data:FinanceData,month:String,monthChange:(String)->Unit,edit:(Tra
         .let{if(preferences.dashboardWalletCount>0)it.take(preferences.dashboardWalletCount) else it}
     val visibleMenus=preferences.menuOrder.filter{it !in preferences.hiddenMenus}
     val menuPages=visibleMenus.chunked(4)
-    val level=recordingProgress(data).level
+    val levelProgress=recordingProgress(data,com.clonical.kasiva.feature.level.LocalGamification.current?.status)
+    val level=levelProgress.level
+    val levelFraction=(levelProgress.levelXp.toFloat()/levelProgress.levelSpan.coerceAtLeast(1)).coerceIn(0f,1f)
     fun cycleCurrency(){ if(currencies.size>1) currencyOffset+=1 }
 
     Column(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxWidth().padding(start=16.dp,end=8.dp,top=12.dp,bottom=12.dp)) {
-        DashboardHeader(name,level,onProfile={onNavigate("Profil")},onLevel={onNavigate("Aktivitas")},shortcuts=shortcuts,setShortcuts={shortcuts=it},onNavigate=onNavigate)
+        DashboardHeader(name,level,levelFraction,onProfile={onNavigate("Profil")},onLevel={onNavigate("Aktivitas")},shortcuts=shortcuts,setShortcuts={shortcuts=it},onNavigate=onNavigate)
     }
     Box(Modifier.fillMaxWidth().height(1.dp).background(FFColors.surface))
     LazyColumn(Modifier.fillMaxSize().testTag("dashboard"),contentPadding=PaddingValues(start=16.dp,end=16.dp,top=8.dp,bottom=124.dp)) {
@@ -140,6 +145,7 @@ fun Dashboard(data:FinanceData,month:String,monthChange:(String)->Unit,edit:(Tra
             item(key="balance") {
                 Column(Modifier.fillMaxWidth()) {
                     Spacer(Modifier.height(8.dp))
+                    Column(Modifier.fillMaxWidth().coachTarget("coach-balance")) {
                     orderedCurrencies.forEachIndexed{index,currency->
                         if(index>0)Spacer(Modifier.height(16.dp))
                         val balance=dashboardBalance(data,currency,liquid)
@@ -150,12 +156,13 @@ fun Dashboard(data:FinanceData,month:String,monthChange:(String)->Unit,edit:(Tra
                             toggleLiquid={liquid=!liquid},cycleCurrency={cycleCurrency()},togglePrivacy={privacy=!privacy},
                             onIncome={onNavigate("Transaksi:income")},onExpense={onNavigate("Transaksi:expense")})
                     }
+                    }
                 }
             }
             item(key="menu") {
                 Column(Modifier.fillMaxWidth()) {
                     Spacer(Modifier.height(24.dp))
-                    MenuSection(menus=visibleMenus,page=menuPage.takeIf{it<menuPages.size} ?: 0,onMore={if(menuPages.size>1)menuPage=(menuPage+1)%menuPages.size},onNavigate=onNavigate,menuTheme=preferences.menuTheme,appearance=preferences.menuAppearance)
+                    Box(Modifier.coachTarget("coach-menu")) { MenuSection(menus=visibleMenus,page=menuPage.takeIf{it<menuPages.size} ?: 0,onMore={if(menuPages.size>1)menuPage=(menuPage+1)%menuPages.size},onNavigate=onNavigate,menuTheme=preferences.menuTheme,appearance=preferences.menuAppearance) }
                 }
             }
             item(key="budget") {
@@ -181,11 +188,15 @@ fun Dashboard(data:FinanceData,month:String,monthChange:(String)->Unit,edit:(Tra
     }
 }
 
+/** Warna cincin progres level (hijau toska Kasiva). */
+private val LevelRingColor=Color(0xFF009688)
+
 @Composable
-private fun DashboardHeader(name:String,level:Int,onProfile:()->Unit,onLevel:()->Unit,shortcuts:Boolean,setShortcuts:(Boolean)->Unit,onNavigate:(String)->Unit) {
+private fun DashboardHeader(name:String,level:Int,levelFraction:Float,onProfile:()->Unit,onLevel:()->Unit,shortcuts:Boolean,setShortcuts:(Boolean)->Unit,onNavigate:(String)->Unit) {
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
         GreetingText(name,Modifier.weight(1f),onProfile)
         Spacer(Modifier.width(8.dp))
+        Row(Modifier.coachTarget("coach-level"),verticalAlignment=Alignment.CenterVertically) {
         Surface(onClick=onLevel,color=FFColors.surfaceContainer,shape=RoundedCornerShape(50),
             modifier=Modifier.height(26.dp).widthIn(min=44.dp).testTag("dashboard-level-pill")) {
             Box(Modifier.fillMaxHeight().padding(horizontal=10.dp),contentAlignment=Alignment.Center) {
@@ -193,8 +204,24 @@ private fun DashboardHeader(name:String,level:Int,onProfile:()->Unit,onLevel:()-
             }
         }
         Spacer(Modifier.width(8.dp))
-        Box(Modifier.size(40.dp).clip(CircleShape).background(if(FFColors.isDark)FFColors.surface else Color.Transparent).clickable(role=Role.Button,onClick=onProfile).testTag("dashboard-profile"),contentAlignment=Alignment.Center){
-            FFIcon("hi_user",FFColors.onSurface,22.dp,contentDescription=tabLabel("Profil"))
+        // Ikon profil dikelilingi cincin progres XP menuju level berikutnya.
+        val ringTrack=FFColors.outlineVariant
+        val animated by androidx.compose.animation.core.animateFloatAsState(levelFraction,androidx.compose.animation.core.tween(700),label="level-ring")
+        Box(Modifier.size(44.dp).clip(CircleShape).clickable(role=Role.Button,onClick=onProfile).testTag("dashboard-profile")
+            .semantics{stateDescription="${(levelFraction*100).toInt()}%"},contentAlignment=Alignment.Center){
+            androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                val stroke=3.dp.toPx()
+                val inset=stroke/2
+                val arcSize=androidx.compose.ui.geometry.Size(size.width-stroke,size.height-stroke)
+                val topLeft=androidx.compose.ui.geometry.Offset(inset,inset)
+                drawArc(ringTrack,0f,360f,false,topLeft,arcSize,style=androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+                if(animated>0f) drawArc(LevelRingColor,-90f,360f*animated,false,topLeft,arcSize,
+                    style=androidx.compose.ui.graphics.drawscope.Stroke(stroke,cap=androidx.compose.ui.graphics.StrokeCap.Round))
+            }
+            Box(Modifier.size(34.dp).clip(CircleShape).background(if(FFColors.isDark)FFColors.surface else FFColors.surfaceContainer),contentAlignment=Alignment.Center){
+                FFIcon("hi_user",FFColors.onSurface,20.dp,contentDescription=tabLabel("Profil"))
+            }
+        }
         }
         Box(Modifier.testTag("dashboard-shortcuts")) {
             Box(Modifier.size(40.dp).clip(CircleShape).clickable(role=Role.Button){setShortcuts(true)}.testTag("dashboard-shortcuts-button"),contentAlignment=Alignment.Center) {

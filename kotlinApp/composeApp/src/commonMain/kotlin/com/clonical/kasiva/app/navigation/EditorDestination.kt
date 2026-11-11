@@ -27,4 +27,5 @@ sealed interface Editor {
     data class Asset(val value: Investment? = null) : Editor
     data class Cat(val value: com.clonical.kasiva.core.model.Category? = null, val parentId: String? = null) : Editor
     data object Person : Editor
+    data object SplitForm : Editor
 }

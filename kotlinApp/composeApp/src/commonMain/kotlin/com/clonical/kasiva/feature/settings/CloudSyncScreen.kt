@@ -86,7 +86,7 @@ fun CloudSyncScreen(local:FinanceRepository,cloud:FinanceRepository,native:Nativ
                 AdBody(MR.strings.auth_sync_target_note.text(),size=13.sp)
             }
             if(checkpoint!=null)AdBanner("hi_info",MR.strings.auth_sync_pending_note.text(),AdTone.infoBg,AdTone.infoFg)
-            if(busy){LinearProgressIndicator(Modifier.fillMaxWidth(),color=FFColors.pill,trackColor=FFColors.iconCircle);AdBody(progress)}
+            if(busy){;AdBody(progress)}
             error?.let{AdBody(it,color=AdTone.danger)}
             AdPrimaryButton(if(checkpoint==null)MR.strings.auth_sync_start.text() else MR.strings.auth_sync_resume.text(),AdIcons.cloudSync,::synchronize,enabled=!busy,tag="cloud-sync-start")
             if(checkpoint==null)AdOutlineButton(MR.strings.auth_sync_open_account.text(),null,finish,enabled=!busy,tag="cloud-sync-open-account")

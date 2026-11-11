@@ -34,6 +34,8 @@ fun NotificationSettings(native: NativeServices) {
     var enabled by remember { mutableStateOf(native.reminderEnabled()) }
     var budgetEnabled by remember { mutableStateOf(native.budgetAlertsEnabled()) }
     var budgetBusy by remember { mutableStateOf(false) }
+    var billEnabled by remember { mutableStateOf(native.billPushEnabled()) }
+    var billBusy by remember { mutableStateOf(false) }
     var hour by remember { mutableIntStateOf(native.reminderHour()) }
     var minute by remember { mutableIntStateOf(native.reminderMinute()) }
     var busy by remember { mutableStateOf(false) }
@@ -96,7 +98,7 @@ fun NotificationSettings(native: NativeServices) {
             }
             if (busy) {
                 Spacer(Modifier.height(12.dp))
-                LinearProgressIndicator(Modifier.fillMaxWidth(), color = FFColors.onSurface, trackColor = FFColors.raised)
+                
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -120,6 +122,25 @@ fun NotificationSettings(native: NativeServices) {
             }
             Spacer(Modifier.height(12.dp))
             Text(MR.strings.set_notif_budget_hint.text(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(16.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(FFColors.surface).padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(MR.strings.set_notif_bills.text(), style = FFType.bodyMain.copy(fontSize = 16.sp, lineHeight = 22.sp), fontWeight = FontWeight.Medium, color = FFColors.onSurface)
+                    Spacer(Modifier.height(2.dp))
+                    Text(MR.strings.set_notif_bills_desc.text(), style = FFType.metaData.copy(fontSize = 13.sp, lineHeight = 18.sp), color = FFColors.onSurfaceVariant)
+                }
+                Spacer(Modifier.width(16.dp))
+                Switch(checked = billEnabled, onCheckedChange = { requested ->
+                    billBusy = true
+                    error = null
+                    native.setBillPush(requested) { failure ->
+                        billBusy = false
+                        if (failure == null) billEnabled = native.billPushEnabled() else error = failure
+                    }
+                }, enabled = !billBusy && !budgetBusy && !busy, colors = switchColors, modifier = Modifier.testTag("notif-bill-push-switch"))
+            }
         }
         error?.let {
             Spacer(Modifier.height(16.dp))

@@ -76,7 +76,7 @@ fun AuthScreen(repo: FinanceRepository, native: NativeServices, scope: Coroutine
         scope.launch {
             try { action() }
             catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error = e.message ?: MR.strings.auth_error_sign_in_failed.text() }
+            catch (e: Exception) { native.reportError("account_action", e); error = e.message ?: MR.strings.auth_error_sign_in_failed.text() }
             finally { busy = false }
         }
     }

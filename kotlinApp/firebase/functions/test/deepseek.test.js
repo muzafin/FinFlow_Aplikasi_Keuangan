@@ -31,6 +31,8 @@ test('parse sends JSON mode with schema in system prompt and validates output', 
   assert.equal(call.body.messages[0].role, 'system');
   assert.match(call.body.messages[0].content, /JSON Schema/);
   assert.equal(call.body.messages[1].content, 'makan 50rb');
+  assert.deepEqual(call.body.thinking, { type: 'disabled' });
+  assert.equal(call.body.temperature, 0);
 });
 
 test('invalid JSON yields null parsed_output and length maps to max_tokens', async () => {
@@ -40,18 +42,36 @@ test('invalid JSON yields null parsed_output and length maps to max_tokens', asy
   assert.equal(response.stop_reason, 'max_tokens');
 });
 
-test('images are rejected with a clear message', async () => {
-  const fetchImpl = fakeFetch({});
+test('image blocks become image_url data URLs for vision', async () => {
+  const fetchImpl = fakeFetch({ choices: [{ finish_reason: 'stop', message: { content: '{"transactions":[],"message":null}' } }] });
   const client = createDeepSeekClient({ apiKey: 'k', fetchImpl });
-  await assert.rejects(client.messages.parse({ model: 'm', output_config: { format: jsonOutputFormat(Result) }, system: [],
-    messages: [{ role: 'user', content: [{ type: 'image', source: {} }, { type: 'text', text: 'x' }] }] }), /AI Scan belum didukung/);
-  assert.equal(fetchImpl.calls.length, 0);
+  const response = await client.messages.parse({ model: 'm', output_config: { format: jsonOutputFormat(Result) }, system: [],
+    messages: [{ role: 'user', content: [
+      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AAAA' } },
+      { type: 'text', text: 'baca struk ini' },
+    ] }] });
+  assert.deepEqual(response.parsed_output, { transactions: [], message: null });
+  assert.equal(fetchImpl.calls.length, 1);
+  assert.deepEqual(fetchImpl.calls[0].body.messages[1].content, [
+    { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAAA' } },
+    { type: 'text', text: 'baca struk ini' },
+  ]);
 });
 
-test('assistant create returns text content', async () => {
-  const client = createDeepSeekClient({ apiKey: 'k', fetchImpl: fakeFetch({ choices: [{ finish_reason: 'stop', message: { content: 'Halo!' } }] }) });
-  const response = await client.beta.messages.create({ model: 'm', system: [{ type: 'text', text: 'sys' }], messages: [{ role: 'user', content: 'hai' }] });
+test('fenced JSON content is still parsed', async () => {
+  const fetchImpl = fakeFetch({ choices: [{ finish_reason: 'stop', message: { content: '```json\n{"transactions":[{"amount":5}],"message":null}\n```' } }] });
+  const client = createDeepSeekClient({ apiKey: 'k', fetchImpl });
+  const response = await client.messages.parse({ model: 'm', output_config: { format: jsonOutputFormat(Result) }, system: [], messages: [{ role: 'user', content: 'x' }] });
+  assert.deepEqual(response.parsed_output, { transactions: [{ amount: 5 }], message: null });
+});
+
+test('assistant create returns text content with low reasoning effort', async () => {
+  const fetchImpl = fakeFetch({ choices: [{ finish_reason: 'stop', message: { content: 'Halo!' } }] });
+  const client = createDeepSeekClient({ apiKey: 'k', fetchImpl });
+  const response = await client.beta.messages.create({ model: 'm', system: [{ type: 'text', text: 'sys' }], output_config: { effort: 'low' }, messages: [{ role: 'user', content: 'hai' }] });
   assert.equal(response.content[0].text, 'Halo!');
+  assert.deepEqual(fetchImpl.calls[0].body.thinking, { type: 'enabled' });
+  assert.equal(fetchImpl.calls[0].body.reasoning_effort, 'low');
 });
 
 test('HTTP errors map to friendly codes', async () => {

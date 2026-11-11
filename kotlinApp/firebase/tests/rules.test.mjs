@@ -1,10 +1,11 @@
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, test } from 'node:test';
+import assert from 'node:assert/strict';
 // Tool-only dependencies may be installed in the ignored build folder.
 const require = createRequire(process.env.FINFLOW_TEST_DEPENDENCIES || new URL('./package.json', import.meta.url));
 const {initializeTestEnvironment,assertFails,assertSucceeds} = require('@firebase/rules-unit-testing');
-const {doc,setDoc,getDoc,updateDoc,deleteDoc,writeBatch,setLogLevel} = require('firebase/firestore');
+const {doc,setDoc,getDoc,getDocs,collection,runTransaction,updateDoc,deleteDoc,writeBatch,setLogLevel} = require('firebase/firestore');
 setLogLevel('silent');
 let env, db;
 before(async()=>{
@@ -306,4 +307,62 @@ test('connected devices are owner-only with strict fields and a one-way revoke',
 test('pending data reset blocks device registration',async()=>{
   await env.withSecurityRulesDisabled(async context=>setDoc(doc(context.firestore(),'_dataResets/rules-owner'),{status:'pending'}));
   await assertFails(setDoc(doc(db,`users/rules-owner/devices/${deviceId}`),device()));
+});
+
+test('foreign-currency entry keeps the wallet currency and stores the typed original amount',async()=>{
+  await seedBasics();
+  await assertSucceeds(setDoc(path('transactions','fx-ok'),tx('fx-ok',{amountMinor:1810000,originalCurrency:'USD',originalAmountMinor:1000})));
+  await assertSucceeds(setDoc(path('transactions','fx-null'),tx('fx-null',{originalCurrency:null,originalAmountMinor:null})));
+  await assertFails(setDoc(path('transactions','fx-same'),tx('fx-same',{originalCurrency:'IDR',originalAmountMinor:1000})));
+  await assertFails(setDoc(path('transactions','fx-half'),tx('fx-half',{originalCurrency:'USD',originalAmountMinor:null})));
+  await assertFails(setDoc(path('transactions','fx-zero'),tx('fx-zero',{originalCurrency:'USD',originalAmountMinor:0})));
+  await assertFails(setDoc(path('transactions','fx-bad'),tx('fx-bad',{originalCurrency:'usd',originalAmountMinor:1000})));
+  await assertFails(setDoc(path('transactions','fx-wallet'),tx('fx-wallet',{currency:'USD',amountMinor:1000})));
+});
+
+// Daftar kategori bawaan yang sebenarnya (dibuat tools/i18n/gen_categories.py), bukan salinan manual.
+const defaultTree=[...readFileSync(new URL('../../composeApp/src/commonMain/kotlin/com/clonical/kasiva/core/model/DefaultCategoryData.kt',import.meta.url),'utf8')
+  .split('val legacyCategorySpecs')[0].matchAll(/DefaultCategorySpec\("([^"]+)", "(expense|income)", (null|"[^"]+")/g)]
+  .map(([,id,type,parent])=>({id,type,parentId:parent==='null'?null:parent.slice(1,-1)}));
+
+test('Ollo-style default tree (all categories and subcategories) fits one atomic sign-up batch',async()=>{
+  if(!(defaultTree.length>100 && defaultTree.some(c=>c.parentId==='food'))) throw new Error('daftar kategori bawaan tidak terbaca');
+  const uid='new-tree-account',email=`${uid}@example.test`;const client=env.authenticatedContext(uid,{email}).firestore();const batch=writeBatch(client);
+  batch.set(doc(client,`users/${uid}`),{id:uid,name:'Pengguna baru',email,baseCurrency:'IDR',schemaVersion:2});
+  defaultTree.forEach(c=>batch.set(path('categories',c.id,client,uid),{id:c.id,name:c.id,type:c.type,parentId:c.parentId}));
+  batch.set(path('accounts','cash',client,uid),account('cash',{openingBalanceMinor:0}));
+  await assertSucceeds(batch.commit());
+});
+
+test('older accounts can be topped up with missing default categories one document at a time',async()=>{
+  await seedBasics();
+  for(const c of defaultTree.filter(c=>c.id!=='food')) await step(c.id,assertSucceeds(setDoc(path('categories',c.id),{id:c.id,name:c.id,type:c.type,parentId:c.parentId})));
+});
+
+test('stale first-login creation is denied, then a retry reads the winning profile without resetting money',async()=>{
+  const uid='concurrent-first-login',email=`${uid}@example.test`;
+  const client=env.authenticatedContext(uid,{email}).firestore();
+  const root=doc(client,`users/${uid}`);
+  let readers=0,release; const bothRead=new Promise(resolve=>{release=resolve});
+  const initialize=()=>runTransaction(client,async transaction=>{
+    if(!(await transaction.get(root)).exists()) {
+      const createdAt=++readers;
+      if(readers===2)release();
+      await bothRead;
+      transaction.set(root,{id:uid,name:'New account',email,baseCurrency:'IDR',schemaVersion:2});
+      defaultTree.forEach(c=>transaction.set(path('categories',c.id,client,uid),{id:c.id,name:c.id,type:c.type,parentId:c.parentId}));
+      transaction.set(path('accounts','cash',client,uid),account('cash',{openingBalanceMinor:0,createdAt}));
+    }
+  });
+  const attempts=await Promise.allSettled([initialize(),initialize()]);
+  assert.equal(attempts.filter(result=>result.status==='fulfilled').length,1);
+  assert.equal(attempts.find(result=>result.status==='rejected')?.reason.code,'permission-denied');
+  const wallet=path('accounts','cash',client,uid);
+  const original=(await getDoc(wallet)).data();
+  await assertSucceeds(initialize());
+  assert.deepEqual((await getDoc(wallet)).data(),original);
+  for(const name of ['categories','accounts','transactions','budgets','goals','investments','bills','debts','wishes','cards','notes','reimbursements','recurring','financialEvents']) {
+    await step(name,assertSucceeds(getDocs(collection(client,`users/${uid}/${name}`))));
+    await step(`other:${name}`,assertFails(getDocs(collection(env.authenticatedContext('other').firestore(),`users/${uid}/${name}`))));
+  }
 });

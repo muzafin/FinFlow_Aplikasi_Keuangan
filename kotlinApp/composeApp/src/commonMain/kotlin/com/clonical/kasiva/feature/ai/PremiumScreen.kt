@@ -53,10 +53,20 @@ private fun premiumFeatures() = listOf(
 )
 
 /** Batas paket Free (mengikuti Ollo). */
+/**
+ * Langganan Premium dimatikan sementara sampai aplikasi ada di Play Store dan produk RevenueCat siap.
+ * false: kartu/tombol Premium disembunyikan, halaman Premium tidak bisa dibuka, dan batas gratis di aplikasi
+ * tidak diberlakukan (pengguna tidak bisa upgrade). Kuota AI tetap dijaga server.
+ */
+const val PREMIUM_ENABLED = false
+
 object FreeLimits { const val WALLETS = 7; const val CARDS = 10; const val RECURRING = 7; const val GOALS = 7; const val WISHES = 7 }
 
 /** Mengembalikan pesan bila editor baru melewati batas Free. */
-fun freeLimitReached(editor: Editor?, data: FinanceData): String? = when {
+/** Batas gratis yang berlaku sekarang; selalu null selama [PREMIUM_ENABLED] mati. */
+fun freeLimitReached(editor: Editor?, data: FinanceData): String? = if (PREMIUM_ENABLED) freeLimitMessage(editor, data) else null
+
+fun freeLimitMessage(editor: Editor?, data: FinanceData): String? = when {
     editor is Editor.Wallet && editor.value == null && data.accounts.count { !it.archived && it.goalId == null } >= FreeLimits.WALLETS -> MR.strings.ai_limit_wallets.text(FreeLimits.WALLETS)
     editor is Editor.CardForm && editor.value == null && data.cards.size >= FreeLimits.CARDS -> MR.strings.ai_limit_cards.text(FreeLimits.CARDS)
     editor is Editor.RepeatForm && editor.value == null && data.recurring.count { it.active } >= FreeLimits.RECURRING -> MR.strings.ai_limit_recurring.text(FreeLimits.RECURRING)
@@ -150,8 +160,7 @@ fun PremiumScreen(controller: AiController, native: NativeServices, back: () -> 
             }, enabled = !busy && !controller.isPremium, shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = premiumBlue, contentColor = Color.White),
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(20.dp).height(56.dp).testTag("premium-subscribe")) {
-                if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                else Text(when { controller.isPremium -> MR.strings.ai_premium_active.text(); uid == null -> MR.strings.ai_login_to_subscribe.text(); else -> MR.strings.ai_subscribe_now.text() },
+                Text(when { controller.isPremium -> MR.strings.ai_premium_active.text(); uid == null -> MR.strings.ai_login_to_subscribe.text(); else -> MR.strings.ai_subscribe_now.text() },
                     style = FFType.bodyMain.copy(fontSize = 17.sp), fontWeight = FontWeight.SemiBold)
             }
         }
@@ -233,7 +242,7 @@ fun LazyListScope.aiAccountSection(controller: AiController, cloudSync: Boolean,
             StatusRow(MR.strings.ai_tier.text(), if (controller.isPremium) "PREMIUM" else "FREE")
             StatusRow(MR.strings.ai_cloud_sync.text(), if (cloudSync) MR.strings.ai_active.text() else MR.strings.ai_inactive.text())
             StatusRow("Kasiva Assistant", if (controller.available) MR.strings.ai_available.text() else MR.strings.ai_needs_login.text())
-            if (!controller.isPremium) TextButton(onClick = openPremium) { Text(MR.strings.ai_upgrade_premium.text()) }
+            if (PREMIUM_ENABLED && !controller.isPremium) TextButton(onClick = openPremium) { Text(MR.strings.ai_upgrade_premium.text()) }
         }
     }
     if (controller.available) item {

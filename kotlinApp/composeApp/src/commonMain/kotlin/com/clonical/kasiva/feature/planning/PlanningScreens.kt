@@ -40,6 +40,7 @@ data class PlanningActions(
     val recurring:(RecurringTransaction?)->Unit, val processRecurring:()->Unit,
     val manualScheduled:()->Unit, val addExpense:()->Unit, val reverse:(FinancialEvent)->Unit,
     val payBundle:(FinanceNote,List<String>)->Unit = {_,_->}, val updateNote:(FinanceNote)->Unit = {},
+    val splitBill:()->Unit = {},
 )
 
 @Composable
@@ -259,7 +260,17 @@ private fun Debts(data:FinanceData,busy:Boolean,a:PlanningActions) {
             OlloMenuButton(listOf(OlloMenuItem("closed",if(closed)MR.strings.plan_show_active.text() else MR.strings.plan_show_closed.text(),"visibility_off_rounded")),tint=FFColors.onSurface){key->if(key=="closed")closed=!closed}
         }
         }
-        if(data.featuresReady)Box(Modifier.align(Alignment.BottomEnd).padding(16.dp)){OlloFab({a.debt(null)},MR.strings.plan_add_debt.text())}
+        if(data.featuresReady)Row(Modifier.align(Alignment.BottomEnd).padding(16.dp),verticalAlignment=Alignment.CenterVertically) {
+            // Split Bill: bayar tagihan bersama, bagian teman otomatis menjadi piutang.
+            Surface(onClick=a.splitBill,enabled=!busy,modifier=Modifier.height(48.dp).testTag("debt-split-bill"),shape=RoundedCornerShape(16.dp),color=FFColors.surfaceContainerHigh,shadowElevation=4.dp) {
+                Row(Modifier.padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
+                    FFIcon("hi_reimburse",FFColors.onSurface,20.dp);Spacer(Modifier.width(8.dp))
+                    Text(MR.strings.sb_button.text(),style=FFType.bodyMain.copy(fontWeight=FontWeight.SemiBold),color=FFColors.onSurface)
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            OlloFab({a.debt(null)},MR.strings.plan_add_debt.text())
+        }
     }
 }
 

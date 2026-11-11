@@ -59,6 +59,52 @@ data class AppPreferences(
         require(categoryOrder.size <= 1000 && categoryOrder.distinct().size == categoryOrder.size && categoryOrder.all { it.length in 1..100 })
         require(voiceLanguage == "system" || voiceLanguage.matches(Regex("[a-z]{2,3}-[A-Z]{2}")))
     }
+
+    /**
+     * Data dari perangkat/build lain bisa memuat nilai yang tidak lagi valid. Perbaiki sebisanya
+     * daripada menolak seluruh preferensi: pengaturan yang masih dikenal dipertahankan, sisanya kembali ke bawaan.
+     */
+    fun repaired(): AppPreferences {
+        val group = listOf("cash", "bank", "ewallet", "savings", "credit", "investment", "loan", "other")
+        fun ordered(order: List<String>, known: List<String>) = (order.filter { it in known } + known).distinct()
+        fun validColor(value: Long) = value in 0xFF000000..0xFFFFFFFF
+        return copy(
+            theme = theme.takeIf { it in listOf("system", "light", "dark") } ?: "system",
+            palette = palette.takeIf { it in listOf("neutral", "arctic", "ruby", "emerald", "indigo") } ?: "neutral",
+            cardAppearance = cardAppearance.takeIf { it in listOf("gradient", "plain", "outline") } ?: "gradient",
+            menuAppearance = menuAppearance.takeIf { it in listOf("horizontal", "grid", "list") } ?: "horizontal",
+            menuOrder = ordered(menuOrder, financeMenus),
+            hiddenMenus = hiddenMenus.filter { it in financeMenus }.distinct().take(financeMenus.size - 1),
+            statisticsOrder = ordered(statisticsOrder, statisticsSections),
+            homePeriod = homePeriod.takeIf { it in listOf("Hari Ini", "Minggu Ini", "Bulan Ini", "Tahun", "Kalender") } ?: "Bulan Ini",
+            transactionDisplay = transactionDisplay.takeIf { it in listOf("comfortable", "compact") } ?: "comfortable",
+            iconPack = iconPack.takeIf { it in listOf("outlined", "rounded") } ?: "outlined",
+            incomeColor = incomeColor.takeIf(::validColor) ?: 0xFF4CAF50,
+            expenseColor = expenseColor.takeIf(::validColor) ?: 0xFFFF5252,
+            numberFormat = numberFormat.takeIf { it in listOf("id", "en") } ?: "id",
+            recordingDay = recordingDay.coerceIn(1, 31),
+            weekStart = weekStart.coerceIn(1, 7),
+            defaultWalletId = defaultWalletId.take(1000),
+            lastExpenseCategory = lastExpenseCategory.take(1000),
+            lastIncomeCategory = lastIncomeCategory.take(1000),
+            language = language.takeIf { it == "system" || com.clonical.kasiva.core.i18n.appLanguages.any { l -> l.tag == it } } ?: "system",
+            cardGradient = cardGradient.takeIf { isValidCardGradient(it) } ?: "teal",
+            menuTheme = menuTheme.takeIf { isValidMenuTheme(it) } ?: "colorful",
+            addButtonMode = addButtonMode.takeIf { it in listOf("quick", "all") } ?: "all",
+            defaultTransactionCurrency = defaultTransactionCurrency.takeIf { it.isEmpty() || it.matches(Regex("[A-Z]{3}")) } ?: "",
+            transferColor = transferColor.takeIf(::validColor) ?: 0xFF2196F3,
+            maskCharacter = maskCharacter.takeIf { it in maskCharacters } ?: "•",
+            datePickerStyle = datePickerStyle.takeIf { it in listOf("calendar", "wheel") } ?: "calendar",
+            dashboardWalletIds = dashboardWalletIds.filter { it.length in 1..100 }.distinct().take(50),
+            dashboardWalletCount = dashboardWalletCount.coerceIn(0, 20),
+            walletPickerLayout = walletPickerLayout.takeIf { it in listOf("grid", "list") } ?: "grid",
+            walletPickerOrder = walletPickerOrder.takeIf { it in listOf("my_wallets", "most_used", "name", "balance") } ?: "my_wallets",
+            walletGroupOrder = walletGroupOrder.takeIf { it.size == 8 && it.toSet() == group.toSet() } ?: group,
+            walletOrder = walletOrder.filter { it.length in 1..100 }.distinct().take(500),
+            categoryOrder = categoryOrder.filter { it.length in 1..100 }.distinct().take(1000),
+            voiceLanguage = voiceLanguage.takeIf { it == "system" || it.matches(Regex("[a-z]{2,3}-[A-Z]{2}")) } ?: "system",
+        )
+    }
 }
 
 class PreferenceState(private val native: NativeServices, userId: String?) {

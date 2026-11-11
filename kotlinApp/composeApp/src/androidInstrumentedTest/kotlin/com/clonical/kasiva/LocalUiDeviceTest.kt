@@ -138,7 +138,8 @@ class LocalUiDeviceTest {
         ui.setContent { App(native, lifecycle, cloudRepository = repo) }
         ui.waitUntil(10_000) { ui.onAllNodesWithTag("dashboard").fetchSemanticsNodes().isNotEmpty() }
         ui.onNodeWithTag("tab-Profil").performClick()
-        ui.onNodeWithTag("profile-list").performScrollToNode(hasText("Masukan & Peta Jalan"))
+        ui.onNodeWithTag("profile-list").performScrollToNode(hasText("Fitur Masa Mendatang"))
+        ui.onNodeWithText("Fitur Masa Mendatang").performClick()
         ui.onNodeWithText("Masukan & Peta Jalan").performClick()
         ui.onNodeWithTag("product-roadmap").assertIsDisplayed()
         ui.onNodeWithText("Direncanakan").assertIsSelected()

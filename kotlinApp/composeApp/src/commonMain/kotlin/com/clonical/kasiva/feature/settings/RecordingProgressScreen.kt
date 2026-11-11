@@ -21,21 +21,21 @@ import com.clonical.kasiva.i18n.*
 
 @Composable
 fun RecordingProgressSummary(data: FinanceData, native: NativeServices) {
-    val progress = recordingProgress(data)
+    val progress = recordingProgress(data, com.clonical.kasiva.feature.level.LocalGamification.current?.status)
     Column(Modifier.fillMaxWidth().testTag("recording-progress"), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val track=FFColors.outlineVariant
         val foreground=FFColors.onSurface
         Box(Modifier.size(136.dp),contentAlignment=Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 drawCircle(track,style=Stroke(4.dp.toPx()))
-                drawArc(foreground,-90f,progress.levelXp/500f*360,false,style=Stroke(4.dp.toPx()))
+                drawArc(foreground,-90f,progress.levelXp.toFloat()/progress.levelSpan*360,false,style=Stroke(4.dp.toPx()))
             }
             ProfilePhoto(data.profile,native,Modifier.size(112.dp).clip(CircleShape))
             Surface(Modifier.align(Alignment.BottomCenter),shape=CircleShape,color=foreground){Text(MR.strings.rm_level_n.text(progress.level),Modifier.padding(horizontal=16.dp,vertical=6.dp),color=FFColors.canvas,style=FFType.bodyMain)}
         }
         Text(data.profile?.name.orEmpty(), style = FFType.appTitle, textAlign = TextAlign.Center)
         Text(if (progress.level == 1) MR.strings.rm_rank_rookie.text() else MR.strings.rm_rank_consistent.text(), style = FFType.bodyMain)
-        Text(MR.strings.rm_xp_progress.text(progress.levelXp), style = FFType.metaData)
+        Text(MR.strings.rm_xp_progress.text(progress.levelXp,progress.levelSpan), style = FFType.metaData)
         listOf(Triple(MR.strings.rm_metric_streak.text(), progress.streak, "local_fire_department"),
             Triple(MR.strings.rm_metric_longest_streak.text(), progress.longestStreak, "trending_up"),
             Triple(MR.strings.rm_metric_points.text(), progress.xp, "emoji_events_outlined"),

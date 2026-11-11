@@ -9,7 +9,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 app = os.path.join(here, '..', '..', 'composeApp', 'src', 'commonMain')
 res = os.path.join(app, 'moko-resources')
 out = os.path.join(app, 'kotlin', 'com', 'clonical', 'kasiva', 'core', 'i18n', 'DefaultNames.kt')
-pat = re.compile(r'<string name="(core_category_[a-z_]+|core_default_wallet_name)">(.*?)</string>')
+pat = re.compile(r'<string name="(core_category_[a-z_]+|core_sub_[a-z_]+|core_default_wallet_name)">(.*?)</string>')
 names = {}
 for lang in sorted(os.listdir(res)):
     p = os.path.join(res, lang, 'strings.xml')

@@ -33,6 +33,8 @@ fun EntityEditor(
     saveProfile: (Profile) -> Unit,
     delete: (String, suspend () -> Unit) -> Unit, repo: FinanceRepository, savePlanning: (suspend () -> Unit) -> Unit,
     onScan: (() -> Unit)? = null,
+    openCurrencySettings: (() -> Unit)? = null,
+    saveReimbursed: ((Transaction, Long) -> Unit)? = null,
 ) {
     when (editor) {
         is Editor.GoalMovement -> com.clonical.kasiva.feature.goal.GoalMovementEditor(editor.value,data,editor.withdraw,busy,dismiss,{request->savePlanning{repo.planner.moveGoal(editor.value.id,request.amountMinor,request.accountId,request.date,request.requestId,editor.withdraw)}})
@@ -41,6 +43,11 @@ fun EntityEditor(
             editor.value?.let { value -> { delete("arsip:tagihan") { repo.planner.archiveBill(value.id) } } })
         is Editor.DebtForm -> DebtEditor(editor.value, data, busy, dismiss, { value -> savePlanning { repo.planner.saveDebt(value) } },
             editor.value?.let { value -> { delete(if (value.paidMinor > 0) "arsip:hutang / piutang" else "batal:pencatatan hutang / piutang") { repo.planner.deleteDebt(value.id) } } })
+        // Split Bill: piutang tiap teman dulu (masing-masing atomik), lalu pengeluaran bagian sendiri.
+        Editor.SplitForm -> SplitBillEditor(data, busy, dismiss) { plan -> savePlanning {
+            plan.receivables.forEach { repo.planner.saveDebt(it) }
+            plan.myShare?.let { repo.saveTransaction(it) }
+        } }
         is Editor.WishForm -> WishEditor(editor.value, busy, dismiss, { value -> savePlanning { repo.planner.saveWish(value) } },
             editor.value?.let { value -> { delete("keinginan") { repo.planner.deleteWish(value.id) } } })
         is Editor.CardForm -> CardEditor(editor.value, data, busy, dismiss, { value -> savePlanning { repo.planner.saveCard(value) } },
@@ -65,7 +72,8 @@ fun EntityEditor(
                 repo.planner.payBundle(editor.value.id,editor.itemIds,request.accountId,request.date,request.requestId,editor.value.revision)
             }})
         is Editor.Tx -> TransactionEditor(editor.value, data, busy, dismiss, saveTx,
-            editor.value?.takeUnless { editor.notificationImport || editor.aiDraft }?.let { tx -> { delete("catatan transaksi") { repo.deleteTransaction(tx) } } }, isDraft = editor.notificationImport || editor.aiDraft, startingScheduled = editor.scheduled, startingAccountId = editor.accountId, startingType = editor.type, onScan = onScan)
+            editor.value?.takeUnless { editor.notificationImport || editor.aiDraft }?.let { tx -> { delete("catatan transaksi") { repo.deleteTransaction(tx) } } }, isDraft = editor.notificationImport || editor.aiDraft, startingScheduled = editor.scheduled, startingAccountId = editor.accountId, startingType = editor.type, onScan = onScan, openCurrencySettings = openCurrencySettings,
+            saveReimbursed = saveReimbursed.takeUnless { editor.notificationImport || editor.aiDraft })
         is Editor.Wallet -> AccountEditor(editor.value, data, busy, dismiss, saveAccount)
         is Editor.Limit -> BudgetEditor(editor.value, data, busy, dismiss, saveBudget,
             editor.value?.let { value -> { delete("anggaran") { repo.deleteBudget(value.id) } } })

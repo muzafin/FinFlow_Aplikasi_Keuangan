@@ -73,9 +73,11 @@ fun LiquidBottomTabs(
     // Kasiva: warna mengikuti tema aplikasi (bukan tema sistem), aksen = teks utama seperti Convx.
     val isLightTheme = !com.clonical.kasiva.core.ui.FFColors.isDark
     val accentColor = accentOverride ?: com.clonical.kasiva.core.ui.FFColors.onSurface
+    // Kaca bening: lapisan warna tipis + blur ringan agar isi halaman tetap terlihat di balik bilah,
+    // sementara vibrancy, pembiasan tepi (lens), kilau tepi dan bayangan membuat bentuk kacanya terasa.
     val containerColor =
-        if (isLightTheme) Color(0xFFFAFAFA).copy(0.4f)
-        else Color(0xFF121212).copy(0.4f)
+        if (isLightTheme) Color(0xFFFFFFFF).copy(LiquidGlass.LIGHT_TINT)
+        else Color(0xFF121212).copy(LiquidGlass.DARK_TINT)
 
     val tabsBackdrop = rememberLayerBackdrop()
 
@@ -175,9 +177,11 @@ fun LiquidBottomTabs(
                     shape = { RoundedCornerShape(50) },
                     effects = {
                         vibrancy()
-                        blur(8f.dp.toPx())
-                        lens(24f.dp.toPx(), 24f.dp.toPx())
+                        blur(LiquidGlass.BLUR.toPx())
+                        lens(LiquidGlass.REFRACTION_HEIGHT.toPx(), LiquidGlass.REFRACTION_AMOUNT.toPx(), chromaticAberration = true)
                     },
+                    highlight = { Highlight.Default.copy(alpha = LiquidGlass.HIGHLIGHT) },
+                    shadow = { Shadow(radius = 18f.dp, alpha = LiquidGlass.SHADOW) },
                     layerBlock = {
                         val progress = dampedDragAnimation.pressProgress
                         val scale = lerp(1f, 1f + 16f.dp.toPx() / size.width, progress)
@@ -213,10 +217,10 @@ fun LiquidBottomTabs(
                         effects = {
                             val progress = dampedDragAnimation.pressProgress
                             vibrancy()
-                            blur(8f.dp.toPx())
+                            blur(LiquidGlass.BLUR.toPx())
                             lens(
-                                24f.dp.toPx() * progress,
-                                24f.dp.toPx() * progress
+                                LiquidGlass.REFRACTION_HEIGHT.toPx() * progress,
+                                LiquidGlass.REFRACTION_AMOUNT.toPx() * progress
                             )
                         },
                         highlight = {
@@ -292,4 +296,15 @@ fun LiquidBottomTabs(
                 .fillMaxWidth(1f / tabsCount)
         )
     }
+}
+
+/** Takaran kaca bersama bilah navigasi dan tombol + (Kasiva). */
+object LiquidGlass {
+    const val LIGHT_TINT = 0.14f
+    const val DARK_TINT = 0.22f
+    val BLUR = 3.dp
+    val REFRACTION_HEIGHT = 20.dp
+    val REFRACTION_AMOUNT = 32.dp
+    const val HIGHLIGHT = 0.9f
+    const val SHADOW = 0.55f
 }

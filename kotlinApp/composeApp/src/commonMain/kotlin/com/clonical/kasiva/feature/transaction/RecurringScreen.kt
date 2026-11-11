@@ -339,8 +339,7 @@ fun RecurringFormEditor(
                 }
                 Text(if (old == null) MR.strings.tx_new_recurring.text() else MR.strings.tx_edit_recurring.text(), Modifier.weight(1f), style = FFType.appTitle, textAlign = TextAlign.Center, color = FFColors.onSurface)
                 Box(Modifier.size(48.dp).clip(CircleShape).clickable { submit() }.testTag("recurring-save"), contentAlignment = Alignment.Center) {
-                    if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else FFIcon("check_rounded", if (amount.isNotBlank()) FFColors.onSurface else FFColors.outline, 26.dp, MR.strings.common_save.text())
+                    FFIcon("check_rounded", if (amount.isNotBlank()) FFColors.onSurface else FFColors.outline, 26.dp, MR.strings.common_save.text())
                 }
             }
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {

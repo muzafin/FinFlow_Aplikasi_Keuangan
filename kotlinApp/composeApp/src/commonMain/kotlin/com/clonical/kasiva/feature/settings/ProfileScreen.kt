@@ -127,7 +127,7 @@ fun ProfileScreen(native:NativeServices,name:String,email:String,data:FinanceDat
     var photoSheet by remember{mutableStateOf(false)}
     val p=LocalPreferences.current
     val store=LocalPreferenceState.current
-    val progress=recordingProgress(data)
+    val progress=recordingProgress(data,com.clonical.kasiva.feature.level.LocalGamification.current?.status)
     val keyword=query.trim()
     val searching=keyword.isNotEmpty()
     val matches:(ProfileItem)->Boolean={!searching || "${it.title.text()} ${it.caption.text()}".contains(keyword,true)}
@@ -257,9 +257,11 @@ private fun ProfileHeader(native:NativeServices,name:String,data:FinanceData,lev
     val dark=FFColors.isDark
     Row(Modifier.fillMaxWidth().testTag("profile-header").padding(top=10.dp,bottom=4.dp),verticalAlignment=Alignment.CenterVertically) {
         val editLabel=MR.strings.pe_edit_profile.text()
-        Box(Modifier.testTag("profile-avatar").clip(CircleShape).clickable(onClick=onAvatarClick).semantics{contentDescription=editLabel}) {
+        // Jangan clip kotak luar: badge pensil berada di tepi avatar dan sebelumnya terpotong lingkaran.
+        Box(Modifier.testTag("profile-avatar").clickable(onClick=onAvatarClick).semantics{contentDescription=editLabel}) {
             ProfilePhoto(data.profile,native,Modifier.size(78.dp).clip(CircleShape).background(if(dark)FFColors.chip else FFColors.surface).border(1.5.dp,if(dark)FFColors.hairline else FFColors.outlineVariant,CircleShape))
-            Box(Modifier.align(Alignment.BottomEnd).offset(x=2.dp,y=2.dp).size(23.dp).clip(CircleShape).background(FFColors.pill),contentAlignment=Alignment.Center){
+            Box(Modifier.align(Alignment.BottomEnd).offset(x=2.dp,y=2.dp).size(24.dp).clip(CircleShape).background(FFColors.pill)
+                .border(2.dp,FFColors.canvas,CircleShape),contentAlignment=Alignment.Center){
                 FFIcon("hi_pencil",FFColors.onPill,12.dp)
             }
         }

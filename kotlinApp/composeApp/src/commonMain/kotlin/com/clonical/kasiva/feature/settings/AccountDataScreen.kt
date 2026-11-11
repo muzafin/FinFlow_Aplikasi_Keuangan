@@ -391,7 +391,7 @@ private fun AboutPage(native:NativeServices){
     PageColumn(horizontal=24.dp){
         val gradient=if(FFColors.isDark)listOf(Color(0xFF12253F),Color(0xFF0E3A3A)) else listOf(Color(0xFFDCEEF8),Color(0xFFCDEFEA))
         Box(Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(gradient)),contentAlignment=Alignment.Center){
-            KasivaLogo(140.dp)
+            KasivaLogoFull(150.dp)
         }
         Spacer(Modifier.height(12.dp))
         Text(MR.strings.pa_about_title.text(),Modifier.fillMaxWidth(),style=adText(21.sp,FontWeight.SemiBold,28.sp),color=FFColors.onSurface,textAlign=TextAlign.Center)

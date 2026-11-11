@@ -11,7 +11,11 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** Batas total satu permintaan AI (pindai beberapa foto bisa lama); koneksi putus dibatalkan lebih awal oleh pengawas. */
+private const val AI_REQUEST_TIMEOUT_MS = 180_000L
 
 /** Status AI & Premium untuk satu sesi akun. Mode lokal tidak punya akses AI (permintaan harus lewat server). */
 class AiController(private val native: NativeServices, val uid: String?, private val scope: CoroutineScope) {
@@ -20,7 +24,7 @@ class AiController(private val native: NativeServices, val uid: String?, private
     val available get() = uid != null
     var status by mutableStateOf<AiStatus?>(null)
     var statusUnavailable by mutableStateOf(false)
-    /** true bila server menjawab bahwa Cloud Functions AI belum di-deploy/dikonfigurasi (NOT_FOUND). */
+    /** true bila server menjawab bahwa function AI tidak ditemukan/dikonfigurasi (NOT_FOUND). */
     var serviceNotDeployed by mutableStateOf(false)
     var premium by mutableStateOf(PremiumState())
     var working by mutableStateOf<String?>(null)
@@ -63,26 +67,54 @@ class AiController(private val native: NativeServices, val uid: String?, private
         }
     }
 
-    fun setConsent(feature: AiFeature, granted: Boolean, then: () -> Unit = {}) = run(if (granted) MR.strings.ai_working_saving_consent.text() else MR.strings.ai_working_revoking_consent.text()) {
+    /**
+     * `then` dijalankan SETELAH status sibuk dilepas. Dulu `then()` dipanggil di dalam blok `run`, sehingga
+     * permintaan lanjutan (mis. pesan pertama ke Asisten setelah menekan Setuju) ditolak oleh guard `working != null`
+     * dan pesan pengguna tidak pernah dijawab.
+     */
+    fun setConsent(feature: AiFeature, granted: Boolean, then: () -> Unit = {}) = run(
+        if (granted) MR.strings.ai_working_saving_consent.text() else MR.strings.ai_working_revoking_consent.text(),
+        onSuccess = then,
+    ) {
         service.setConsent(feature, granted)
-        status = service.status()
-        then()
+        status = service.status().let { fresh -> fresh.copy(consent = fresh.consent + (feature.id to granted)) }
     }
 
-    fun run(label: String, block: suspend () -> Unit) {
+    private var activeJob: kotlinx.coroutines.Job? = null
+
+    fun run(label: String, onSuccess: (() -> Unit)? = null, block: suspend () -> Unit) {
         if (working != null) return
+        // Tanpa internet gagal seketika; jangan menggantung sampai batas waktu panggilan jaringan.
+        if (!native.isOnline()) { error = MR.strings.core_error_need_internet.text(); return }
         working = label
         error = null
-        scope.launch {
-            try { block(); serviceNotDeployed = false; statusUnavailable = false }
-            catch (e: CancellationException) { throw e }
+        val job = scope.launch {
+            var offline = false
+            // Pengawas: bila koneksi putus di tengah permintaan, batalkan agar status "sibuk" tidak tertahan
+            // dan permintaan berikutnya (setelah koneksi kembali) memakai sambungan yang baru.
+            val watchdog = launch {
+                while (true) { delay(1_500); if (!native.isOnline()) { offline = true; activeJob?.cancel(); break } }
+            }
+            var succeeded = false
+            try { kotlinx.coroutines.withTimeout(AI_REQUEST_TIMEOUT_MS) { block() }; serviceNotDeployed = false; statusUnavailable = false; succeeded = true }
+            catch (e: kotlinx.coroutines.TimeoutCancellationException) { error = MR.strings.pd_ai_service_busy.text() }
+            catch (e: CancellationException) { if (offline) error = MR.strings.core_error_need_internet.text() else throw e }
             catch (e: Exception) { note(e); error = e.message ?: MR.strings.ai_err_generic.text() }
-            finally { working = null; if (available) runCatching { status = service.status() } }
+            finally {
+                watchdog.cancel()
+                working = null
+                activeJob = null
+                if (available && native.isOnline() && onSuccess == null) runCatching { status = service.status() }
+            }
+            // Lanjutan baru boleh jalan setelah `working` kosong agar tidak ditolak guard di atas.
+            if (succeeded) onSuccess?.invoke()
         }
+        activeJob = job
     }
 
     /** Mencatat keadaan "layanan AI belum tersedia" agar layar AI menampilkan banner, bukan hanya dialog sekali lewat. */
     private fun note(e: Exception) {
+        native.reportError("ai_request", e)
         if (e is AiUnavailableException) { statusUnavailable = true; if (e.notDeployed) serviceNotDeployed = true }
     }
 

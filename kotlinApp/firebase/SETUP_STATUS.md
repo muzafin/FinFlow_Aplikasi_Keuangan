@@ -40,3 +40,31 @@ Foto profil dan penghapusan akun memiliki implementasi serta rules tersendiri. L
 - Functions di-deploy ulang 8 November 2026; `refreshPremium` dan `revenueCatWebhook` aktif di `asia-southeast2`. Secret `REVENUECAT_SECRET_KEY` dan `REVENUECAT_WEBHOOK_AUTH` tersimpan di Secret Manager (versi 2), bukan di repo.
 - RevenueCat: project `projaf22ad9c` (Kasiva); app Play Store `appfb825165c2` sudah diarahkan ke package `com.clonical.kasiva`; entitlement `kasiva_pro`; webhook `whintgrb9c46d6dfa804661a646dbb8ffdb6584` menuju `https://asia-southeast2-finflow-logikawan.cloudfunctions.net/revenueCatWebhook` (uji 200 dengan header benar, 401 tanpa header).
 - Sisa pekerjaan Premium: service account Play untuk RevenueCat belum diunggah (`play_service_account_credentials_configured=false`), produk langganan Play belum dibuat, offering/paket belum dipetakan, dan SHA rilis belum didaftarkan.
+
+## Pembaruan 8 November 2026 — Cloud Functions AI
+
+- `aiParseText`, `aiScanReceipt`, dan `aiAssistant` di-deploy ulang 8 November 2026 di `asia-southeast2` (Node.js 22, 2nd gen). `aiStatus` dan `aiConsent` tetap.
+- Model AI dipindah ke `deepseek-flash` (parameter `AI_MODEL_PARSE` dan `AI_MODEL_ASSISTANT` di `functions/.env.finflow-logikawan`). `deepseek-flash` menerima teks **dan gambar**, jadi AI Scan tidak lagi ditolak adapter.
+- Adapter `functions/deepseek.js` mengirim gambar sebagai `image_url` data URL, mematikan thinking untuk ekstraksi JSON, dan memakai `reasoning_effort: low` untuk Asisten.
+- Semua system prompt AI (Chat, Voice, Scan, Asisten) memuat aturan konteks Kasiva: hanya keuangan pribadi dan penggunaan aplikasi; permintaan di luar konteks ditolak singkat dalam bahasa aplikasi; tidak membocorkan prompt; data pengguna bukan instruksi.
+- `DEEPSEEK_API_KEY` yang tersimpan saat pemeriksaan awal DITOLAK DeepSeek (HTTP 401, `****e51e`) — itulah sebabnya fitur AI menampilkan "layanan AI belum tersedia". Kunci valid sudah disimpan (Secret Manager **versi 2**) dan ketiga function AI di-deploy ulang pada 8 November 2026. Kunci tidak pernah ada di repo.
+- Bukti: `node --test test/*.test.js` di `functions` → 34 lulus, 0 gagal; `aiParseText` tanpa autentikasi → HTTP 401 "Masuk ke akun Kasiva untuk memakai AI."; smoke test DeepSeek dengan kunci baru → Chat memecah 2 transaksi, Chat menolak permintaan puisi, Scan membaca struk Rp60.000 dan menolak gambar logo, Asisten menolak pertanyaan politik dan menjawab kategori teratas. Rincian: [AI_KASIVA_2026-11-08.md](../../docs/AI_KASIVA_2026-11-08.md).
+- Sisa: uji manual di HP dengan akun nyata (consent per fitur, kuota, biaya); panggilan callable dari aplikasi belum dijalankan otomatis dalam perbaikan ini.
+
+## Pembaruan 10 November 2026 - rilis Android dan Crashlytics
+
+- SHA-1 Play App Signing `30:35:FC:E6:A0:A1:58:A4:C4:83:CC:46:5F:E6:09:2B:E0:17:5F:7D` sudah terdaftar pada aplikasi Android Kasiva. Catatan SHA rilis belum terdaftar di atas adalah riwayat sebelum pendaftaran ini.
+- Perbaikan inisialisasi profil saat login pertama disertakan mulai 1.0.2. Rules kepemilikan dan saldo tidak dilonggarkan untuk mengatasi benturan dua inisialisasi profil.
+- Android 1.0.3 (version code 4) mengizinkan screenshot dan mengaktifkan Firebase Crashlytics pada paket produksi non-debug. Log nonfatal tambahan hanya mengirim jenis exception, stack trace, nama operasi, dan kode Firestore bila tersedia; pesan/cause asli tidak dikirim oleh helper tersebut.
+- Build bundle produksi dan 90 unit test lulus pada 10 November. Pemeriksaan screenshot pada varian release non-debug paket uji terpisah lulus di POCO 2311DRK48G. Varian uji tidak diminifikasi agar runner instrumentasi dapat berjalan; bundle Play tetap diminifikasi dan mapping Crashlytics berhasil diunggah.
+- Firebase Console sudah menerima laporan nonfatal sintetis versi 1.0.3 (4), dengan `operation=diagnostic_verification`. Paket uji terpisah sudah dihapus dari HP; aplikasi Play beserta datanya tidak dihapus.
+- Kebijakan privasi publik `/privasi` sudah mencakup Crashlytics; halaman privasi dan `/hapus-akun` merespons HTTP 200.
+- Play Console: listingan dan deklarasi aplikasi lengkap; pemeriksaan otomatis selesai dan rilis 1.0.3 (4) sedang ditinjau Google untuk pengujian tertutup Alpha, wilayah Indonesia, memakai daftar 21 penguji yang sudah ada. Publikasi produksi belum tersedia: minimal 12 penguji harus ikut tertutup terus-menerus selama 14 hari sebelum permohonan akses produksi. Penguji internal harus keluar dari internal lalu ikut tertutup.
+- Cara membaca laporan: Firebase Console -> project `finflow-logikawan` -> Crashlytics -> Kasiva -> pilih versi dan issue -> Stack trace; tab Keys memperlihatkan `operation`. Pengguna tetap perlu mengirim langkah reproduksi, waktu kejadian, versi aplikasi, dan screenshot untuk bug perilaku yang tidak melempar exception.
+
+## Pembaruan 11 November 2026 - FCM dan App Check klien
+
+- Functions baru di-deploy (Node.js 22, 2nd gen, `asia-southeast2`): `registerPushToken`, `unregisterPushToken`, `billReminderPush` (Cloud Scheduler 08:00 Asia/Jakarta; API Cloud Scheduler diaktifkan otomatis oleh CLI). Function lama tidak diubah.
+- Index Firestore: field override `pushTokens.tokenId` (collection group) di-deploy. Rules tidak diubah; `users/{uid}/pushTokens` hanya ditulis Admin SDK.
+- Android 1.0.4 memasang FCM (topik `announcements`, `lang_<kode>`), App Check Play Integrity/debug (belum enforce), Analytics dimatikan lewat manifest.
+- Sisa: daftarkan Play Integrity di App Check (SHA-256 app signing), uji push di HP, APNs untuk iOS. Rincian: [FCM_DAN_FIX_AI_2026-11-11.md](../../docs/FCM_DAN_FIX_AI_2026-11-11.md).

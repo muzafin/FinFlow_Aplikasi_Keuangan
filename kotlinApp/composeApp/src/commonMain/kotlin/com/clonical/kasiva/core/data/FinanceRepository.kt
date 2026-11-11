@@ -21,6 +21,8 @@ import dev.gitlive.firebase.auth.GoogleAuthProvider
 import dev.gitlive.firebase.auth.EmailAuthProvider
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
+import dev.gitlive.firebase.firestore.FirebaseFirestoreException
+import dev.gitlive.firebase.firestore.FirestoreExceptionCode
 import dev.gitlive.firebase.functions.functions
 import com.clonical.kasiva.core.platform.NativeServices
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -31,6 +33,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 import com.clonical.kasiva.core.model.AppPreferences
 import com.clonical.kasiva.core.model.PreferenceState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
@@ -53,8 +56,15 @@ data class DeviceRecord(val name: String, val platform: String, val appVersion: 
 
 data class ConnectedDevice(val id: String, val record: DeviceRecord)
 
-class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=null) {
+/** Hasil pengiriman antrean transaksi offline. */
+data class PendingFlushResult(val sent: Int = 0, val failed: List<String> = emptyList())
+
+class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=null,
+    private val pending: PendingTransactionStore? = null, private val online: () -> Boolean = { true }) {
     val isLocal = local != null
+    val pendingStore: PendingTransactionStore? get() = pending
+    val pendingOperations get() = pending?.operations ?: emptyPending
+    private val emptyPending = MutableStateFlow<List<PendingTransactionOp>>(emptyList())
     private val auth by lazy { if(app==null)Firebase.auth else Firebase.auth(app) }
     private val db = if(local!=null)FinanceDatabase(local=local) else FinanceDatabase(remote=if(app==null)Firebase.firestore else Firebase.firestore(app))
     val authChanges get() = if(isLocal) flowOf(null) else auth.authStateChanged
@@ -66,24 +76,36 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
     suspend fun synchronizePreferences(state: PreferenceState) = coroutineScope {
         require(!isLocal)
         val ref = collection("settings").document("appearance")
-        fun decode(snapshot: FinanceSnapshot): AppPreferences {
+        // Dokumen bisa berasal dari build/perangkat lain dengan nilai yang tidak lagi valid: perbaiki,
+        // jangan hentikan sinkronisasi. null berarti dokumen tidak terbaca dan akan diganti pengaturan perangkat ini.
+        fun read(snapshot: FinanceSnapshot): Pair<AppPreferences, Boolean>? = runCatching {
             val stored = snapshot.data<CloudPreferences>()
-            require(stored.version == 1 && stored.payload.length <= 16000) { MR.strings.core_error_cloud_prefs_unsupported.text() }
-            return financeStorageJson.decodeFromString<AppPreferences>(stored.payload).also { it.validate() }
+            if (stored.version != 1 || stored.payload.length > 16000) return@runCatching null
+            val decoded = financeStorageJson.decodeFromString<AppPreferences>(stored.payload)
+            runCatching { decoded.also { it.validate() } }.getOrNull()?.let { it to false }
+                ?: (decoded.repaired().also { it.validate() } to true)
+        }.getOrNull()
+        suspend fun heal(repaired: AppPreferences) {
+            // Dokumen lama diperbaiki lalu ditulis kembali agar perangkat/versi lain tidak mengulang masalah yang sama.
+            if (state.pendingChanges.value == null) runCatching { ref.set(CloudPreferences(payload = financeStorageJson.encodeToString(repaired))) }
         }
         // An existing account wins on a new device; pending edits survive restarts and failed writes.
         val initial = ref.get()
-        if (initial.exists) state.acceptRemote(decode(initial)) else state.update(state.value)
+        if (initial.exists) {
+            val stored = read(initial)
+            if (stored != null) { state.acceptRemote(stored.first); if (stored.second) heal(stored.first) } else state.update(state.value)
+        } else state.update(state.value)
         launch {
-            ref.snapshots.collect { snapshot -> if (snapshot.exists) state.acceptRemote(decode(snapshot)) }
+            ref.snapshots.collect { snapshot ->
+                if (snapshot.exists) read(snapshot)?.let { (value, repaired) -> state.acceptRemote(value); if (repaired) heal(value) }
+            }
         }
         state.pendingChanges.filterNotNull().collect { value ->
             val payload = financeStorageJson.encodeToString(value)
             require(payload.length <= 16000) { MR.strings.core_error_prefs_too_large.text() }
             ref.set(CloudPreferences(payload = payload))
             state.acknowledge(value)
-            val latest = ref.get()
-            if (latest.exists) state.acceptRemote(decode(latest))
+            read(ref.get())?.first?.let(state::acceptRemote)
         }
     }
     suspend fun restoreBackup(backup:com.clonical.kasiva.core.model.FinanceBackup,resume:Boolean,begin:()->Unit,progress:(String)->Unit) {
@@ -231,7 +253,11 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
             }
         }
         require(ownerId == ref.id) { MR.strings.core_error_account_changed.text() }
-        db.runTransaction { val profile=get(ref).data<Profile>();set(ref,profile.copy(photoPath=path,photoUpdatedAt=nowMillis())) }
+        // Tulis biasa (bukan transaksi): saat offline perubahan langsung masuk cache Firestore dan terkirim
+        // otomatis ketika online. Konfirmasi server tidak ditunggu agar foto tidak menggantung tanpa internet.
+        // Offline, get() dilayani dari cache lokal Firestore.
+        val profile = runCatching { kotlinx.coroutines.withTimeoutOrNull(5_000) { ref.get().takeIf { it.exists }?.data<Profile>() } }.getOrNull()
+        if (profile != null) kotlinx.coroutines.withTimeoutOrNull(1_500) { ref.set(profile.copy(photoPath = path, photoUpdatedAt = nowMillis())) }
     }
     suspend fun updateProfile(name: String, baseCurrency: String) {
         val displayName = name.trim()
@@ -252,28 +278,43 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         require(initialWalletName.isNotBlank() && initialWalletName.length<=100 && openingBalanceMinor in -MAX_MONEY..MAX_MONEY) { MR.strings.core_error_wallet_name_or_balance_invalid.text() }
         val user = currentUser
         val ref = root()
-        // Transaksi ini aman diulang ketika pendaftaran terputus setelah akun Auth terbentuk.
-        db.runTransaction {
-            val snapshot = get(ref)
-            if (!snapshot.exists) {
-                val name = (displayName ?: user?.displayName).orEmpty().trim().take(100).ifBlank { MR.strings.core_default_user_name.text() }
-                set(ref, InitialProfile(ref.id, name, user?.email ?: "", baseCurrency, 2))
-                // Akun baru memakai schema inti agar tetap kompatibel saat rules metadata belum diterbitkan.
-                defaultCategoryTree.forEach {
-                    set(ref.collection("categories").document(it.id), mapOf("id" to it.id, "name" to it.name, "type" to it.type, "parentId" to it.parentId))
+        // Saat offline, pembuatan profil awal tidak mungkin (transaction butuh server); data tetap dibaca dari cache.
+        if (!isLocal && !online()) return
+        for (attempt in 0..1) {
+            var creatingProfile = false
+            try {
+                db.runTransaction {
+                    val snapshot = get(ref)
+                    creatingProfile = !snapshot.exists
+                    if (!snapshot.exists) {
+                        val name = (displayName ?: user?.displayName).orEmpty().trim().take(100).ifBlank { MR.strings.core_default_user_name.text() }
+                        set(ref, InitialProfile(ref.id, name, user?.email ?: "", baseCurrency, 2))
+                        // Akun baru memakai schema inti agar tetap kompatibel saat rules metadata belum diterbitkan.
+                        defaultCategoryTree.forEach {
+                            set(ref.collection("categories").document(it.id), mapOf("id" to it.id, "name" to it.name, "type" to it.type, "parentId" to it.parentId))
+                        }
+                        set(ref.collection("accounts").document("acc_cash"), InitialWallet("acc_cash", initialWalletName.trim(), "cash", baseCurrency, openingBalanceMinor, false, nowMillis()))
+                    } else if (displayName != null) {
+                        set(ref, snapshot.data<Profile>().copy(name = displayName))
+                    }
                 }
-                set(ref.collection("accounts").document("acc_cash"), InitialWallet("acc_cash", initialWalletName.trim(), "cash", baseCurrency, openingBalanceMinor, false, nowMillis()))
-            } else if (displayName != null) {
-                set(ref, snapshot.data<Profile>().copy(name = displayName))
+                break
+            } catch (e: Exception) {
+                if (!isLocal && isOfflineError(e)) return
+                // Bootstrap paralel bisa ditolak rules dompet sebelum Firestore mengulang konflik transaksinya.
+                if (attempt != 0 || !creatingProfile || e !is FirebaseFirestoreException || e.code != FirestoreExceptionCode.PERMISSION_DENIED) throw e
             }
         }
-        seedDefaultCategories()
+        try { seedDefaultCategories() }
+        catch (e: Exception) { if (isLocal || !isOfflineError(e)) throw e }
     }
 
     /**
      * Tambahkan kategori dan subkategori bawaan yang belum ada (mis. akun lama tanpa subkategori).
      * Idempoten: kategori buatan pengguna tidak disentuh dan tidak ada data yang diubah.
      */
+    suspend fun ensureDefaultCategories() = seedDefaultCategories()
+
     private suspend fun seedDefaultCategories() {
         val existing = collection("categories").get().documents.map { it.id }.toSet()
         defaultCategoryTree.filter { it.id !in existing }.forEach { category ->
@@ -347,9 +388,51 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         }
     }
 
+    /** Kegagalan jaringan Firestore: aman diantrikan di perangkat lalu dikirim ulang saat online. */
+    private fun isOfflineError(e: Exception): Boolean {
+        val text = (e.message ?: "").lowercase()
+        return "unavailable" in text || "offline" in text || "unable to resolve host" in text ||
+            "network" in text || "timeout" in text || "deadline" in text
+    }
+
+    /**
+     * Kirim antrean transaksi offline bila internet tersedia. Mengembalikan jumlah terkirim dan
+     * pesan kegagalan validasi (mis. dompet sudah diarsipkan di perangkat lain).
+     */
+    suspend fun flushPendingTransactions(): PendingFlushResult {
+        val store = pending ?: return PendingFlushResult()
+        if (isLocal || !online()) return PendingFlushResult()
+        var sent = 0
+        val failed = mutableListOf<String>()
+        for (operation in store.operations.value) {
+            try {
+                val tx = operation.transaction
+                if (tx == null) { store.remove(operation); continue }
+                if (operation.remove) writeDelete(tx) else writeTransaction(tx)
+                store.remove(operation)
+                sent++
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                if (isOfflineError(e)) break
+                store.remove(operation)
+                failed += (operation.transaction?.title ?: operation.id) + ": " + (e.message ?: "")
+            }
+        }
+        return PendingFlushResult(sent, failed)
+    }
+
     suspend fun saveTransaction(tx: Transaction) {
         validateTransaction(tx)
         require(tx.source !in managedTransactionSources) { MR.strings.core_error_managed_transaction.text() }
+        if (!isLocal && pending != null && !online()) { pending.enqueueSave(tx); return }
+        try { writeTransaction(tx) }
+        catch (e: Exception) {
+            if (isLocal || pending == null || !isOfflineError(e)) throw e
+            pending.enqueueSave(tx)
+        }
+    }
+
+    private suspend fun writeTransaction(tx: Transaction) {
         val accounts = collection("accounts")
         val ref = collection("transactions").document(tx.id)
         db.runTransaction {
@@ -374,6 +457,15 @@ class FinanceRepository(app:FirebaseApp?=null, local:LocalFinancePersistence?=nu
         }
     }
     suspend fun deleteTransaction(tx: Transaction) {
+        if (!isLocal && pending != null && !online()) { pending.enqueueDelete(tx); return }
+        try { writeDelete(tx) }
+        catch (e: Exception) {
+            if (isLocal || pending == null || !isOfflineError(e)) throw e
+            pending.enqueueDelete(tx)
+        }
+    }
+
+    private suspend fun writeDelete(tx: Transaction) {
         if (tx.source in managedTransactionSources) planner.reverseEvent(tx.id)
         else db.runTransaction {
             require(!get(collection("reimbursements").document(tx.id)).exists) { MR.strings.core_error_reimburse_blocks_delete.text() }

@@ -25,7 +25,7 @@ import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.time.Duration.Companion.seconds
 
-// Fitur AI mengikuti nama di server (functions/ai.js).
+// Fitur AI mengikuti id yang dipakai callable AI di server.
 enum class AiFeature(val id: String, val title: String) {
     Chat("chat", "AI Chat"), Voice("voice", "AI Voice"), Scan("scan", "AI Scan"), Assistant("assistant", "Kasiva Assistant")
 }
@@ -40,6 +40,18 @@ enum class AiFeature(val id: String, val title: String) {
 @Serializable data class AssistantTurn(val role: String, val text: String)
 @Serializable private data class AssistantRequest(val messages: List<AssistantTurn>, val summary: String, val personality: String,
     val nickname: String, val preference: String, val language: String)
+
+@Serializable data class AiCsvTypeMapping(val income: List<String> = emptyList(), val expense: List<String> = emptyList(), val transfer: List<String> = emptyList())
+@Serializable data class AiCsvMapping(
+    val date: Int? = null, val title: Int? = null, val category: Int? = null, val account: Int? = null,
+    val amount: Int? = null, val currency: Int? = null, val type: Int? = null, val toAccount: Int? = null,
+    val transferAmount: Int? = null, val description: Int? = null,
+    val dateFormat: String? = null, val amountFormat: String? = null,
+    val typeMapping: AiCsvTypeMapping? = null, val typeFromSign: Boolean = false,
+    val note: String? = null, val message: String? = null,
+)
+@Serializable private data class CsvMappingRequest(val headers: List<String>, val rows: List<List<String>>, val language: String)
+@Serializable private data class CsvMappingResponse(val mapping: AiCsvMapping = AiCsvMapping())
 
 @Serializable data class AiDraft(val type: String = "expense", val amount: Double = 0.0, val currency: String? = null,
     val title: String = "", val categoryId: String? = null, val walletId: String? = null, val toWalletId: String? = null,
@@ -58,12 +70,12 @@ enum class AiFeature(val id: String, val title: String) {
 @Serializable data class PremiumState(val active: Boolean = false, val expiresAt: Long? = null, val productId: String? = null,
     val store: String? = null, val manualUntil: Long? = null)
 
-/** Layanan AI belum ter-deploy/aktif di server (NOT_FOUND) atau sementara tidak dapat dijangkau (UNAVAILABLE). */
+/** Layanan AI tidak ditemukan di server (NOT_FOUND) atau sementara tidak dapat dijangkau (UNAVAILABLE). */
 class AiUnavailableException(message: String, val notDeployed: Boolean, cause: Throwable? = null) : IllegalStateException(message, cause)
 
 /**
  * Menerjemahkan error Cloud Functions menjadi pesan berbahasa aplikasi. Kode dibaca dari `code` (bukan teks pesan),
- * sehingga function yang belum di-deploy (NOT_FOUND) atau server yang tidak terjangkau (UNAVAILABLE) selalu
+ * sehingga function yang tidak ditemukan (NOT_FOUND) atau server yang tidak terjangkau (UNAVAILABLE) selalu
  * menghasilkan keadaan "layanan AI belum tersedia" yang diterjemahkan, bukan pesan teknis.
  */
 private fun FirebaseFunctionsException.toClientError(fallback: String): Exception {
@@ -75,10 +87,10 @@ private fun FirebaseFunctionsException.toClientError(fallback: String): Exceptio
         FunctionsExceptionCode.UNAVAILABLE, FunctionsExceptionCode.DEADLINE_EXCEEDED ->
             AiUnavailableException(MR.strings.pd_ai_service_busy.text(), notDeployed = false, cause = this)
         FunctionsExceptionCode.UNAUTHENTICATED -> IllegalStateException(MR.strings.ai_err_session_expired.text(), this)
-        // Server mengirim "belum dikonfigurasi" bila secret/kunci AI belum diisi (functions/ai.js).
+        // Server mengirim "belum dikonfigurasi" bila secret/kunci AI belum diisi.
         FunctionsExceptionCode.INTERNAL -> if (text.contains("dikonfigurasi")) AiUnavailableException(MR.strings.pd_ai_service_not_available.text(), notDeployed = true, cause = this)
             else IllegalStateException(if (raw) fallback else text, this)
-        // Penyedia AI saat ini (DeepSeek) tidak menerima gambar; server menolak AI Scan dengan failed-precondition (functions/deepseek.js).
+        // Kompatibilitas server lama: penyedia tanpa input gambar dulu menolak AI Scan dengan failed-precondition ini.
         FunctionsExceptionCode.FAILED_PRECONDITION -> when {
             text.startsWith("AI Scan belum didukung") -> IllegalStateException(MR.strings.pd_ai_scan_not_supported.text(), this)
             text.startsWith("Setujui pemrosesan AI") -> IllegalStateException(MR.strings.pd_ai_consent_required.text(), this)
@@ -107,6 +119,13 @@ class AiService {
     suspend fun ask(turns: List<AssistantTurn>, summary: String, settings: AssistantSettings, language: String): String =
         call<AssistantRequest, AssistantReply>("aiAssistant", AssistantRequest(turns.takeLast(19).let { if (it.first().role != "user") it.drop(1) else it },
             summary.take(12000), settings.personality, settings.nickname.take(40), settings.preference.take(200), language)).reply
+    /** Hanya header + maksimum 20 baris contoh yang dikirim; konversi seluruh file dilakukan di perangkat. */
+    suspend fun csvMap(headers: List<String>, rows: List<List<String>>, language: String): AiCsvMapping =
+        call<CsvMappingRequest, CsvMappingResponse>("aiCsvMap", CsvMappingRequest(
+            headers.take(100).map { it.take(80) },
+            rows.take(20).map { row -> row.take(100).map { it.take(500) } },
+            language,
+        )).mapping
     suspend fun refreshPremium(): PremiumState = try { functions.httpsCallable("refreshPremium", 60.seconds)().data<PremiumState>() }
         catch (e: FirebaseFunctionsException) { throw e.toClientError(MR.strings.ai_err_premium_check.text()) }
 }

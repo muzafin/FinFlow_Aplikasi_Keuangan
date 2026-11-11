@@ -14,6 +14,7 @@ plugins {
     id("org.jetbrains.compose")
     id("com.android.application")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
     id("dev.icerock.mobile.multiplatform-resources")
 }
 
@@ -54,6 +55,12 @@ kotlin {
         androidMain.dependencies {
             implementation(project.dependencies.platform("com.google.firebase:firebase-bom:33.15.0"))
             implementation("com.google.firebase:firebase-storage")
+            implementation("com.google.firebase:firebase-crashlytics")
+            implementation("com.google.firebase:firebase-messaging")
+            implementation("com.google.firebase:firebase-functions")
+            implementation("com.google.firebase:firebase-appcheck-playintegrity")
+            implementation("com.google.firebase:firebase-appcheck-debug")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
             implementation("androidx.activity:activity-compose:1.10.1")
             implementation("androidx.fragment:fragment-ktx:1.8.6")
             implementation("androidx.appcompat:appcompat:1.7.0")
@@ -96,8 +103,8 @@ android {
         applicationId = "com.clonical.kasiva"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 5
+        versionName = "1.0.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     compileOptions {
@@ -119,6 +126,8 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Tanpa keystore.properties: ditandatangani kunci debug hanya untuk uji lokal (Play akan menolak).
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            // Simbol native ikut masuk AAB supaya crash/ANR di Play Console terbaca (hilangkan peringatan "simbol debug").
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
     }
 }

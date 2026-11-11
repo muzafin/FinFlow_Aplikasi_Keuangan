@@ -34,6 +34,7 @@ import com.clonical.kasiva.feature.settings.RecordingAchievement
 import com.clonical.kasiva.feature.settings.displayTitle
 import com.clonical.kasiva.feature.settings.recordingProgress
 import com.clonical.kasiva.i18n.*
+import kotlinx.coroutines.launch
 
 private data class LevelMetric(val label:String, val value:String, val icon:String, val color:Color, val background:Color)
 private data class BadgeGroup(val title:String, val color:Color, val badges:List<RecordingAchievement>)
@@ -63,7 +64,8 @@ private fun achievementIcon(title:String):String = when(title) {
 // pameran lencana, dan penjelasan peringkat bulanan yang belum aktif.
 @Composable
 fun LevelScreen(data:FinanceData, native:NativeServices, back:()->Unit, onNavigate:(String)->Unit = {}) {
-    val progress=recordingProgress(data)
+    val gamification=LocalGamification.current
+    val progress=recordingProgress(data,gamification?.status)
     val displayName=data.profile?.name?.takeIf{it.isNotBlank()} ?: MR.strings.rm_user_fallback.text()
     val metrics=listOf(
         LevelMetric(MR.strings.rm_metric_streak.text(),progress.streak.toString(),"local_fire_department_outlined",Color(0xFFF57C00),Color(0xFFFFF1E2)),
@@ -94,7 +96,7 @@ fun LevelScreen(data:FinanceData, native:NativeServices, back:()->Unit, onNaviga
                 Canvas(Modifier.fillMaxSize()) {
                     val stroke=4.dp.toPx()
                     drawCircle(ringTrack,style=Stroke(stroke))
-                    drawArc(ringProgress,-90f,(progress.levelXp/500f*360f).coerceIn(0f,360f),false,style=Stroke(stroke,cap=StrokeCap.Round))
+                    drawArc(ringProgress,-90f,(progress.levelXp.toFloat()/progress.levelSpan*360f).coerceIn(0f,360f),false,style=Stroke(stroke,cap=StrokeCap.Round))
                 }
                 ProfilePhoto(data.profile,native,Modifier.size(96.dp).clip(CircleShape).background(FFColors.primaryContainer).align(Alignment.Center))
                 Surface(Modifier.align(Alignment.BottomCenter),shape=CircleShape,color=FFColors.onSurface) {
@@ -106,7 +108,7 @@ fun LevelScreen(data:FinanceData, native:NativeServices, back:()->Unit, onNaviga
             Text(displayName,style=FFType.appTitle.copy(fontSize=24.sp,lineHeight=30.sp,fontWeight=FontWeight.Bold),textAlign=TextAlign.Center)
             Text(rankName(progress.level),style=FFType.bodyMain.copy(fontSize=16.sp,lineHeight=22.sp),color=FFColors.onSurfaceVariant,textAlign=TextAlign.Center)
             Spacer(Modifier.height(4.dp))
-            Text(MR.strings.rm_xp_progress.text(progress.levelXp),style=FFType.bodyMain.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold,lineHeight=16.sp),textAlign=TextAlign.Center)
+            Text(MR.strings.rm_xp_progress.text(progress.levelXp,progress.levelSpan),style=FFType.bodyMain.copy(fontSize=12.sp,fontWeight=FontWeight.SemiBold,lineHeight=16.sp),textAlign=TextAlign.Center)
             Spacer(Modifier.height(24.dp))
             Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 metrics.chunked(2).forEach{row->
@@ -136,7 +138,7 @@ fun LevelScreen(data:FinanceData, native:NativeServices, back:()->Unit, onNaviga
                 }
             }
             Spacer(Modifier.height(6.dp))
-            LeaderboardCard()
+            LeaderboardCard(gamification)
             Spacer(Modifier.height(32.dp))
         }
     }
@@ -195,22 +197,70 @@ private fun AchievementBadge(badge:RecordingAchievement,color:Color,modifier:Mod
 }
 
 @Composable
-private fun LeaderboardCard() {
+private fun LeaderboardCard(state:GamificationState?) {
+    val scope=androidx.compose.runtime.rememberCoroutineScope()
+    androidx.compose.runtime.LaunchedEffect(state){ state?.loadLeaderboard() }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(FFColors.surface).padding(20.dp).testTag("level-leaderboard")) {
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
             FFIcon("emoji_events_outlined",Color(0xFFF2B300),24.dp)
             Spacer(Modifier.width(8.dp))
-            Text(MR.strings.rm_lb_title_soon.text(),style=FFType.bodyMain.copy(fontSize=18.sp,fontWeight=FontWeight.SemiBold))
+            Text(MR.strings.lb_title.text(),Modifier.weight(1f),style=FFType.bodyMain.copy(fontSize=18.sp,fontWeight=FontWeight.SemiBold))
+            if(state?.uid!=null) FFIconButton("hi_recurring",{ scope.launch{ state.refresh(); state.loadLeaderboard() } },Modifier.testTag("leaderboard-refresh"),tint=FFColors.onSurfaceVariant)
         }
-        Spacer(Modifier.height(10.dp))
-        Text(MR.strings.rm_lb_desc.text(),style=FFType.bodyMain,color=FFColors.onSurfaceVariant)
-        Spacer(Modifier.height(10.dp))
-        listOf(MR.strings.rm_lb_prize_1.text(),MR.strings.rm_lb_prize_2.text(),MR.strings.rm_lb_prize_3.text()).forEach{
-            Text(it,style=FFType.bodyMain,modifier=Modifier.padding(vertical=2.dp))
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(MR.strings.rm_lb_note.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
+        Spacer(Modifier.height(6.dp))
+        Text(MR.strings.lb_desc.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
         Spacer(Modifier.height(14.dp))
-        OutlinedButton(onClick={},enabled=false,modifier=Modifier.fillMaxWidth().testTag("level-leaderboard-disabled")){Text(MR.strings.rm_coming_soon.text())}
+        if(state?.uid==null) { Text(MR.strings.lb_local_only.text(),style=FFType.bodyMain,color=FFColors.onSurfaceVariant); return@Column }
+        val board=state.leaderboard
+        val status=state.status
+        if(status!=null) {
+            Text(MR.strings.lb_today_cap.text(status.todayCount,status.dailyCap),style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+        }
+        when {
+            board==null && state.leaderboardError!=null -> Text(MR.strings.lb_load_failed.text(),style=FFType.bodyMain,color=FFColors.expense)
+            board==null -> Text(MR.strings.plan_loading.text(),style=FFType.bodyMain,color=FFColors.outline)
+            else -> {
+                Text(MR.strings.lb_month.text(com.clonical.kasiva.core.util.monthLabel(board.month),board.participants),style=FFType.metaData.copy(fontWeight=FontWeight.SemiBold),color=FFColors.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                if(board.rows.isEmpty()) Text(MR.strings.lb_empty.text(),style=FFType.bodyMain,color=FFColors.onSurfaceVariant,modifier=Modifier.padding(vertical=8.dp))
+                board.rows.forEach{row->LeaderboardRowView(row)}
+                val me=board.me
+                if(me!=null && board.rows.none{it.me}) {
+                    Spacer(Modifier.height(6.dp))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(FFColors.outlineVariant))
+                    Spacer(Modifier.height(6.dp))
+                    LeaderboardRowView(me)
+                }
+                if(board.hidden) { Spacer(Modifier.height(6.dp)); Text(MR.strings.lb_hidden.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant) }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(verticalAlignment=Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(MR.strings.lb_show_me.text(),style=FFType.bodyMain.copy(fontWeight=FontWeight.Medium))
+                Text(MR.strings.lb_show_me_desc.text(),style=FFType.metaData,color=FFColors.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(12.dp))
+            androidx.compose.material3.Switch(status?.leaderboard ?: true,{visible->scope.launch{state.setVisible(visible)}},enabled=!state.busy && status!=null,
+                modifier=Modifier.testTag("leaderboard-visibility"))
+        }
     }
 }
+
+@Composable
+private fun LeaderboardRowView(row:LeaderboardRow) {
+    val medal=when(row.rank){1->Color(0xFFF2B300);2->Color(0xFF9EA7B3);3->Color(0xFFC77B30);else->null}
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if(row.me)FFColors.surfaceContainerHigh else Color.Transparent)
+        .padding(horizontal=10.dp,vertical=10.dp).testTag(if(row.me)"leaderboard-me" else "leaderboard-row"),verticalAlignment=Alignment.CenterVertically) {
+        Box(Modifier.size(30.dp).clip(CircleShape).background(medal?.copy(alpha=.18f) ?: FFColors.surfaceContainer),contentAlignment=Alignment.Center) {
+            Text("${row.rank}",style=FFType.bodyMain.copy(fontSize=13.sp,fontWeight=FontWeight.Bold),color=medal ?: FFColors.onSurface)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(if(row.me) "${row.name} (${MR.strings.lb_you.text()})" else row.name,style=FFType.bodyMain.copy(fontWeight=FontWeight.SemiBold),maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(MR.strings.lb_row.text(row.xp,row.transactions,row.activeDays),style=FFType.metaData,color=FFColors.onSurfaceVariant,maxLines=1)
+        }
+    }
+}
+

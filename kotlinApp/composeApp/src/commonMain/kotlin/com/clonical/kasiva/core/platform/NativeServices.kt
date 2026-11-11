@@ -13,6 +13,8 @@ interface NativeServices {
     /** Kode mata uang ISO 4217 dari wilayah HP (mis. "IDR"). */
     fun deviceCurrency(): String = "USD"
     fun appVersion():String = "1.0.0"
+    /** Laporan teknis tanpa isi pesan exception, email, token, atau transaksi pengguna. */
+    fun reportError(operation: String, error: Throwable) {}
     fun composeSupport(subject:String,body:String):String? = MR.strings.core_native_email_unavailable.text()
     fun shareApp():String? = MR.strings.core_native_share_unavailable.text()
     fun deleteLocalProfilePhoto():String? = null
@@ -36,11 +38,19 @@ interface NativeServices {
     fun loadWalletIcon(ownerId: String, accountId: String, result: (ByteArray?, String?) -> Unit) { result(null, MR.strings.r3_native_wallet_icon_unavailable.text()) }
     /** Platform untuk daftar Perangkat Terhubung: android | ios | desktop | web | other. */
     fun devicePlatform(): String = "other"
+    /** true bila perangkat punya koneksi internet; dipakai memilih antrean offline vs tulis langsung. */
+    fun isOnline(): Boolean = true
+    /** Kirim foto profil yang disimpan saat offline ke cloud; tidak berbuat apa-apa bila tak ada yang tertunda. */
+    fun syncPendingProfilePhoto(userId: String) {}
     fun readSetting(key: String): String? = null
     fun writeSetting(key: String, value: String) {}
     fun onboardingComplete(): Boolean
     fun setOnboardingComplete()
     fun setNotificationImportUser(userId: String?)
+    /** Push FCM: daftarkan/lepaskan perangkat ini untuk akun cloud `userId` (null = mode lokal/keluar). */
+    fun setPushUser(userId: String?, language: String) {}
+    fun billPushEnabled(): Boolean = false
+    fun setBillPush(enabled: Boolean, result: (String?) -> Unit) { result(MR.strings.set_notif_bills_cloud_only.text()) }
     fun pickCsv(result: (String?, String?) -> Unit)
     fun shareCsv(name: String, content: String)
     fun shareTextFile(name: String, content: String, mimeType: String) = shareCsv(name, content)

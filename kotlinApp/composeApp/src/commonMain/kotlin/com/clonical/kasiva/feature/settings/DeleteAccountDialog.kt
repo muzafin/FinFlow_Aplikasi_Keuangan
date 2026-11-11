@@ -32,7 +32,7 @@ fun DeleteAccountDialog(native: NativeServices, google: Boolean, busy: Boolean, 
                 visualTransformation=PasswordVisualTransformation(),enabled=!waiting,modifier=Modifier.fillMaxWidth())
             if(!localMode)AdBody(if (google) MR.strings.auth_delete_google_note.text() else MR.strings.auth_delete_password_note.text(), size = 13.sp)
             error?.let { Text(it,color=AdTone.danger) }
-            if (waiting) LinearProgressIndicator(Modifier.fillMaxWidth())
+            
         }
     }, confirmButton = { TextButton(enabled=!waiting && confirmation==phrase && (localMode || google || password.isNotEmpty()),onClick={
         error=null

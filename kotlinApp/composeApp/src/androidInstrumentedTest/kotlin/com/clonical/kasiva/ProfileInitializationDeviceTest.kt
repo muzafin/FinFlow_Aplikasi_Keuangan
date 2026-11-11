@@ -59,4 +59,20 @@ class ProfileInitializationDeviceTest {
             assertEquals(original,root.collection("accounts").document("acc_cash").get().data<Account>())
         }
     }
+
+    @Test fun concurrentFirstLoginInitializersKeepOneProfileAndWallet() = runBlocking {
+        withTimeout(60000) {
+            val auth=Firebase.auth(app); val db=Firebase.firestore(app); val repo=FinanceRepository(app)
+            val user=auth.createUserWithEmailAndPassword("profile-${UUID.randomUUID()}@example.test","Kasiva-test-123!").user!!
+            coroutineScope { List(3) { async(Dispatchers.Default) { repo.initializeProfile() } }.awaitAll() }
+            val data=repo.observe().first { it.featuresReady && it.profile != null }
+            assertEquals(user.uid,data.profile?.id)
+            assertEquals(defaultCategoryTree.size,data.categories.size)
+            assertEquals("acc_cash",data.accounts.single().id)
+            assertEquals(0L,data.balance(data.accounts.single()))
+            val original=db.collection("users").document(user.uid).collection("accounts").document("acc_cash").get(Source.SERVER).data<Account>()
+            repo.initializeProfile()
+            assertEquals(original,db.collection("users").document(user.uid).collection("accounts").document("acc_cash").get(Source.SERVER).data<Account>())
+        }
+    }
 }

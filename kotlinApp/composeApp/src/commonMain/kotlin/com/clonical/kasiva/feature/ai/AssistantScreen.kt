@@ -138,7 +138,7 @@ fun AssistantScreen(controller: AiController, data: FinanceData, language: Strin
         } else LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(conversation.turns) { turn -> Bubble(turn) }
             if (controller.working != null) item { Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp))
+                ; Spacer(Modifier.width(8.dp))
                 Text(controller.working.orEmpty(), style = FFType.metaData, color = FFColors.onSurfaceVariant)
             } }
         }
@@ -196,7 +196,7 @@ private fun SettingsTopBar(title: String, back: () -> Unit, actions: @Composable
     }
 }
 
-/** Keadaan "layanan AI belum tersedia" (Cloud Functions belum di-deploy/dikonfigurasi). */
+/** Keadaan "layanan AI belum tersedia" (function AI tidak ditemukan/dikonfigurasi di server). */
 @Composable
 fun AiUnavailableBanner(retry: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(18.dp)).background(FFColors.surface)

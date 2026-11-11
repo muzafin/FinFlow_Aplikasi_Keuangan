@@ -124,7 +124,7 @@ fun AiChatSheet(controller: AiController, onSend: (String) -> Unit, onDismiss: (
                 val ready = text.isNotBlank() && controller.working == null
                 Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(if (ready) FFColors.onSurface else FFColors.surfaceContainerHighest)
                     .clickable(enabled = ready) { onSend(text.trim()) }.testTag("ai-chat-send"), contentAlignment = Alignment.Center) {
-                    if (controller.working != null) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = FFColors.canvas)
+                    if (controller.working != null) 
                     else FFIcon("send_rounded", if (ready) FFColors.canvas else FFColors.outline, 20.dp, contentDescription = MR.strings.ai_send.text())
                 }
             }
@@ -157,7 +157,7 @@ fun AiScanSheet(controller: AiController, onCamera: () -> Unit, onGallery: () ->
             Spacer(Modifier.height(16.dp))
             OutlinedButton(onClick = onSettings, shape = RoundedCornerShape(24.dp)) { Text(MR.strings.ai_scan_settings_title.text(), color = FFColors.onSurface) }
             controller.working?.let { Spacer(Modifier.height(12.dp)); Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)); Text(it, style = FFType.metaData)
+                ; Spacer(Modifier.width(8.dp)); Text(it, style = FFType.metaData)
             } }
             Spacer(Modifier.height(24.dp))
             Row(verticalAlignment = Alignment.Top) {
@@ -224,7 +224,7 @@ fun AiDraftReviewSheet(controller: AiController, data: FinanceData, busy: Boolea
 @Composable
 fun AiErrorDialog(controller: AiController, onUpgrade: () -> Unit) {
     val message = controller.error ?: return
-    val quota = message.contains("Premium")
+    val quota = PREMIUM_ENABLED && message.contains("Premium")
     AlertDialog(onDismissRequest = { controller.error = null }, title = { Text(if (quota) MR.strings.ai_quota_title.text() else MR.strings.ai_error_title.text()) }, text = { Text(message) },
         confirmButton = { TextButton(onClick = { controller.error = null; if (quota) onUpgrade() }) { Text(if (quota) MR.strings.ai_view_premium.text() else MR.strings.common_close.text()) } },
         dismissButton = if (quota) ({ TextButton(onClick = { controller.error = null }) { Text(MR.strings.ai_later.text()) } }) else null)

@@ -1,12 +1,15 @@
 package com.clonical.kasiva.feature.importdata
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
@@ -16,7 +19,6 @@ import androidx.compose.ui.unit.sp
 import com.clonical.kasiva.core.i18n.text
 import com.clonical.kasiva.core.model.ImportPlan
 import com.clonical.kasiva.core.ui.FFColors
-import com.clonical.kasiva.core.ui.SegmentedTabs
 import com.clonical.kasiva.core.util.money
 import com.clonical.kasiva.feature.settings.*
 import com.clonical.kasiva.i18n.*
@@ -25,23 +27,45 @@ import com.clonical.kasiva.i18n.*
 @Composable
 fun ImportScreen(plan: ImportPlan?, source: String, changeSource: (String) -> Unit, busy: Boolean, progress: String, onPick: () -> Unit, onTemplate: () -> Unit, onImport: () -> Unit) {
     LazyColumn(Modifier.fillMaxSize().testTag("import-data-page"), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { AdBanner("hi_info", MR.strings.pa_import_banner.text(), AdTone.infoBg, AdTone.infoFg) }
+        item { AdBanner("hi_info", if (source == "ivy" || source == "finflow") MR.strings.pa_import_banner.text() else MR.strings.pa_import_banner_other.text(), AdTone.infoBg, AdTone.infoFg) }
+        val selectedLabel = CsvImport.sources.firstOrNull { it.id == source }?.label ?: source
         item {
             AdExpandable(MR.strings.pa_import_guide.text(), {
-                AdBody(MR.strings.ai_import_intro.text())
-                Spacer(Modifier.height(10.dp))
-                AdBody(MR.strings.pa_import_columns.text(CsvImport.headers.joinToString(", ")), size = 13.sp)
-                Spacer(Modifier.height(10.dp))
-                AdBody(MR.strings.ai_import_source_id_note.text(), size = 13.sp)
+                if (source == "ivy" || source == "finflow") {
+                    AdBody(MR.strings.ai_import_intro.text())
+                    Spacer(Modifier.height(10.dp))
+                    AdBody(MR.strings.pa_import_columns.text(CsvImport.headers.joinToString(", ")), size = 13.sp)
+                    Spacer(Modifier.height(10.dp))
+                    AdBody(MR.strings.ai_import_source_id_note.text(), size = 13.sp)
+                } else if (source == "ai") {
+                    AdBody(MR.strings.ai_import_ai_guide.text())
+                    Spacer(Modifier.height(10.dp))
+                    AdBody(MR.strings.ai_import_other_columns.text(), size = 13.sp)
+                } else {
+                    AdBody(MR.strings.ai_import_intro_other.text(selectedLabel))
+                    Spacer(Modifier.height(10.dp))
+                    AdBody(MR.strings.ai_import_other_columns.text(), size = 13.sp)
+                }
             }, icon = "hi_help", tag = "import-guide")
         }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AdCard(Modifier.testTag("import-sources")) {
                 AdFieldLabel(MR.strings.ai_import_source.text())
-                SegmentedTabs(listOf("ivy" to "Ivy Wallet CSV", "finflow" to MR.strings.ai_import_source_template.text()), source, changeSource)
+                Spacer(Modifier.height(6.dp))
+                CsvImport.sources.forEach { option ->
+                    val selected = option.id == source
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                        .background(if (selected) FFColors.surfaceContainerHighest else FFColors.surface)
+                        .clickable { changeSource(option.id) }.padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = selected, onClick = { changeSource(option.id) })
+                        Spacer(Modifier.width(4.dp))
+                        Text(option.label, style = adText(14.sp, line = 19.sp), color = FFColors.onSurface)
+                    }
+                }
             }
         }
-        item { AdOutlineButton(MR.strings.pa_import_download_template.text(), "hi_download", onTemplate, enabled = !busy, height = 64.dp, tag = "import-template") }
+        item { if (source == "ivy" || source == "finflow") AdOutlineButton(MR.strings.pa_import_download_template.text(), "hi_download", onTemplate, enabled = !busy, height = 64.dp, tag = "import-template") }
         item { AdPrimaryButton(MR.strings.pa_import_upload.text(), "hi_upload", onPick, enabled = !busy, height = 64.dp, tag = "import-upload") }
         plan?.let { preview ->
             item {

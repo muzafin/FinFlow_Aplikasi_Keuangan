@@ -85,7 +85,7 @@ internal fun LazyListScope.cardPage(p: AppPreferences, update: (AppPreferences) 
     }
     item { PrefTitle(MR.strings.pc_preview.text()) }
     item { CardPreview(cardGradientColors(p.cardGradient), p) }
-    val presets = allCardGradientPresets.filter { it.dark == (tab == 1) }
+    val presets = allCardGradientPresets.filter { it.dark == (tab == 1) && !isPaletteBundlePreset(it.id) }
     items(presets.chunked(2), key = { row -> row.joinToString { it.id } }) { row ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             row.forEach { preset -> CardGradientTile(preset, preset.id == p.cardGradient, Modifier.weight(1f)) { update(p.copy(cardGradient = preset.id)) } }
@@ -220,7 +220,7 @@ internal fun LazyListScope.menuAppearancePage(p: AppPreferences, update: (AppPre
     item { PrefSectionLabel(MR.strings.pc_menu_mixed_section.text()) }
     items(allMenuThemePresets.filterNot { it.single }, key = { it.id }) { preset -> MenuThemeRow(preset, p, update) }
     item { PrefSectionLabel(MR.strings.pc_menu_single_section.text()) }
-    items(allMenuThemePresets.filter { it.single }, key = { it.id }) { preset -> MenuThemeRow(preset, p, update) }
+    items(allMenuThemePresets.filter { it.single && !isPaletteBundlePreset(it.id) }, key = { it.id }) { preset -> MenuThemeRow(preset, p, update) }
 }
 
 @Composable

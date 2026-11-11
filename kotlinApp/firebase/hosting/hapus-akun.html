@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hapus Akun — Kasiva</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.65; max-width: 820px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 26px; }
+  .box { border: 1px solid #bbb; border-radius: 12px; padding: 16px 18px; margin: 16px 0; }
+  a.btn { display: inline-block; background: #1f5fbf; color: #fff; text-decoration: none; padding: 12px 18px; border-radius: 10px; font-weight: 600; }
+  ol li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<h1>Hapus Akun Kasiva</h1>
+<p>Halaman ini untuk meminta penghapusan akun cloud Kasiva (<code>com.clonical.kasiva</code>) beserta datanya.</p>
+
+<div class="box">
+  <h2>Cara 1 — dari dalam aplikasi (disarankan)</h2>
+  <ol>
+    <li>Buka Kasiva dan masuk ke akun Anda.</li>
+    <li>Buka <strong>Profil → Manajemen Akun</strong>.</li>
+    <li>Pilih <strong>Minta Penghapusan Akun</strong>, lalu konfirmasi dengan password/kredensial Anda.</li>
+  </ol>
+  <p>Data akun (profil, data keuangan, foto, dan daftar perangkat) akan dihapus. Pemrosesan berjalan di server dan tidak dapat dibatalkan.</p>
+</div>
+
+<div class="box">
+  <h2>Cara 2 — tanpa membuka aplikasi</h2>
+  <p>Kirim email dari alamat yang terdaftar di akun Kasiva ke <a href="mailto:muzafinarifin.dev@gmail.com?subject=Permintaan%20Hapus%20Akun%20Kasiva">muzafinarifin.dev@gmail.com</a> dengan subjek <em>"Permintaan Hapus Akun Kasiva"</em>. Kami akan memverifikasi kepemilikan akun lalu menghapus akun dan datanya dalam waktu maksimal 30 hari.</p>
+</div>
+
+<div class="box">
+  <h2>Data yang dihapus</h2>
+  <ul>
+    <li>Akun Firebase Authentication (nama, email, ID pengguna).</li>
+    <li>Data keuangan: profil, dompet, transaksi, anggaran, target, tagihan, utang, kartu, investasi, catatan, preferensi.</li>
+    <li>Foto profil di Cloud Storage dan daftar perangkat terhubung.</li>
+  </ul>
+  <p>Data yang hanya tersimpan di perangkat (mode lokal) tidak dikirim ke server; menghapus aplikasi atau memakai <em>Hapus Data Lokal</em> akan menghapusnya dari perangkat.</p>
+</div>
+
+<p><a href="/privasi">Kebijakan Privasi</a> · <a href="mailto:muzafinarifin.dev@gmail.com">muzafinarifin.dev@gmail.com</a></p>
+</body>
+</html>
